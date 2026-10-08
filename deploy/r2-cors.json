@@ -1,0 +1,12 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://<你的GitHub用户名>.github.io",
+      "http://localhost:5173"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]

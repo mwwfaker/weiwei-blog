@@ -1,0 +1,52 @@
+name: Publish blog preview
+
+on:
+  push:
+    branches: [main]
+    paths: ['frontend/**', 'verify-frontend.mjs', '.github/workflows/deploy-pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run verify
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          # Supabase 的连接信息（账号 / 数据库 / 对象存储）在构建时注入。
+          # 这两个值本来就是公开的（anon/publishable key 设计上就要放在前端代码里），
+          # 但 value 仍然放在仓库 Variables 里，方便换项目时不用改代码。
+          # 没设置时前端进入本机预览模式，数据只留在访客浏览器里。
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

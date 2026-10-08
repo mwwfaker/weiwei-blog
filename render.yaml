@@ -1,0 +1,42 @@
+# Render Blueprint —— 免费上线 Java API（Docker）。
+#
+# 用法：把仓库推到 GitHub 后，在 Render 里 New → Blueprint，选中本仓库。
+# Render 会读取这个文件，用 backend/Dockerfile 构建镜像。
+#
+# 免费套餐的现实约束（务必知道）：
+#   * 实例 512 MB / 0.1 CPU，连续 15 分钟没有请求会休眠，下一次访问要等约 1 分钟冷启动。
+#   * 免费实例没有持久磁盘，所有状态必须放在 MySQL 和对象存储里（本项目本来就是这样）。
+#   * 免费实例只给 HTTPS 域名，不要在里面跑 MySQL 或 MinIO。
+#
+# 下面标记 sync: false 的变量不会写进仓库，需要在 Render 控制台里逐个填写真实值，
+# 模板见 deploy/production.env.example。
+
+services:
+  - type: web
+    name: weiwei-blog-api
+    runtime: docker
+    plan: free
+    # 免费实例只在部分区域提供；如果这个区域报「该区域不支持 free 计划」，改成 oregon / frankfurt 等。
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    envVars:
+      # 注意：Render 会自己注入 PORT，Spring Boot 已经读 ${PORT:8080}，不需要在这里配。
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: APP_JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      # 对象存储（S3_*）暂时不在这里声明：留空会让 S3_REGION 变成空字符串，
+      # Region.of("") 会直接让服务启动失败。等对象存储账号建好后，到
+      # Render 控制台 → Environment 里逐个添加，保存后会自动重新部署。
+      # 取值见 deploy/production.env.example。
+      - key: JAVA_OPTS
+        value: -XX:MaxRAMPercentage=70 -XX:+UseSerialGC

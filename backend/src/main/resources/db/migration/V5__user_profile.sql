@@ -1,0 +1,3 @@
+ALTER TABLE blog_users
+    ADD COLUMN bio VARCHAR(160) NOT NULL DEFAULT '' AFTER display_name,
+    ADD COLUMN avatar_url VARCHAR(1000) NULL AFTER bio;
