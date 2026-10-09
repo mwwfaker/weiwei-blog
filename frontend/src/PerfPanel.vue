@@ -2122,13 +2122,18 @@ function backToBlog() { router.push({ name: 'home' }) }
 .perf-sync.error{color:#e06a6a}
 .perf-readonly-note{margin:0;padding:8px 20px;font-size:11.5px;line-height:1.6;color:var(--muted);background:color-mix(in srgb,var(--accent) 10%,transparent);border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
 .perf-readonly-note strong{margin-right:6px;color:var(--ink)}
-.perf-tool.is-readonly .perf-panel input,
-.perf-tool.is-readonly .perf-panel select,
-.perf-tool.is-readonly .perf-panel button,
-.perf-tool.is-readonly .perf-picker input,
+/* 公开只读：默认把面板里所有可操作控件都挡住，再单独放行"只是看"的几个。
+   早先这里是逐个列容器名（.perf-panel / .perf-picker / .perf-bar-left），
+   结果「导入截图」里的下拉框和粘贴文本框落在名单之外，访客照样能操作它们。
+   反过来写之后，以后新增任何编辑控件都会被自动挡住。 */
+.perf-tool.is-readonly input,
+.perf-tool.is-readonly select,
+.perf-tool.is-readonly textarea,
+.perf-tool.is-readonly button{pointer-events:none;opacity:.72}
+/* 只读时仍然该能用的：标签导航、导出与返回、切换月份、切换要查看的账号。 */
+.perf-tool.is-readonly .perf-tabs button,
+.perf-tool.is-readonly .perf-bar-right button,
 .perf-tool.is-readonly .perf-bar-left input,
-.perf-tool.is-readonly .perf-bar-left select{pointer-events:none;opacity:.72}
-/* 顶栏右下是导出与返回，只读时仍然该能用，别一起禁掉。 */
-.perf-tool.is-readonly .perf-bar-right button{pointer-events:auto;opacity:1}
+.perf-tool.is-readonly .perf-bar-left select{pointer-events:auto;opacity:1}
 
 </style>
