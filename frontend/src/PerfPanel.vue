@@ -1300,7 +1300,7 @@ function backToBlog() { router.push({ name: 'home' }) }
         </div>
 
         <p class="perf-hint">
-          单价按 <code>1800 × 标准AHT ÷ 月要求工时 ÷ 3600 × 0.85</code> 计算，所以它会随每个人的月要求工时不同而不同，
+          单价按 <code>(1800 × 标准AHT) ÷ (月要求工时 × 3600 × 0.85)</code> 计算，所以它会随每个人的月要求工时不同而不同，
           表里显示的是按 {{ checkHours }} 小时算出来的参考值；实际计算时用的是每个人自己的月要求工时。
         </p>
       </section>
@@ -1663,7 +1663,7 @@ function backToBlog() { router.push({ name: 'home' }) }
           <h3>计算公式</h3>
           <ul class="perf-formulas">
             <li><code>标准 AHT = ROUND(24480 ÷ KPI, 2)</code><span>KPI 是每月手改的输入值（「队列 KPI」里改）。</span></li>
-            <li><code>单价 = 1800 × 标准AHT ÷ 月要求工时 ÷ 3600 × 0.85</code><span>用的是四舍五入到两位小数之后的 AHT；月要求工时是每人各自的。</span></li>
+            <li><code>单价 = (1800 × 标准AHT) ÷ (月要求工时 × 3600 × 0.85)</code><span>用的是四舍五入到两位小数之后的 AHT；月要求工时是每人各自的。</span></li>
             <li><code>审核工资 = (审核量 − 三薪日审核量) × 单价</code><span>三薪那天按时长固定给钱，那天的审核量要从计件里剔除，否则同一批活会被付两次。三薪列默认收起来，需要时点「显示三薪列」。效率与完成度仍按全部审核量算，因为它们衡量的是实际干了多少活。</span></li>
             <li><code>标准总时长 = 标准AHT × 审核量</code>　<code>实际总时长 = 实际AHT × 审核量</code></li>
             <li><code>月实际工时 = 实际总时长 ÷ 3600</code><span>算出来的，不用填。</span></li>
@@ -2136,4 +2136,21 @@ function backToBlog() { router.push({ name: 'home' }) }
 .perf-tool.is-readonly .perf-bar-left input,
 .perf-tool.is-readonly .perf-bar-left select{pointer-events:auto;opacity:1}
 
+
+/* ===== 行高亮：横向读数据很容易串行 =====
+   放在样式块最末尾，靠顺序压过前面的 tr.done 规则（同优先级）。
+   · 悬停整行提亮
+   · 光标落在本行输入框里时保持高亮（:focus-within）
+   · 最左侧一道竖条，视线更容易锁定当前行 */
+.perf-grid tbody tr{transition:background-color .18s ease,box-shadow .18s ease}
+.perf-grid tbody tr:hover,
+.perf-grid tbody tr.done:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.perf-grid tbody tr:focus-within,
+.perf-grid tbody tr.done:focus-within{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.perf-grid tbody tr:hover>td:first-child,
+.perf-grid tbody tr:focus-within>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.perf-grid tbody tr.picked,
+.perf-grid tbody tr.picked:hover,
+.perf-grid tbody tr.picked:focus-within{background:color-mix(in srgb,var(--accent) 24%,transparent)}
+.perf-grid tbody tr.picked>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 </style>

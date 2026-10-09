@@ -44,7 +44,7 @@ export const PERF_QUEUES = [
   { name: 'Q3', kpi: 629, referencePrice: 0.1244246 },
 ]
 
-export const DEFAULT_REQUIRED_HOURS = 132.94
+export const DEFAULT_REQUIRED_HOURS = 184
 
 const num = (v) => {
   const n = Number(v)
@@ -64,7 +64,10 @@ export function unitPriceOf(standardAht, requiredHours, constants = PERF_CONSTAN
   const aht = num(standardAht)
   const hours = num(requiredHours)
   if (aht <= 0 || hours <= 0) return 0
-  return (constants.baseAmount * aht) / hours / 3600 * constants.factor
+  // 单价 = (1800 × 标准AHT) ÷ (月要求工时 × 3600 × 0.85)
+  //    0.85 在【分母】。原先我写成 「÷工时 ÷3600 ×0.85」把 0.85 乘上去了，
+  //    两者差 0.85² = 0.7225 倍。用工时 184 代回表格，8 个队列的单价全部精确吻合。
+  return (constants.baseAmount * aht) / (hours * 3600 * constants.factor)
 }
 
 /** 邮箱前缀就是审核员姓名：去掉结尾的「.工号」后剩下的就是名字。 */

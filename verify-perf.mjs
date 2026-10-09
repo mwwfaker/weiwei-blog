@@ -33,7 +33,8 @@ const solved = []
 for (const queue of PERF_QUEUES) {
   if (queue.referencePrice == null) continue
   const aht = ahtOf(queue.kpi)
-  const hours = (PERF_CONSTANTS.baseAmount * aht * PERF_CONSTANTS.factor) / (3600 * queue.referencePrice)
+  // 反解：单价 = (1800×AHT) ÷ (工时×3600×0.85)  =>  工时 = (1800×AHT) ÷ (单价×3600×0.85)
+  const hours = (PERF_CONSTANTS.baseAmount * aht) / (queue.referencePrice * 3600 * PERF_CONSTANTS.factor)
   solved.push({ name: queue.name, hours })
 }
 const values = solved.map((s) => s.hours)
@@ -42,6 +43,7 @@ const maxHours = Math.max(...values)
 console.log(`  反解出的月要求工时范围: ${minHours.toFixed(4)} – ${maxHours.toFixed(4)} 小时（${solved.length} 个队列）`)
 check('所有队列反解出的要求工时一致（极差 < 0.01 小时）', maxHours - minHours < 0.01, `极差 ${(maxHours - minHours).toFixed(6)}`)
 const requiredHours = Number(((minHours + maxHours) / 2).toFixed(4))
+check('反解出的工时就是表格里的工作时长 184', Math.abs(requiredHours - 184) < 0.01, String(requiredHours))
 console.log(`  取用: ${requiredHours} 小时`)
 
 console.log('\n[3] 用该要求工时正算单价，对比表格里的单价')
