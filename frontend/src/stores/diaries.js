@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import mammoth from 'mammoth/mammoth.browser'
 import { request } from '@/services/api'
 import { splitDiaryText } from '@/services/diaryImport'
+import { useBulkImport } from '@/composables/useBulkImport'
 import { isLocalId, localId } from '@/app/ids'
 import { downloadText } from '@/app/download'
 import { notify } from '@/app/useToast'
@@ -46,22 +47,31 @@ export const useDiariesStore = defineStore('diaries', () => {
   const selectedDiaryFrom = ref('right')
   const diaryDialog = ref(false)
   const draft = ref(emptyDraft())
-  const importReview = ref([])
-  const importDialog = ref(false)
   /**
-   * 导入时「统一发布权限」。整合日记一次能拆出几十篇，逐篇点太累，
-   * 所以弹窗顶端有一组按钮一次性写进所有草稿；写成响应式是为了让按钮能显示当前选的是哪个。
-   */
-  const importVisibility = ref(profile.defaultVisibility)
-  /**
-   * 导入正在进行 / 已经存下几篇。
+   * 批量导入的草稿与进度，整套流程在 composables/useBulkImport.js——
+   * 文章导入用的是同一个状态机，两边共用一份，改一处不会漏另一处。
    *
-   * 加这两个是因为「确认并保存」是**一次点击发几十个请求**（实测 50 篇约 1 秒）：
-   * 按钮在这期间不禁用的话，手快的人点两下就是两份完全相同的日记，
-   * 而且它们长得一模一样，事后只能靠日期+标题配对删——踩过一次就够。
+   * 「统一发布权限」的初值取个人设置的默认可见范围；一次能拆出几十篇，逐篇点太累。
+   * `importing / importSaved` 是给进度条和禁用按钮用的：「确认并保存」是**一次点击发几十个
+   * 请求**（实测 50 篇约 1 秒），不禁用的话手快的人点两下就是两份完全相同的日记。
    */
-  const importing = ref(false)
-  const importSaved = ref(0)
+  const bulkImport = useBulkImport({
+    label: '导入日记',
+    initialVisibility: profile.defaultVisibility,
+    doneMessage: (count) => `已导入 ${count} 篇日记`,
+    save: async (entry) => {
+      const saved = await request('/api/diaries', {
+        token: auth.token,
+        method: 'POST',
+        body: JSON.stringify(diaryPayload({ ...entry, visibility: entry.visibility || bulkImport.visibility.value })),
+      })
+      return { ...mapDiary(saved), mine: true }
+    },
+  })
+  const {
+    review: importReview, dialog: importDialog, visibility: importVisibility,
+    importing, saved: importSaved,
+  } = bulkImport
 
   const filteredDiaries = computed(() => diaries.value.filter((entry) => (diaryScope.value === 'ALL' || (diaryScope.value === 'PUBLIC' ? entry.visibility === 'PUBLIC' : entry.visibility !== 'PUBLIC'))
     && `${entry.title} ${entry.content} ${(entry.tags || []).join(' ')}`.toLowerCase().includes(search.value.toLowerCase())))
@@ -265,61 +275,22 @@ export const useDiariesStore = defineStore('diaries', () => {
       } catch (error) { notify(`无法读取 ${file.name}：${error.message}`) }
     }
     if (!parsed.length) { notify('没有读到内容。请选择 TXT 或 DOCX 格式的日记文件'); return 0 }
-    importReview.value = parsed
-    importSaved.value = 0
-    importDialog.value = true
+    bulkImport.setReview(parsed)
     return parsed.length
   }
 
   /** 「统一发布权限」：一次把待确认的每一篇都设成同一个可见范围。 */
-  function applyImportVisibility(value) {
-    importVisibility.value = value === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE'
-    for (const entry of importReview.value) entry.visibility = importVisibility.value
-  }
+  const applyImportVisibility = (value) => bulkImport.applyVisibility(value)
 
   /** 拆分偶尔会多切出一小段（例如文件顶部的总标题），导入前可以就地删掉。 */
-  function dropImportDraft(id) {
-    importReview.value = importReview.value.filter((entry) => entry.id !== id)
-  }
+  const dropImportDraft = (id) => bulkImport.drop(id)
 
   /** 单篇的可见范围切换（和「统一发布权限」并存：先统一，再挑几篇单独改）。 */
-  function toggleImportVisibility(entry) {
-    if (!entry) return
-    entry.visibility = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC'
-  }
+  const toggleImportVisibility = (entry) => bulkImport.toggleVisibility(entry)
 
   async function confirmImport() {
-    const drafts = importReview.value
-    if (!drafts.length || importing.value) return
-    if (!requireLogin('导入日记')) return
-    importing.value = true
-    importSaved.value = 0
-    let results = []
-    try {
-      // allSettled, not all: one rejected file must not hide the ones the server already accepted,
-      // otherwise retrying the dialog would insert duplicates of them.
-      results = await Promise.allSettled(drafts.map(async (entry) => {
-        const saved = await request('/api/diaries', {
-          token: auth.token,
-          method: 'POST',
-          // 每篇自己的可见范围优先；没设过就跟随顶端的「统一发布权限」。
-          body: JSON.stringify(diaryPayload({ ...entry, visibility: entry.visibility || importVisibility.value })),
-        })
-        importSaved.value += 1
-        return saved
-      }))
-    } finally {
-      // 一定要复位：不然一次网络异常就会让按钮永久卡在「保存中」。
-      importing.value = false
-    }
-    const saved = results.filter((result) => result.status === 'fulfilled').map((result) => ({ ...mapDiary(result.value), mine: true }))
-    const failed = results.filter((result) => result.status === 'rejected')
-    // Keep whatever the server refused so the user can retry it instead of losing it.
-    importReview.value = drafts.filter((entry, index) => results[index].status === 'rejected')
-    diaries.value = [...saved, ...diaries.value]
-    if (failed.length) return notify(`已导入 ${saved.length} 篇，${failed.length} 篇失败：${failed[0].reason?.message || ''}`)
-    importDialog.value = false
-    notify(`已导入 ${drafts.length} 篇日记`)
+    const { saved } = await bulkImport.confirm()
+    if (saved.length) diaries.value = [...saved, ...diaries.value]
   }
 
   return {

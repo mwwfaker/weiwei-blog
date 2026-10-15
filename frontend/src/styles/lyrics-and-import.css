@@ -258,3 +258,14 @@
 .import-card .button-primary:disabled{opacity:.55;cursor:default;transform:none}
 .import-card .modal-actions>span{font-variant-numeric:tabular-nums}
 
+/* 文章导入多出来的一行「统一分类 / 统一标签」。
+   日记只有可见范围一项，文章还多了分类和标签，光靠顶上那颗胶囊放不下，所以另起一行。
+   用 grid 的 auto-fit 而不是 flex：窄屏时会自己折成上下两行，不用再写断点。 */
+.import-card .import-bulk-fields{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 14px;
+  align-items:end;justify-content:stretch;
+}
+.import-card .import-bulk-field{display:grid;gap:5px;min-width:0}
+.import-card .import-bulk-field>span{font-size:10px;color:var(--muted);letter-spacing:.04em}
+.import-card .import-bulk-field input{padding:7px 9px;font-size:11px}
+

@@ -12,8 +12,9 @@
     "verify:perf": "node scripts/verify-perf.mjs",
     "verify:ocr": "node scripts/verify-ocr.mjs",
     "verify:diary": "node scripts/verify-diary-import.mjs",
+    "verify:article": "node scripts/verify-article-import.mjs",
     "verify:supabase": "node verify-supabase.mjs",
-    "verify:all": "npm run verify && npm run verify:lyrics && npm run verify:perf && npm run verify:ocr && npm run verify:diary",
+    "verify:all": "npm run verify && npm run verify:lyrics && npm run verify:perf && npm run verify:ocr && npm run verify:diary && npm run verify:article",
     "new:page": "node scripts/new-page.mjs",
     "test:render": "vite build --ssr ssr-smoke/entry.js --outDir ssr-smoke/dist-ssr --logLevel warn && node ssr-smoke/run.mjs",
     "test": "npm run verify:all && npm run test:render"

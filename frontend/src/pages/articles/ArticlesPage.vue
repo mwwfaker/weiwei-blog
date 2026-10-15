@@ -2,7 +2,7 @@
 // 文章列表页：分类筛选 + 搜索 + 网格。
 //
 // 分类胶囊上的数字来自真实的文章列表，不是写死的。
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import ArticleGrid from '@/modules/article/ArticleGrid.vue'
 import EmptyState from '@/modules/page/EmptyState.vue'
 import InnerPageHeader from '@/modules/page/InnerPageHeader.vue'
@@ -10,8 +10,17 @@ import { useArticlesStore } from '@/stores/articles'
 
 const articles = useArticlesStore()
 
+const importPicker = ref(null)
+
 const list = computed(() => articles.visibleArticles.filter((entry) => `${entry.title} ${entry.content || ''}`.toLowerCase().includes(articles.search.toLowerCase())))
 const countOf = (category) => articles.articles.filter((item) => item.category === category).length
+
+/** Word / 文本导入：解析出来的草稿交给 store，核对弹窗由应用外壳挂载。 */
+async function onImportPicked(event) {
+  const files = Array.from(event.target.files || [])
+  event.target.value = ''
+  if (files.length) await articles.parseImportFiles(files)
+}
 </script>
 
 <template>
@@ -22,7 +31,18 @@ const countOf = (category) => articles.articles.filter((item) => item.category =
       mark="✧"
       subtitle="从灵感草稿到正式发布，慢慢构建你的内容世界。"
     >
-      <button class="button-primary" @click="articles.create()">＋ &nbsp;写文章</button>
+      <div class="article-actions">
+        <button class="button-secondary" @click="importPicker?.click()">⇧ &nbsp;导入 Word</button>
+        <input
+          ref="importPicker"
+          type="file"
+          accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+          multiple
+          hidden
+          @change="onImportPicked"
+        />
+        <button class="button-primary" @click="articles.create()">＋ &nbsp;写文章</button>
+      </div>
     </InnerPageHeader>
 
     <div class="article-toolbar">

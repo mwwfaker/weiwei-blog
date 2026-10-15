@@ -5,3 +5,11 @@
 @media(max-width:380px){.main-area{padding-inline:12px}.hero-card{padding-left:17px}.hero-copy h1{font-size:28px}.search-input-wrap{max-width:42%}.music-player-panel .music-volume{min-width:104px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.particle-field{opacity:.48}}
 
+/* 文章页页头的按钮组：和日记页那组一样是「次要操作 + 主要操作」并排，窄屏折成两行、
+   主要操作占满。文章页以前只有一颗「写文章」，加了导入入口之后才需要成组。 */
+.article-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:760px){
+  .article-actions{margin-top:17px;display:grid;grid-template-columns:1fr 1fr}
+  .article-actions .button-primary{grid-column:1 / -1}
+}
+

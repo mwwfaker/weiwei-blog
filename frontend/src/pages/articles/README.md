@@ -12,7 +12,14 @@
 | 搜索框 | `search`（**文章页自己的**，见下） |
 | 网格 | `visibleArticles` 再按搜索词过滤一遍 |
 | 「写文章」 | `create()` |
+| 「导入 Word」 | `parseImportFiles(files)`，核对弹窗由应用外壳挂载（`modules/article/ArticleImportDialog.vue`） |
 | 点卡片阅读 | `open(article)` |
+
+## 导入 Word 当文章
+
+接受 `.docx` / `.txt` / `.md`（docx 用 mammoth 读，`.txt` 也认 Markdown 的 `#` 标题）。
+流程和日记导入一样：**先解析成草稿让人核对，确认后才写库**，草稿留在 store 里，关掉弹窗不丢。
+拆分规则见 `modules/article/README.md`。一次可以选多个文件。
 
 ## 搜索词为什么和日记页分开
 

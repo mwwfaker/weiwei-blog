@@ -12,6 +12,7 @@ import { disposeToast, useToast } from '@/app/useToast'
 import { bindRouter, currentPage, go, isToolPage, moreOpen, resolvePageName } from '@/app/usePageNav'
 import { useScrollChrome } from '@/app/useScrollChrome'
 import ArticleEditorDialog from '@/modules/article/ArticleEditorDialog.vue'
+import ArticleImportDialog from '@/modules/article/ArticleImportDialog.vue'
 import ArticleReaderDialog from '@/modules/article/ArticleReaderDialog.vue'
 import DiaryEditorDialog from '@/modules/diary/DiaryEditorDialog.vue'
 import DiaryImportDialog from '@/modules/diary/DiaryImportDialog.vue'
@@ -148,6 +149,7 @@ onUnmounted(() => disposeToast())
     <MediaEditorDialog v-if="media.mediaEditor" @close="media.mediaEditor = null" />
     <MusicEditorDialog v-if="music.musicEditor" @close="music.musicEditor = null" />
     <DiaryImportDialog v-if="diaries.importDialog" @close="diaries.importDialog = false" />
+    <ArticleImportDialog v-if="articles.importDialog" @close="articles.importDialog = false" />
     <ProfileEditorDialog v-if="profile.profileDialog" @close="profile.profileDialog = false" />
   </div>
 </template>

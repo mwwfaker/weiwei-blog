@@ -1,6 +1,9 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { request, uploadMedia } from '@/services/api'
+import { DEFAULT_IMPORT_TAGS, blocksFromText, splitArticleBlocks } from '@/services/articleImport'
+import { useBulkImport } from '@/composables/useBulkImport'
+import mammoth from 'mammoth/mammoth.browser'
 import { isLocalId, localId } from '@/app/ids'
 import { notify } from '@/app/useToast'
 import { requireLogin } from '@/app/useGuard'
@@ -40,6 +43,37 @@ export const useArticlesStore = defineStore('articles', () => {
   const selectedArticle = ref(null)
   const articleDialog = ref(false)
   const articleDraft = ref(emptyDraft())
+
+  /**
+   * 批量导入文章。流程和日记导入**共用** composables/useBulkImport.js，
+   * 解析规则在 services/articleImport.js（纯函数，能离线对拍）。
+   *
+   * 和日记不同的两点：文章没有「日期头」这种天然分界，靠**文档里最浅那一级标题**切；
+   * 另外文章多了分类和标签，所以统一设置里也多这两项。
+   */
+  const bulkImport = useBulkImport({
+    label: '导入文章',
+    doneMessage: (count) => `已导入 ${count} 篇文章`,
+    save: async (entry) => {
+      const saved = await request('/api/articles', {
+        token: auth.token,
+        method: 'POST',
+        body: JSON.stringify(articlePayload({
+          ...entry,
+          visibility: entry.visibility || bulkImport.visibility.value,
+          tags: entry.tags || DEFAULT_IMPORT_TAGS,
+        })),
+      })
+      return { ...mapArticle(saved), mine: true }
+    },
+  })
+  const {
+    review: importReview, dialog: importDialog, visibility: importVisibility,
+    importing, saved: importSaved,
+  } = bulkImport
+  /** 统一分类 / 统一标签：一次写进所有草稿，之后可以逐条改。 */
+  const importCategory = ref('日常片段')
+  const importTags = ref([...DEFAULT_IMPORT_TAGS])
 
   const categoryNames = computed(() => [...new Set(articles.value.map((article) => article.category))])
   const tagNames = computed(() => [...new Set(articles.value.flatMap((article) => article.tags || []))])
@@ -202,10 +236,101 @@ export const useArticlesStore = defineStore('articles', () => {
     notify('文章已删除')
   }
 
+  /**
+   * Word 导出的 HTML → 块。
+   *
+   * 这一步必须留在浏览器侧（DOMParser 在 Node 里没有），所以 services/articleImport.js
+   * 只收块、不碰 HTML——那样它才能被离线自检脚本直接 import。
+   *
+   * 只扫 body 的**直接子元素**，不递归 querySelectorAll：`<blockquote><p>…</p></blockquote>`
+   * 这类嵌套会让同一段文字被数两次，导进去就是重复段落。
+   */
+  function blocksFromHtml(html) {
+    if (typeof DOMParser === 'undefined') return []
+    const doc = new DOMParser().parseFromString(String(html || ''), 'text/html')
+    const blocks = []
+    const push = (text, headingLevel) => {
+      const clean = String(text || '').replace(/\s+/g, ' ').trim()
+      if (!clean) return
+      if (headingLevel) blocks.push({ type: 'heading', level: headingLevel, text: clean })
+      else blocks.push({ type: 'paragraph', text: clean })
+    }
+    for (const element of doc.body.children) {
+      const tag = element.tagName
+      const heading = /^H([1-6])$/.exec(tag)
+      if (heading) { push(element.textContent, Number(heading[1])); continue }
+      if (tag === 'UL' || tag === 'OL') {
+        for (const item of element.children) push(item.textContent)
+        continue
+      }
+      if (tag === 'TABLE') {
+        for (const row of element.querySelectorAll('tr')) {
+          const cells = [...row.children].map((cell) => cell.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean)
+          if (cells.length) push(cells.join('　'))
+        }
+        continue
+      }
+      push(element.textContent)
+    }
+    return blocks
+  }
+
+  /**
+   * 解析 .docx / .txt / .md 为待确认的文章草稿，真正入库在 confirmImport。
+   * 返回条数；0 表示没读到内容（提示已经发出去）。
+   */
+  async function parseImportFiles(files) {
+    if (!requireLogin('导入文章')) return 0
+    const drafts = []
+    for (const file of files) {
+      try {
+        const extension = file.name.toLowerCase().split('.').pop()
+        const fallbackTitle = file.name.replace(/\.(txt|md|docx)$/i, '')
+        let blocks = []
+        if (extension === 'docx') {
+          const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() })
+          blocks = blocksFromHtml(result.value)
+        } else if (extension === 'txt' || extension === 'md' || extension === 'markdown') {
+          blocks = blocksFromText(await file.text())
+        } else { notify(`已跳过不支持的文件：${file.name}`); continue }
+        for (const article of splitArticleBlocks(blocks, fallbackTitle)) {
+          drafts.push({
+            ...article,
+            id: localId(),
+            date: new Date().toISOString().slice(0, 10),
+            category: importCategory.value || '日常片段',
+            tags: [...importTags.value],
+            visibility: importVisibility.value,
+            image: '',
+            source: file.name,
+          })
+        }
+      } catch (error) { notify(`无法读取 ${file.name}：${error.message}`) }
+    }
+    if (!drafts.length) { notify('没有读到内容。请选择 DOCX、TXT 或 Markdown 文件'); return 0 }
+    bulkImport.setReview(drafts)
+    return drafts.length
+  }
+
+  /** 统一设置三项：可见范围、分类、标签。一次写进所有草稿，之后再逐条微调。 */
+  const applyImportVisibility = (value) => bulkImport.applyVisibility(value)
+  const applyImportCategory = (value) => { importCategory.value = value; bulkImport.applyField('category', value) }
+  const applyImportTags = (value) => { importTags.value = [...value]; bulkImport.applyField('tags', [...value]) }
+  const dropImportDraft = (id) => bulkImport.drop(id)
+  const toggleImportVisibility = (entry) => bulkImport.toggleVisibility(entry)
+
+  async function confirmImport() {
+    const { saved } = await bulkImport.confirm()
+    if (saved.length) articles.value = [...saved, ...articles.value]
+  }
+
   return {
     articles, categoryFilter, tagFilter, search, selectedArticle, articleDialog, articleDraft,
+    importReview, importDialog, importVisibility, importCategory, importTags, importing, importSaved,
     categoryNames, tagNames, visibleArticles,
     articlePayload, mapArticle, articleImage, emptyDraft,
     refresh, open, create, edit, save, remove, chooseCover,
+    parseImportFiles, applyImportVisibility, applyImportCategory, applyImportTags,
+    dropImportDraft, toggleImportVisibility, confirmImport,
   }
 })
