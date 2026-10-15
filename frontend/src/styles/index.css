@@ -11,3 +11,6 @@
 @import './music.css';
 @import './lyrics-and-import.css';
 @import './polish-and-light-theme.css';
+/* 接在最后：日记「时间树」要压过 polish 里的 `.reveal{translate:0 16px}`（纵向揭示），
+   它的横向展开是同分选择器，只能靠排在后面才赢。 */
+@import './diary-tree.css';

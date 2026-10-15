@@ -1,0 +1,140 @@
+/* ==========================================================================
+   日记「时间树」（modules/diary/DiaryTree.vue）
+   --------------------------------------------------------------------------
+   这是列表期之后新增的**最后一个样式表**，接在 polish-and-light-theme.css 后面。
+   放最后是必须的：它要覆盖 effects-and-fixes.css 与 polish-and-light-theme.css 里
+   `.reveal{translate:0 16px}`（纵向揭示）——树里的挂件是**横向**从树干展开的，
+   而且 `.reveal.is-visible{translate:none}` 与 `.diary-tree-node.reveal{translate:…}`
+   同为 (0,2,0)，只有靠「在后面」才能赢。
+
+   结构：一条居中的树干（.diary-tree-axis），每个挂件是一行两列网格
+   （.diary-tree-node，is-left / is-right 决定挂在哪半边的哪一列）。
+   手机上是单侧布局：树干靠左，所有挂件挂在右边——两列网格在窄屏上会把卡片挤成一条。
+   ========================================================================== */
+
+.diary-tree{position:relative;padding:34px 0 46px}
+
+/* ---- 树干 ---------------------------------------------------------------- */
+.diary-tree-axis{
+  position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:2px;
+  background:linear-gradient(
+    180deg,
+    color-mix(in srgb,var(--accent) 62%,transparent) 0,
+    color-mix(in srgb,var(--accent) 30%,var(--line)) 12%,
+    color-mix(in srgb,var(--line) 92%,transparent) 46%,
+    color-mix(in srgb,var(--line) 92%,transparent) 82%,
+    transparent 100%);
+}
+
+.diary-tree-nodes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:38px}
+
+/* ---- 一个挂件 ------------------------------------------------------------ */
+.diary-tree-node{position:relative;display:grid;grid-template-columns:1fr 1fr;column-gap:72px}
+/* 左边那半：卡片贴在靠树干的一侧（justify-self:end），也就是靠中间 */
+.diary-tree-node.is-left .diary-tree-hang{grid-column:1;justify-self:end}
+.diary-tree-node.is-right .diary-tree-hang{grid-column:2;justify-self:start}
+
+.diary-tree-hang{width:100%;max-width:430px;min-width:0}
+
+/* 树干上的那个结 */
+.diary-tree-knot{
+  position:absolute;left:50%;top:26px;width:11px;height:11px;margin-left:-6px;border-radius:50%;
+  background:var(--paper);border:2px solid color-mix(in srgb,var(--accent) 68%,var(--line));
+  box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 10%,transparent);
+}
+.diary-tree-node.is-year .diary-tree-knot{
+  width:15px;height:15px;margin-left:-8px;top:24px;
+  border-width:3px;box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 13%,transparent);
+}
+/* 从结连到卡片内侧的那根小枝 */
+.diary-tree-twig{position:absolute;top:31px;height:1px;width:34px}
+.diary-tree-node.is-left .diary-tree-twig{
+  right:50%;background:linear-gradient(270deg,color-mix(in srgb,var(--accent) 45%,transparent),transparent);
+}
+.diary-tree-node.is-right .diary-tree-twig{
+  left:50%;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 45%,transparent),transparent);
+}
+
+/* 年份：挂在树干上的小牌子，标志着这一年从这里开始（往上更新） */
+.diary-tree-year{
+  position:absolute;left:50%;top:-26px;transform:translateX(-50%);z-index:1;
+  font-family:var(--serif);font-size:13px;font-weight:600;letter-spacing:.18em;color:var(--accent);
+  background:var(--paper);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+  border-radius:999px;padding:3px 13px;white-space:nowrap;
+}
+
+/* ---- 卡片在树里的样子 ------------------------------------------------------
+   卡片本身仍是 DiaryCard（操作行、可见范围、点击阅读的行为都不变），
+   这里只把它收窄、去掉玻璃模糊——51 个 backdrop-filter 一起滚动太贵。 */
+.diary-tree .diary-card{width:100%;backdrop-filter:none;box-shadow:0 14px 34px -26px rgba(0,0,0,.55)}
+.diary-tree .diary-excerpt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---- 入场：从树干展开到自己的那一侧 ----------------------------------------
+   v-reveal 加的是 .reveal / .is-visible 两个类，隐藏态由 JS 添加，
+   所以脚本没跑起来时内容照常可见（这是 v-reveal 的设计，别改成纯 CSS 隐藏）。
+   左边：从右往左（起点在树干这边，+46px）；右边：从左往右（起点 -46px）。
+   挂件同时从一点点倾斜摆正，像挂在枝上晃了一下才停住。 */
+.diary-tree-node.is-left{--tree-enter:46px;--tree-tilt:-.5deg;--tree-tilt-from:-4.5deg}
+.diary-tree-node.is-right{--tree-enter:-46px;--tree-tilt:.5deg;--tree-tilt-from:4.5deg}
+
+.diary-tree-node.reveal{translate:var(--tree-enter,0) 0;scale:1}
+.diary-tree-node.reveal .diary-tree-hang{
+  rotate:var(--tree-tilt-from,0deg);
+  transition:rotate 1.15s cubic-bezier(.22,.9,.24,1) var(--reveal-delay,0ms);
+}
+/* 这两条必须比 polish 里的 `.reveal.is-visible{translate:none}` 更具体，
+   否则挂件停在被推开的位置上（同分选择器、它在前，会被这里覆盖掉）。 */
+.diary-tree-node.reveal.is-visible{translate:none}
+.diary-tree-node.reveal.is-visible .diary-tree-hang{rotate:var(--tree-tilt,0deg)}
+/* 悬停时轻轻晃一下，呼应「挂在树上」 */
+.diary-tree-node .diary-card:hover{rotate:calc(var(--tree-tilt,0deg) * 2)}
+
+@media(max-width:760px){
+  .diary-tree{padding:26px 0 34px}
+  .diary-tree-nodes{gap:28px}
+  /* 单侧布局：树干靠左，卡片全部挂在右边 */
+  .diary-tree-axis{left:22px;margin-left:0}
+  .diary-tree-node{grid-template-columns:1fr;column-gap:0;padding-left:54px}
+  .diary-tree-node.is-left .diary-tree-hang,
+  .diary-tree-node.is-right .diary-tree-hang{grid-column:1;justify-self:stretch}
+  .diary-tree-hang{max-width:none}
+  .diary-tree-knot{left:22px;margin-left:-6px}
+  .diary-tree-node.is-year .diary-tree-knot{margin-left:-8px}
+  .diary-tree-twig{left:22px;right:auto}
+  .diary-tree-node.is-left .diary-tree-twig{
+    background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 45%,transparent),transparent);
+  }
+  .diary-tree-year{left:22px;transform:none;top:-24px}
+  /* 单侧时统一「从树干往右展开」，不再按左右分 */
+  .diary-tree-node.is-left,
+  .diary-tree-node.is-right{--tree-enter:-30px;--tree-tilt:0deg;--tree-tilt-from:3deg}
+}
+
+/* ---- 增删日记：树长高 / 变矮 -------------------------------------------------
+   折叠的是**节点自己的高度**（max-height），不是给后面的节点加位移补间。
+   这样后面的挂件是被布局连续推着走的，树干（bottom:0）也就连续变短；
+   用 FLIP 的话，Vue 要等 leave 播完才移除节点，那一刻没有新更新，补不上，
+   树干会「啪」地缩一截。
+   新增时同理由 0 长开，且**不参与透明度/位移**——横向展开那部分交给 v-reveal，
+   两套一起播会互相打架。 */
+.diary-tree-node{max-height:900px}
+.tree-enter-active{overflow:hidden;transition:max-height .5s cubic-bezier(.22,.9,.24,1)}
+.tree-enter-from{max-height:0}
+.tree-enter-to{max-height:900px}
+.tree-leave-active{
+  overflow:hidden;
+  transition:max-height .5s cubic-bezier(.22,.9,.24,1) .14s,opacity .34s ease,transform .34s ease;
+}
+.tree-leave-from{max-height:900px}
+.tree-leave-to{max-height:0;opacity:0;transform:translateY(-10px) scale(.965)}
+/* 留一条 move 过渡兜底：正常情况下位置变化已经被高度折叠连续带走了，
+   它只在极端情形（同时增删、筛选跳变）下生效，防止出现一帧的硬跳。 */
+.tree-move{transition:transform .5s cubic-bezier(.22,.9,.24,1)}
+
+/* 减少动效：只做淡入淡出，不做高度与横向位移 */
+@media(prefers-reduced-motion:reduce){
+  .tree-enter-active,.tree-leave-active{transition:opacity .01ms!important}
+  .diary-tree-node.reveal{translate:none}
+  .diary-tree-node.reveal .diary-tree-hang{rotate:none;transition:none}
+  .diary-tree-node .diary-card:hover{rotate:none}
+}

@@ -1,8 +1,8 @@
 <script setup>
-// 日记页：一个页面里两个视图（我的 / 公开），
-// 编辑与阅读弹窗挂在应用外壳上，这里只管列表和导入入口。
+// 日记页：一个页面里两个视图（我的 / 公开），列表以「时间树」呈现，
+// 编辑与阅读弹窗挂在应用外壳上，这里只管树和导入入口。
 import { computed, ref } from 'vue'
-import DiaryCard from '@/modules/diary/DiaryCard.vue'
+import DiaryTree from '@/modules/diary/DiaryTree.vue'
 import EmptyState from '@/modules/page/EmptyState.vue'
 import InnerPageHeader from '@/modules/page/InnerPageHeader.vue'
 import PageFooter from '@/modules/page/PageFooter.vue'
@@ -59,10 +59,9 @@ async function onImportPicked(event) {
     <DiaryToolbar />
 
     <div v-if="diaries.showMyDiary" class="diary-list">
-      <DiaryCard
-        v-for="entry in diaries.filteredDiaries"
-        :key="entry.id"
-        :entry="entry"
+      <DiaryTree
+        v-if="diaries.filteredDiaries.length"
+        :entries="diaries.filteredDiaries"
         show-actions
         show-visibility
         @open="diaries.selectedDiary = $event"
@@ -72,7 +71,7 @@ async function onImportPicked(event) {
         @remove="diaries.remove"
       />
       <EmptyState
-        v-if="!diaries.filteredDiaries.length"
+        v-else
         title="还没有找到这篇日记"
         text="试试别的关键词，或者写下一段新的回忆。"
         action-label="写日记"
@@ -81,14 +80,13 @@ async function onImportPicked(event) {
     </div>
 
     <div v-else class="diary-list">
-      <DiaryCard
-        v-for="entry in diaries.publicDiaries"
-        :key="entry.id"
-        :entry="entry"
+      <DiaryTree
+        v-if="diaries.publicDiaries.length"
+        :entries="diaries.publicDiaries"
         @open="diaries.selectedDiary = $event"
       />
       <EmptyState
-        v-if="!diaries.publicDiaries.length"
+        v-else
         icon="◎"
         title="还没有公开日记"
         :text="auth.isLoggedIn ? '编辑一篇日记，把可见范围改成“公开”，就会显示在这里。' : '还没有人公开日记。'"

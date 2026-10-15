@@ -6,8 +6,11 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `DiaryPage.vue` | 编排：标题区随视图切换、列表、导入入口、页脚 |
+| `DiaryPage.vue` | 编排：标题区随视图切换、**时间树**、导入入口、页脚 |
 | `components/DiaryToolbar.vue` | 视图标签、范围筛选（全部 / 仅自己 / 已公开）、搜索框、篇数 |
+
+两个视图都交给 `src/modules/diary/DiaryTree.vue` 渲染成「挂件挂在时间轴上」的形态
+（为什么是树、左右怎么定、增删怎么长高变矮，见那个文件的注释与 `modules/diary/README.md`）。
 
 编辑弹窗、阅读弹窗、导入确认弹窗都在 `src/modules/diary/`，由外壳挂载。
 
