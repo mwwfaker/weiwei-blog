@@ -61,10 +61,13 @@
 
 `DiaryTree` 在 `open` 事件里带上挂件所在的一侧（`$emit('open', entry, node.side)`），
 `DiaryPage` 交给 `diaries.openReader(entry, side)`，store 把它存进 `selectedDiaryFrom`，
-`DiaryReaderDialog` 再传给 `ReadingSheet` 的 `from`。于是**点左边的挂件弹窗从左进、
-点右边的从右进**，视线不用跨过整屏去找它。
+`DiaryReaderDialog` 再传给 `ReadingSheet` 的 `from`。
 
-首页日记碎片与归档页没有「侧」的概念，它们也调 `openReader`（不传第二参）→ 默认从右。
+**方向和挂件的入场用的是同一套「交叉」逻辑：卡片在左边，弹窗就从右边进来**
+（从右往左扫过去），卡片在右则从左边进来——两边对着走，视线「交换」一下。
+所以 store 里存的是**弹窗的方向**，正好是卡片那一侧的**反面**。
+
+首页日记碎片与归档页没有「侧」的概念，它们也调 `openReader`（不传第二参）→ 从右。
 
 ## 枝叶的浓密是数据给的
 

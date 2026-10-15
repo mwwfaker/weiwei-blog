@@ -38,8 +38,10 @@ export const useDiariesStore = defineStore('diaries', () => {
   const selectedDiary = ref(null)
   /**
    * 阅读弹窗从哪一边滑进来。
-   * 时间树里点的是左边的挂件就从左边进、点右边的就从右边进——「从卡片那一侧展开」，
-   * 视线不用跨过屏幕去找弹窗。默认从右（不在树里的入口：首页日记碎片、归档页）。
+   * **和挂件的入场是同一套「交叉」逻辑**：卡片在左边，弹窗就从**右边**进来
+   * （从右往左扫过去），卡片在右则从左边进来——两边对着走，视线自然地「交换」一下。
+   * 所以这里存的是**弹窗的方向**，正好和卡片所在的那一侧相反。
+   * 不在树里的入口（首页日记碎片、归档页）没有「侧」可言，按右边。
    */
   const selectedDiaryFrom = ref('right')
   const diaryDialog = ref(false)
@@ -141,12 +143,13 @@ export const useDiariesStore = defineStore('diaries', () => {
   }
 
   /**
-   * 打开阅读弹窗。`from` 是卡片所在的那一侧（时间树传 'left' / 'right'），
-   * 决定弹窗从哪边滑进来；不在树里的入口不传，按默认的右边。
+   * 打开阅读弹窗。`cardSide` 是卡片所在的那一侧（时间树传 `'left'` / `'right'`）。
+   * 弹窗的方向取它的**反面**——这就是「交叉」：卡片在左 → 弹窗从右进来。
+   * 不传（首页碎片、归档页没有侧）时按右边。
    */
-  function openReader(entry, from) {
+  function openReader(entry, cardSide) {
     if (!entry) return
-    selectedDiaryFrom.value = from === 'left' ? 'left' : 'right'
+    selectedDiaryFrom.value = cardSide === 'right' ? 'left' : 'right'
     selectedDiary.value = entry
   }
 
