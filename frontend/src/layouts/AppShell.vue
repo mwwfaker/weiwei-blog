@@ -16,6 +16,7 @@ import ArticleImportDialog from '@/modules/article/ArticleImportDialog.vue'
 import ArticleReaderDialog from '@/modules/article/ArticleReaderDialog.vue'
 import DiaryEditorDialog from '@/modules/diary/DiaryEditorDialog.vue'
 import DiaryImportDialog from '@/modules/diary/DiaryImportDialog.vue'
+import ImportProblemDialog from '@/modules/modal/ImportProblemDialog.vue'
 import DiaryReaderDialog from '@/modules/diary/DiaryReaderDialog.vue'
 import GalleryViewer from '@/modules/media/GalleryViewer.vue'
 import MediaEditorDialog from '@/modules/media/MediaEditorDialog.vue'
@@ -150,6 +151,9 @@ onUnmounted(() => disposeToast())
     <MusicEditorDialog v-if="music.musicEditor" @close="music.musicEditor = null" />
     <DiaryImportDialog v-if="diaries.importDialog" @close="diaries.importDialog = false" />
     <ArticleImportDialog v-if="articles.importDialog" @close="articles.importDialog = false" />
+    <!-- 文件打不开时的提示窗。它读的是全站共用的模块级状态（composables/useImportAlert.js），
+         所以挂在最外层只此一处，日记与文章导入都往这同一个窗口里报。 -->
+    <ImportProblemDialog />
     <ProfileEditorDialog v-if="profile.profileDialog" @close="profile.profileDialog = false" />
   </div>
 </template>

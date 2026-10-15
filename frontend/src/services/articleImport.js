@@ -18,6 +18,128 @@
 /** 导出给 store 复用的默认标签，避免两边各写一份。 */
 export const DEFAULT_IMPORT_TAGS = ['导入']
 
+/**
+ * 按**文件头**判断真实格式，不看扩展名。
+ *
+ * 为什么非这样不可：老式 `.doc` 被改名成 `.docx` 非常常见（Word 的「另存为」默认给 .docx，
+ * 但很多老文件是 .doc 直接改的后缀）。mammoth 只认 OOXML（本质是 zip），
+ * 喂给它 .doc 会抛出 JSZip 的内部错误：
+ *   `Can't find end of central directory : is this a zip file ?`
+ * 用户看不懂这句话，也不知道该干什么——所以宁可在这里先认出来，给一句能照着做的话。
+ */
+export function detectDocumentFormat(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || [])
+  // OOXML（.docx/.xlsx/.pptx）都是 zip：PK\x03\x04（空包是 PK\x05\x06）
+  if (b.length >= 2 && b[0] === 0x50 && b[1] === 0x4b) return 'docx'
+  // OLE 复合文档：老式 .doc / .xls / .ppt
+  if (b.length >= 4 && b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0) return 'legacy-doc'
+  // RTF：{\rtf
+  if (b.length >= 5 && b[0] === 0x7b && b[1] === 0x5c && b[2] === 0x72 && b[3] === 0x74 && b[4] === 0x66) return 'rtf'
+  return 'unknown'
+}
+
+/**
+ * 认一下 WPS 的「私密文档」保护壳。
+ *
+ * 这种文件的正文是加密的，能读出来的只有一页提示：
+ *   「此文件仅WPS能打开，操作当前文件会造成文件损坏 / • 此文件为私密文档，请使用WPS Office打开 / …」
+ * 认出它的意义是**阻止用户去点「另存为」**——那页提示明确写着
+ * 「对文件进行编辑或另存为操作，会导致数据丢失，无法恢复」。
+ * 通用提示（「请另存为 .docx」）在这种文件上是有害的，所以必须先认出来。
+ */
+const PROTECTED_STUB_MARKERS = ['仅WPS能打开', '私密文档', '请勿对文件进行任何操作', 'WPS Office打开']
+
+export function looksLikeProtectedStub(text) {
+  const flat = String(text || '')
+  if (!flat) return false
+  return PROTECTED_STUB_MARKERS.filter((marker) => flat.includes(marker)).length >= 2
+}
+
+/**
+ * 直接在原始字节里找那页提示。
+ * 做到这一步是因为**光看文件头认不出 WPS 私密文档**——它同时也是个老式 .doc，
+ * 只在头部判断的话会给出「另存为 .docx」的建议，而那个建议正好会毁掉这份文件。
+ * .doc 的正文是 UTF-16LE，所以两种编码都试着解一段看看。
+ */
+export function sniffProtectedStub(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || [])
+  if (!b.length || typeof TextDecoder === 'undefined') return false
+  const sample = b.subarray(0, Math.min(b.length, 512 * 1024))
+  for (const encoding of ['utf-16le', 'utf-8']) {
+    try {
+      if (looksLikeProtectedStub(new TextDecoder(encoding).decode(sample))) return true
+    } catch { /* 环境不支持这个编码就跳过，不影响其它判断 */ }
+  }
+  return false
+}
+
+/**
+ * 文件打不开时给用户的**结构化提示**：标题 + 说明 + 该怎么办。
+ *
+ * 为什么不是一句话：这些情况读者看不懂原始报错（`Can't find end of central directory…`），
+ * 而且**照做可能更糟**（WPS 私密文档「另存为」会丢数据）。所以提示要分三段说清，
+ * 并用弹窗展示——toast 一闪而过，用户来不及读也记不住。
+ */
+export function importProblem(kind, fileName, extra = {}) {
+  const name = String(fileName || '这个文件')
+  if (kind === 'protected-stub') {
+    return {
+      kind,
+      title: '这是 WPS 的「私密文档」，正文读不出来',
+      message: `${name} 的正文被加密了，能读到的只有一页保护提示。所以不是导入功能坏了，是文件本身不给读。`,
+      steps: [
+        '不要对它做「另存为」或编辑——那页提示写明会导致数据丢失且无法恢复。',
+        '在 WPS Office 里打开它（需要当初加密它的那个账号）。',
+        '把文字复制出来，另存成 .txt 再导入。',
+      ],
+    }
+  }
+  if (kind === 'legacy-doc') {
+    return {
+      kind,
+      title: '这其实是老式 .doc 文件，不是 .docx',
+      message: `${name} 的后缀虽然是 .docx，但文件头是 OLE 复合文档——老式 .doc 改了后缀。这种格式读不出来。`,
+      steps: [
+        '用 Word 打开它，「文件 → 另存为 → Word 文档 (*.docx)」存一份新的再导入。',
+        '如果打开后只看到一页「此文件仅WPS能打开」的提示，那是 WPS 私密文档，不要另存为。',
+      ],
+    }
+  }
+  if (kind === 'rtf') {
+    return {
+      kind,
+      title: '这是 RTF 格式，不是 Word 文档',
+      message: `${name} 其实是 RTF（富文本），扩展名不对。`,
+      steps: [
+        '用 Word 打开它，另存为「Word 文档 (*.docx)」。',
+        '或者直接存成纯文本 .txt 再导入——纯文本是最稳的。',
+      ],
+    }
+  }
+  if (kind === 'unreadable') {
+    const occupied = extra?.name === 'NotReadableError' || extra?.name === 'NotAllowedError'
+    return {
+      kind,
+      title: occupied ? '文件被占用了，读不出来' : '读不出这个文件',
+      message: occupied
+        ? `${name} 正被别的程序（多半是 Word 或 WPS）占用着，浏览器拿不到它。`
+        : `${name} 读取失败：${extra?.message || '未知错误'}`,
+      steps: occupied
+        ? ['关掉打开它的 Word / WPS，再重新选一次这个文件。']
+        : ['确认文件没有损坏，然后重新选一次。'],
+    }
+  }
+  return {
+    kind: 'unknown',
+    title: '这不是有效的 Word 文档',
+    message: `${name} 的文件头既不是 .docx 也不是老式 .doc，读不出来。`,
+    steps: [
+      '确认选的是 Word 文档（.docx）。',
+      '也可以直接导入纯文本：在记事本里另存成 .txt，或 Markdown 的 .md。',
+    ],
+  }
+}
+
 /** 一段摘要取多长。文章列表里的一行，太长会撑坏卡片。 */
 const EXCERPT_LENGTH = 86
 

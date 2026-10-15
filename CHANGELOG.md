@@ -5,6 +5,46 @@ README 只保留「现在是什么样」。新的一条加在最上面。
 
 ---
 
+## 2026 · 导入打不开的文件时弹提示窗（WPS 私密文档 / 假 .docx）
+
+用户导入 `F:\论如何找到女朋友.docx` 报错。查下来是**两层问题**：
+
+1. **扩展名撒谎**：文件头是 `D0 CF 11 E0`（OLE 复合文档），也就是**老式 `.doc` 改了后缀**。
+   mammoth 只认 OOXML（zip），喂给它就抛出 JSZip 的内部错误
+   `Can't find end of central directory : is this a zip file ?`——用户完全看不懂。
+2. **更关键**：把内容读出来才发现，里面**根本不是文章**，而是 WPS 的一页保护提示：
+   「此文件仅WPS能打开…此文件为私密文档，请使用WPS Office打开…**对文件进行编辑或另存为操作，
+   会导致数据丢失，无法恢复**」。也就是 **WPS 的「私密文档」**，正文是加密的。
+   在原始字节里（UTF-16LE）能搜到这段文字，确认不是转换过程中产生的。
+
+**这件事最大的收获是：通用建议在这里是有害的。** 第 1 层问题会让人给出「请另存为 .docx」，
+而第 2 层的保护提示明确写着另存为会丢数据。所以判断顺序是**先认 WPS 私密文档、再认文件头**，
+而且要看**原始字节**（私密文档同时也是老式 .doc，光看文件头认不出它）。
+
+改了什么：
+
+- `services/articleImport.js` 新增 `detectDocumentFormat()`（按文件头认 docx / legacy-doc / rtf）、
+  `looksLikeProtectedStub()` + `sniffProtectedStub()`（在原始字节里按 UTF-16LE 与 UTF-8 找保护提示）、
+  以及 `importProblem(kind, fileName, extra)` —— 返回 `{ title, message, steps }` 的**结构化提示**。
+  删掉了原来的 `describeFormatProblem / describeProtectedStub / describeReadError`：
+  文案搬进 `steps` 之后它们没有调用方了，留着的就是死代码。
+- **新增提示窗 `modules/modal/ImportProblemDialog.vue`**（不是 toast）。toast 一闪而过，
+  这些失败用户读不完也记不住，而其中一条是「照做会丢数据」。窗口分三段说：
+  **哪里不对 / 别做什么 / 该做什么**，步骤用有序列表，底部一个「我知道了」。
+- 状态在 `composables/useImportAlert.js`，**模块级单例**而不是 Pinia store：
+  它是一次操作的失败提示，关掉就没了，不需要跨页面存活；而日记与文章导入都要能触发它，
+  塞进任何一边的 store 都会让另一边反向依赖。`AppShell` 里只挂一处。
+- **日记导入同步修好**：同一个 `mammoth` 坑、同一套判断与提示窗。
+- 文件被 Word/WPS 占用（`NotReadableError`）也走这个窗，提示「先关掉它再试」。
+
+验证：`verify:all`（`verify:article` 增至 70 项，含结构化提示的每一段文案）、
+`test:render`、`build` 全绿；另做 11 项 SSR 断言（没提示时不渲染、dismiss 后不渲染、
+是真正的弹窗外壳、标题/说明/步骤/按钮都在、被占用那条也能弹）。
+**另外用真实文件验证过**：那份被锁的 `F:\论如何找到女朋友.docx` 的副本判定为
+`legacy-doc` + `sniffProtectedStub() === true`，走的是「先认私密文档」那条安全分支。
+
+---
+
 ## 2026 · 文章支持导入 Word（和日记导入同一套流程）
 
 文章页多了「导入 Word」入口：选 `.docx` / `.txt` / `.md`，解析成一篇篇草稿先核对，确认后才写库。

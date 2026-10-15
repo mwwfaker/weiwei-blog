@@ -1,7 +1,8 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { request, uploadMedia } from '@/services/api'
-import { DEFAULT_IMPORT_TAGS, blocksFromText, splitArticleBlocks } from '@/services/articleImport'
+import { importProblem, splitArticleBlocks, blocksFromText, DEFAULT_IMPORT_TAGS, detectDocumentFormat, sniffProtectedStub } from '@/services/articleImport'
+import { useImportAlert } from '@/composables/useImportAlert'
 import { useBulkImport } from '@/composables/useBulkImport'
 import mammoth from 'mammoth/mammoth.browser'
 import { isLocalId, localId } from '@/app/ids'
@@ -30,6 +31,8 @@ const STORAGE_KEY = 'weiwei-blog-articles-v1'
 export const useArticlesStore = defineStore('articles', () => {
   const auth = useAuthStore()
   const media = useMediaStore()
+  /** 文件打不开时的提示窗（全站共用一个，见 composables/useImportAlert.js）。 */
+  const { raise } = useImportAlert()
 
   const articles = ref(readStoredJson(STORAGE_KEY, null) || demoArticles)
   watch(articles, (value) => writeStoredJson(STORAGE_KEY, value), { deep: true })
@@ -288,7 +291,15 @@ export const useArticlesStore = defineStore('articles', () => {
         const fallbackTitle = file.name.replace(/\.(txt|md|docx)$/i, '')
         let blocks = []
         if (extension === 'docx') {
-          const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() })
+          const buffer = await file.arrayBuffer()
+          const bytes = new Uint8Array(buffer)
+          // 先认 WPS 私密文档，再认文件头。顺序不能反：这种文件同时也是老式 .doc，
+          // 先报「另存为 .docx」的话，用户照做正好会把加密正文毁掉。
+          // 这两种情况都弹提示窗说清「为什么 + 怎么办」，不是一闪而过的 toast。
+          if (sniffProtectedStub(bytes)) { raise(importProblem('protected-stub', file.name)); continue }
+          const format = detectDocumentFormat(bytes.subarray(0, 8))
+          if (format !== 'docx') { raise(importProblem(format, file.name)); continue }
+          const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
           blocks = blocksFromHtml(result.value)
         } else if (extension === 'txt' || extension === 'md' || extension === 'markdown') {
           blocks = blocksFromText(await file.text())
@@ -305,7 +316,7 @@ export const useArticlesStore = defineStore('articles', () => {
             source: file.name,
           })
         }
-      } catch (error) { notify(`无法读取 ${file.name}：${error.message}`) }
+      } catch (error) { raise(importProblem('unreadable', file.name, error)) }
     }
     if (!drafts.length) { notify('没有读到内容。请选择 DOCX、TXT 或 Markdown 文件'); return 0 }
     bulkImport.setReview(drafts)

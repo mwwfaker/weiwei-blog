@@ -3,6 +3,8 @@ import { defineStore } from 'pinia'
 import mammoth from 'mammoth/mammoth.browser'
 import { request } from '@/services/api'
 import { splitDiaryText } from '@/services/diaryImport'
+import { importProblem, detectDocumentFormat, sniffProtectedStub } from '@/services/articleImport'
+import { useImportAlert } from '@/composables/useImportAlert'
 import { useBulkImport } from '@/composables/useBulkImport'
 import { isLocalId, localId } from '@/app/ids'
 import { downloadText } from '@/app/download'
@@ -25,6 +27,8 @@ const STORAGE_KEY = 'weiwei-blog-diaries-v1'
 export const useDiariesStore = defineStore('diaries', () => {
   const auth = useAuthStore()
   const profile = useProfileStore()
+  /** 文件打不开时的提示窗（全站共用一个，见 composables/useImportAlert.js）。 */
+  const { raise } = useImportAlert()
 
   const diaries = ref(readStoredJson(STORAGE_KEY, null) || demoDiaries)
   watch(diaries, (value) => writeStoredJson(STORAGE_KEY, value), { deep: true })
@@ -252,7 +256,14 @@ export const useDiariesStore = defineStore('diaries', () => {
         let content = ''
         if (extension === 'txt') content = await file.text()
         else if (extension === 'docx') {
-          const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })
+          const buffer = await file.arrayBuffer()
+          const bytes = new Uint8Array(buffer)
+          // 和文章导入同一套顺序：先认 WPS 私密文档（它同时也是老式 .doc，
+          // 先报「另存为」会把用户的加密正文毁掉），再认文件头。都弹提示窗。
+          if (sniffProtectedStub(bytes)) { raise(importProblem('protected-stub', file.name)); continue }
+          const format = detectDocumentFormat(bytes.subarray(0, 8))
+          if (format !== 'docx') { raise(importProblem(format, file.name)); continue }
+          const result = await mammoth.extractRawText({ arrayBuffer: buffer })
           content = result.value
         } else { notify(`已跳过不支持的文件：${file.name}`); continue }
         const groups = splitDiaryText(content)
@@ -272,7 +283,7 @@ export const useDiariesStore = defineStore('diaries', () => {
             tags: ['导入'], visibility: importVisibility.value, content: lines.join('\n').trim() || content.trim(), source: file.name,
           })
         }
-      } catch (error) { notify(`无法读取 ${file.name}：${error.message}`) }
+      } catch (error) { raise(importProblem('unreadable', file.name, error)) }
     }
     if (!parsed.length) { notify('没有读到内容。请选择 TXT 或 DOCX 格式的日记文件'); return 0 }
     bulkImport.setReview(parsed)

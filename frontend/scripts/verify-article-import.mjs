@@ -1,4 +1,4 @@
-// 文章导入拆分器的对拍：「块 → 文章草稿」的规则钉在这里。
+﻿// 文章导入拆分器的对拍：「块 → 文章草稿」的规则钉在这里。
 // 运行：cd frontend && npm run verify:article
 //
 // 为什么需要它：拆错了在浏览器里只表现成「少了几篇 / 多了一篇很长的」，
@@ -7,8 +7,12 @@
 import {
   DEFAULT_IMPORT_TAGS,
   blocksFromText,
+  detectDocumentFormat,
+  importProblem,
+  looksLikeProtectedStub,
   makeExcerpt,
   normalizeText,
+  sniffProtectedStub,
   splitArticleBlocks,
 } from '../src/services/articleImport.js'
 
@@ -131,6 +135,64 @@ check('拆出 2 篇', wordLike.length === 2, `got ${wordLike.length}`)
 check('第二篇的正文归位', wordLike[1].content === '风很大，帽子差点飞走。', wordLike[1].content)
 check('第一篇含子标题段落（1 个标题 + 3 段正文）', wordLike[0].content.split('\n\n').length === 4, String(wordLike[0].content.split('\n\n').length))
 check('每篇都有非空摘要', wordLike.every((a) => a.excerpt.length > 0))
+
+console.log('\n[11] 文件头认格式（扩展名不可信）')
+const stamp = (...bytes) => new Uint8Array(bytes)
+check('PK 开头 = 真正的 docx', detectDocumentFormat(stamp(0x50, 0x4b, 0x03, 0x04)) === 'docx')
+check('空 zip 也算 docx', detectDocumentFormat(stamp(0x50, 0x4b, 0x05, 0x06)) === 'docx')
+check('OLE 开头 = 老式 .doc（改名的重灾区）',
+  detectDocumentFormat(stamp(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)) === 'legacy-doc')
+check('RTF 认出来', detectDocumentFormat(stamp(0x7b, 0x5c, 0x72, 0x74, 0x66, 0x31)) === 'rtf')
+check('别的一律 unknown', detectDocumentFormat(stamp(0x00, 0x01, 0x02)) === 'unknown')
+check('空数组不炸', detectDocumentFormat(new Uint8Array()) === 'unknown' && detectDocumentFormat(null) === 'unknown')
+check('传普通数组也认（内部会包成 Uint8Array）', detectDocumentFormat([0x50, 0x4b, 0x03, 0x04]) === 'docx')
+
+
+console.log('\n[13] WPS 私密文档：必须先认出来，否则会给出有害的建议')
+// 真实的保护提示原文（用户那份「论如何找到女朋友.docx」里就是这样）
+const stubText = '此文件仅WPS能打开，操作当前文件会造成文件损坏 • 此文件为私密文档，请使用WPS Office打开 '
+  + '个人用户：访问WPS官方网站下载 http://www.wps.cn 企业用户：请联系企业管理员获取最新版本 '
+  + '请勿对文件进行任何操作 对文件进行编辑或另存为操作，会导致数据丢失，无法恢复'
+check('认出保护壳', looksLikeProtectedStub(stubText) === true)
+check('普通文章不会被误判', looksLikeProtectedStub('今天天气很好，我去公园散步了。') === false)
+check('空文本不误判', looksLikeProtectedStub('') === false && looksLikeProtectedStub(null) === false)
+check('只命中一个词不算（避免误伤正文里提到 WPS 的文章）',
+  looksLikeProtectedStub('我平时用 WPS Office 写东西。') === false)
+// .doc 的正文是 UTF-16LE，所以要在字节层面认出来
+const utf16bytes = new Uint8Array(Buffer.from(stubText, 'utf16le'))
+check('能从原始字节里认出来（UTF-16LE，老式 .doc 就是这样）', sniffProtectedStub(utf16bytes) === true)
+check('能从原始字节里认出来（UTF-8，docx 解压前后都可能是这样）',
+  sniffProtectedStub(new Uint8Array(Buffer.from(stubText, 'utf8'))) === true)
+check('普通字节不误判', sniffProtectedStub(new Uint8Array([0x50, 0x4b, 0x03, 0x04])) === false)
+check('空字节不炸', sniffProtectedStub(new Uint8Array()) === false && sniffProtectedStub(null) === false)
+
+console.log('\n[12] 提示窗的内容：要说清「为什么 + 别做什么 + 该做什么」')
+const stub = importProblem('protected-stub', '论如何找到女朋友.docx')
+check('有标题', typeof stub.title === 'string' && stub.title.length > 0, stub.title)
+check('标题点明是 WPS 私密文档', stub.title.includes('WPS') && stub.title.includes('私密'), stub.title)
+check('说明里点名了文件', stub.message.includes('论如何找到女朋友.docx'), stub.message)
+check('说明里澄清「不是导入坏了」', stub.message.includes('不是导入功能坏了'), stub.message)
+check('第一步就是「不要另存为」（这是最会出事的一句）',
+  stub.steps[0].includes('不要') && stub.steps[0].includes('另存为'), stub.steps[0])
+check('给出了正确的出路（WPS 里打开 + 复制 + 存 txt）',
+  stub.steps.some((s) => s.includes('WPS Office')) && stub.steps.some((s) => s.includes('复制')) && stub.steps.some((s) => s.includes('.txt')),
+  JSON.stringify(stub.steps))
+check('步骤是数组（弹窗要按序号排）', Array.isArray(stub.steps) && stub.steps.length === 3, String(stub.steps.length))
+
+const legacy = importProblem('legacy-doc', 'a.docx')
+check('老式 doc：标题说清是 .doc 不是 .docx', legacy.title.includes('.doc'), legacy.title)
+check('老式 doc：步骤里带 WPS 的警告（两种情况常同时出现）',
+  legacy.steps.some((s) => s.includes('WPS') && s.includes('私密')), JSON.stringify(legacy.steps))
+const rtf = importProblem('rtf', 'a.docx')
+check('RTF 有标题与步骤', rtf.title.includes('RTF') && rtf.steps.length === 2, rtf.title)
+const unknown = importProblem('unknown', 'a.docx')
+check('认不出的也有出路（可以导 txt/md）', unknown.steps.some((s) => s.includes('.txt')), JSON.stringify(unknown.steps))
+const busy = importProblem('unreadable', 'a.docx', { name: 'NotReadableError' })
+check('被占用：标题说「被占用」', busy.title.includes('占用'), busy.title)
+check('被占用：办法是关掉 Word/WPS', busy.steps[0].includes('关掉'), busy.steps[0])
+const broken = importProblem('unreadable', 'a.docx', { message: '磁盘损坏' })
+check('其它读失败：回显原始信息', broken.message.includes('磁盘损坏'), broken.message)
+check('任何情况都不会返回空步骤', [stub, legacy, rtf, unknown, busy, broken].every((p) => p.steps.length > 0))
 
 // ---------------------------------------------------------------------------
 console.log(`\n${pass} 项通过${failures.length ? `，${failures.length} 项失败` : ''}`)

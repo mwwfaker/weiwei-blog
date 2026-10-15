@@ -37,7 +37,20 @@
 三条关闭路径都进同一个 `requestClose()`，行为一致——**其中没有哪一条是「直接关掉、不动画」的**。
 （`@click.self` 保证只有点在卡片外的空白处才算，点卡片里面不会误关。）
 
-### `from`：从哪一边滑进来
+### `ImportProblemDialog.vue`：文件打不开时的提示窗
+
+导入 Word / 文本时如果文件读不出来，弹的是这个窗，不是 toast。理由是这些失败
+**用户多半看不懂**，而且**照直觉做会更糟**——WPS 的「私密文档」如果去点「另存为」，
+那页保护提示写明会导致数据丢失且无法恢复。toast 一闪而过，读不完也记不住。
+
+它自己不含文案：内容由 `services/articleImport.js` 的 `importProblem(kind, fileName, extra)`
+生成（纯函数，`verify:article` 对拍），返回 `{ kind, title, message, steps }`，
+这个组件只负责排版（说明一段 + 有序步骤 + 「我知道了」）。
+
+状态在 `composables/useImportAlert.js`，是**模块级单例**而不是 Pinia store：
+它是一次操作的失败提示，用户关掉就没了，不需要跨页面存活；而日记导入与文章导入
+都要能触发它，塞进任何一边的 store 都会让另一边反向依赖。
+`AppShell` 里只挂一处（`<ImportProblemDialog />`，不带 `v-if`，组件内部判空）。
 
 `from` 只有 `'right'`（默认）和 `'left'` 两档，调用方按**用户点的那张卡片在哪一侧**传。
 日记的时间树用的是**交叉**：卡片在左边，弹窗就从**右边**进来（从右往左扫过去），
