@@ -18,8 +18,14 @@ import DustBurst from './DustBurst.vue'
 
 /** 进场时长（毫秒）。只用于样式里的动画，不需要 JS 等待。 */
 const ENTER_MS = 560
-/** 退场时长（毫秒）。必须和 CSS 里的 var(--dust-ms) 一致，JS 要等它跑完再交差。 */
-const DUST_MS = 920
+/**
+ * 退场前的静止时长（毫秒）。
+ * 一上来就化灰会「看不见」——眼睛需要一拍才反应过来要发生什么，
+ * 所以先定住不动、再开始消散。别调大：超过 ~250ms 就会被当成卡住了。
+ */
+const DUST_HOLD_MS = 180
+/** 退场总时长（毫秒）。必须覆盖「静止 + 消散 + 最后一批粒子飞完」，JS 要等它跑完再交差。 */
+const DUST_MS = 1180
 
 const props = defineProps({
   cardClass: { type: [String, Array, Object], default: '' },
@@ -82,6 +88,6 @@ defineExpose({ requestClose })
         <span v-if="charCount" class="reading-count">共 {{ charCount }} 字</span>
       </footer>
     </article>
-    <DustBurst v-if="closing && dustRect" :rect="dustRect" />
+    <DustBurst v-if="closing && dustRect" :rect="dustRect" :hold="DUST_HOLD_MS" />
   </div>
 </template>

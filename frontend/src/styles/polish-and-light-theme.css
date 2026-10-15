@@ -242,20 +242,23 @@
   .reading-sheet{animation-name:sheetGlide;animation-duration:calc(var(--enter-ms,560ms) * 1.12)}
 }
 
-/* ---- 退场：化作尘埃 ----------------------------------------------------------
-   卡片自己模糊、发白、上浮并淡出；粒子层铺在卡片原来的位置上往上飘。
-   时长由 JS 通过 --dust-ms 下发，两边不会对不上——JS 必须等它跑完才 emit close。 */
+/* ---- 退场：先定住一拍，再化作尘埃 --------------------------------------------
+   0~15% 是**静止**：卡片原样不动（只有极轻微的提亮），让人先看清「它要消失了」。
+   这段时间对应 JS 里的 DUST_HOLD_MS（180ms / 1180ms ≈ 15%）——一上来就化灰会看不见，
+   但静止也别超过 ~250ms，否则会被当成卡住。
+   之后卡片模糊、发白、上浮、消散，粒子层同时从卡片原来的位置往上飘。
+   时长由 JS 通过 --dust-ms 下发，两边不会对不上——JS 必须等它跑完才 emit close. */
 @keyframes sheetDust{
-  0%{opacity:1;filter:blur(0) saturate(1) brightness(1);transform:translate3d(0,0,0)}
-  35%{opacity:.9;filter:blur(1.1px) saturate(.82) brightness(1.08)}
-  100%{opacity:0;filter:blur(11px) saturate(.28) brightness(1.3);transform:translate3d(0,-24px,0) scale(.985)}
+  0%,15%{opacity:1;filter:blur(0) saturate(1) brightness(1.04);transform:translate3d(0,0,0)}
+  48%{opacity:.93;filter:blur(1.4px) saturate(.82) brightness(1.09)}
+  100%{opacity:0;filter:blur(12px) saturate(.26) brightness(1.3);transform:translate3d(0,-26px,0) scale(.984)}
 }
-@keyframes backdropOut{0%,38%{opacity:1}100%{opacity:0}}
+@keyframes backdropOut{0%,15%{opacity:1}100%{opacity:0}}
 .reading-sheet.is-dusting{
-  animation:sheetDust var(--dust-ms,920ms) cubic-bezier(.42,0,.72,1) forwards;
+  animation:sheetDust var(--dust-ms,1180ms) cubic-bezier(.4,0,.7,1) forwards;
   pointer-events:none;will-change:opacity,filter,transform;
 }
-.reading-backdrop.is-dusting{animation:backdropOut var(--dust-ms,920ms) ease forwards;pointer-events:none}
+.reading-backdrop.is-dusting{animation:backdropOut var(--dust-ms,1180ms) ease forwards;pointer-events:none}
 
 .dust-burst{position:fixed;inset:0;z-index:1;pointer-events:none}
 .dust-bit{

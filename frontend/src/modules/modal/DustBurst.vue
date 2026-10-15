@@ -15,6 +15,11 @@ const props = defineProps({
   rect: { type: Object, required: true },
   /** 粒子数。手机上少一些，省一点合成开销。 */
   count: { type: Number, default: 150 },
+  /**
+   * 起始延后（毫秒），要和外壳的「退场前静止」一致——
+   * 卡片先定住不动一拍，粒子再从卡片上「剥落」下来，两边同时对得上。
+   */
+  hold: { type: Number, default: 0 },
 })
 
 // 按「卡片宽高比」算行列，让粒子均匀铺满而不是挤在一条线上。
@@ -34,8 +39,8 @@ for (let row = 0; row < rows; row += 1) {
       dx: (Math.random() - 0.38) * (cellW + 70),
       dy: -24 - Math.random() * 150,
       rot: (Math.random() - 0.5) * 240,
-      delay: Math.random() * 150,
-      dur: 620 + Math.random() * 420,
+      delay: props.hold + Math.random() * 140,
+      dur: 500 + Math.random() * 260,
       // 越靠下的粒子越晚一点飞走，看起来像从下往上被「吹散」
       skew: (row / Math.max(rows - 1, 1)) * 60,
     })
