@@ -89,6 +89,29 @@ const nodes = computed(() => {
       <path class="diary-tree-grain" d="M5.6 0 C3 200 8.6 400 5.6 600 C3 800 8.6 1000 5.6 1200" />
       <path class="diary-tree-grain" d="M10.4 0 C13 200 7.4 400 10.4 600 C13 800 7.4 1000 10.4 1200" />
     </svg>
+    <!-- 剪影水印：极淡的一整棵树压在卡片后面，只给纵深，不参与布局也不接指针事件。
+         拆成两半是有原因的：树冠不能跟着树的高度纵向拉伸（会被拉成一根长条），
+         所以树冠单独一张、按固定尺寸钉在顶部；树干与枝那半边才用 preserveAspectRatio="none"
+         拉伸，并且靠 non-scaling-stroke 保持粗细不变。 -->
+    <div class="diary-tree-silhouette" aria-hidden="true">
+      <svg class="diary-tree-canopy" viewBox="0 0 400 240">
+        <g>
+          <ellipse cx="200" cy="152" rx="120" ry="74" />
+          <ellipse cx="116" cy="112" rx="78" ry="56" />
+          <ellipse cx="284" cy="112" rx="82" ry="58" />
+          <ellipse cx="200" cy="76" rx="88" ry="54" />
+          <ellipse cx="150" cy="44" rx="52" ry="36" />
+          <ellipse cx="258" cy="52" rx="48" ry="34" />
+        </g>
+      </svg>
+      <svg class="diary-tree-limbs" viewBox="0 0 400 1000" preserveAspectRatio="none">
+        <path class="diary-tree-limb" d="M200 1000 C196 780 204 560 200 340 C198 220 200 120 200 0" />
+        <path class="diary-tree-limb" d="M200 640 C150 590 116 540 92 470" />
+        <path class="diary-tree-limb" d="M200 500 C250 452 288 404 312 336" />
+        <path class="diary-tree-limb" d="M200 830 C158 792 130 752 112 700" />
+        <path class="diary-tree-limb" d="M200 330 C246 292 276 250 296 196" />
+      </svg>
+    </div>
     <TransitionGroup name="tree" tag="ol" class="diary-tree-nodes">
       <li
         v-for="node in nodes"

@@ -33,6 +33,25 @@
 .diary-tree-bark{stroke-width:3.4;opacity:.55}
 .diary-tree-grain{stroke-width:1.1;opacity:.3}
 
+/* ---- 剪影水印 --------------------------------------------------------------
+   极淡的一整棵树，压在卡片后面。只加纵深，不抢内容——所以透明度给到 8% 就到了，
+   再高就会和卡片抢注意力，也就不叫水印了。
+   树冠单独一张、固定尺寸钉在顶部：它不能跟着树的高度纵向拉伸，会被拉成一根长条。 */
+.diary-tree-silhouette{
+  position:absolute;left:0;right:0;top:-34px;bottom:-40px;z-index:0;
+  pointer-events:none;overflow:hidden;color:var(--accent);opacity:.085;
+}
+.diary-tree-canopy{
+  position:absolute;left:50%;top:0;width:min(620px,94%);height:auto;
+  transform:translateX(-50%);filter:blur(16px);
+}
+.diary-tree-canopy ellipse{fill:currentColor}
+.diary-tree-limbs{position:absolute;inset:0;width:100%;height:100%;filter:blur(7px)}
+.diary-tree-limb{
+  fill:none;stroke:currentColor;stroke-linecap:round;stroke-width:17;
+  vector-effect:non-scaling-stroke;
+}
+
 .diary-tree-nodes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:38px}
 
 /* ---- 一个挂件 ------------------------------------------------------------ */
