@@ -15,16 +15,23 @@
 .diary-tree{position:relative;padding:34px 0 46px}
 
 /* ---- 树干 ---------------------------------------------------------------- */
-.diary-tree-axis{
-  position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:2px;
-  background:linear-gradient(
-    180deg,
-    color-mix(in srgb,var(--accent) 62%,transparent) 0,
-    color-mix(in srgb,var(--accent) 30%,var(--line)) 12%,
-    color-mix(in srgb,var(--line) 92%,transparent) 46%,
-    color-mix(in srgb,var(--line) 92%,transparent) 82%,
-    transparent 100%);
+/* 矢量树干：会微微蜿蜒，纵向填满整棵树。
+   为什么不用贴图：高度由日记篇数决定、会一直加，贴图纵向平铺在接缝处会露馅；
+   而且贴图只有一种色，伺候不了深浅两套主题。这里描边走 currentColor，跟着主题变。
+   mask-image 让上下两端淡出——树干从地里长出来、也不该在最上面被硬切一刀。 */
+.diary-tree-trunk{
+  position:absolute;left:50%;top:0;bottom:0;width:16px;margin-left:-8px;overflow:visible;
+  color:color-mix(in srgb,var(--accent) 30%,var(--line));
+  mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 90%,transparent 100%);
 }
+/* non-scaling-stroke 是关键：容器被纵向拉伸，不带它笔画会被拉成一根根竖条。 */
+.diary-tree-bark,
+.diary-tree-grain{
+  fill:none;stroke:currentColor;stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+}
+.diary-tree-bark{stroke-width:3.4;opacity:.55}
+.diary-tree-grain{stroke-width:1.1;opacity:.3}
 
 .diary-tree-nodes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:38px}
 
@@ -46,13 +53,20 @@
   width:15px;height:15px;margin-left:-8px;top:24px;
   border-width:3px;box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 13%,transparent);
 }
-/* 从结连到卡片内侧的那根小枝 */
-.diary-tree-twig{position:absolute;top:31px;height:1px;width:34px}
+/* 从结连到卡片内侧的那根小枝。**斜向上挑而不是水平**——真枝是往上长的，
+   水平那根看起来像晾衣杆。rotate 的符号按「外端抬高」定：往左伸的元素转正是左端抬高，
+   往右伸的相反，所以两边一正一负。 */
+.diary-tree-twig{
+  position:absolute;top:31px;height:1px;width:38px;border-radius:1px;
+  color:color-mix(in srgb,var(--accent) 42%,transparent);
+}
 .diary-tree-node.is-left .diary-tree-twig{
-  right:50%;background:linear-gradient(270deg,color-mix(in srgb,var(--accent) 45%,transparent),transparent);
+  right:50%;transform-origin:right center;transform:rotate(7deg);
+  background:linear-gradient(270deg,currentColor,transparent);
 }
 .diary-tree-node.is-right .diary-tree-twig{
-  left:50%;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 45%,transparent),transparent);
+  left:50%;transform-origin:left center;transform:rotate(-7deg);
+  background:linear-gradient(90deg,currentColor,transparent);
 }
 
 /* 年份：挂在树干上的小牌子，标志着这一年从这里开始（往上更新） */
@@ -93,16 +107,18 @@
   .diary-tree{padding:26px 0 34px}
   .diary-tree-nodes{gap:28px}
   /* 单侧布局：树干靠左，卡片全部挂在右边 */
-  .diary-tree-axis{left:22px;margin-left:0}
+  .diary-tree-trunk{left:22px;margin-left:-8px}
   .diary-tree-node{grid-template-columns:1fr;column-gap:0;padding-left:54px}
   .diary-tree-node.is-left .diary-tree-hang,
   .diary-tree-node.is-right .diary-tree-hang{grid-column:1;justify-self:stretch}
   .diary-tree-hang{max-width:none}
   .diary-tree-knot{left:22px;margin-left:-6px}
   .diary-tree-node.is-year .diary-tree-knot{margin-left:-8px}
-  .diary-tree-twig{left:22px;right:auto}
-  .diary-tree-node.is-left .diary-tree-twig{
-    background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 45%,transparent),transparent);
+  /* 单侧时所有小枝都往右伸（is-left 的左右翻转在这里不适用了） */
+  .diary-tree-node.is-left .diary-tree-twig,
+  .diary-tree-node.is-right .diary-tree-twig{
+    left:22px;right:auto;transform-origin:left center;transform:rotate(-7deg);
+    background:linear-gradient(90deg,currentColor,transparent);
   }
   .diary-tree-year{left:22px;transform:none;top:-24px}
   /* 单侧时统一「从树干往右展开」，不再按左右分 */
