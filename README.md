@@ -4,14 +4,36 @@
 
 ## 项目结构
 
-- `frontend/` Vue 3.5 + Vite。使用 Vue Router、Pinia、VueUse；支持桌面、平板和手机布局。
-- `frontend/src/StudyPlan.vue` + `frontend/src/data/studyPlan.js` 学习板块与它的结构化课程数据（按需加载）。
-- `frontend/src/composables/motion.js` 动效层：`v-reveal` 滚动揭示指令与数字滚动。
-- `frontend/src/MusicVisualizer.vue` 频谱可视化画布（音乐板块与展开态播放器共用）。
-- `backend/` Java 21 + Spring Boot 4 REST API，包含账号注册/登录、BCrypt 密码哈希、JWT、用户隔离的数据接口。
-- `backend/src/main/resources/db/migration/` Flyway 数据库迁移（V1–V5）：用户、日记、文章、媒体记录、相册名、个人资料。
-- `compose.yaml` 本机 MySQL 8.4 + MinIO 对象存储，均使用持久卷。
-- `deploy/HOSTING.md` 发布说明；`.github/workflows/deploy-pages.yml` GitHub Pages 静态站构建流程。
+没有后端进程：前端是静态站，账号 / 数据库 / 对象存储全在 Supabase。
+
+```
+frontend/            Vue 3.5 + Vite，唯一会被构建和部署的东西
+  src/app/           骨架：路由表、页面注册表、导航表、页面调度、全局提示、登录守卫
+  src/layouts/       应用外壳：侧边栏、顶栏、常驻播放器与弹窗的挂载点
+  src/pages/         15 个页面，一个页面一个文件夹（各自带 components/ 与 README.md）
+  src/modules/       跨页面复用的块：页面通用件、弹窗外壳、文章/日记/相册/音乐/资料/粒子
+  src/stores/        全部跨组件状态（Pinia）
+  src/services/      与外部打交道：HTTP、对象存储、歌词接口、OCR、纯计算
+  src/composables/   可复用的组合式函数（目前是动效层）
+  src/data/          接口还没答上来时用的内置示例
+  src/styles/        样式，按层叠顺序拆成若干文件
+  scripts/           自检脚本（不引依赖，只用 Node 内置模块）
+  ssr-smoke/         渲染冒烟测试
+supabase/            数据层的权威定义：schema.sql、apply.mjs、歌词中转 Edge Function
+deploy/              上线说明（HOSTING.md）
+legacy/              已停用的 Java 后端一整套，归档备查，不参与构建
+```
+
+根目录另外有 `AGENTS.md`（给 AI 的结构契约）、`LICENSE`、`.editorconfig`、
+`CONTRIBUTING.md`（改动约定）、`项目结构说明.md`（结构与各层职责的完整对照表）、
+`CHANGELOG.md`（历史沿革）。
+
+> **`frontend/src` 下每个目录都有一份 `README.md`**，说明它装什么、边界在哪、加东西时该放哪。
+> `npm run verify` 会检查这件事。
+>
+> 用 AI 改代码的话，重点看 [`AGENTS.md`](AGENTS.md)：那是新会话里**唯一会被自动读到**的文件
+> （DSH 会把「项目根目录 → 当前目录」链上的 `AGENTS.md` 注入第一条消息），
+> 其余文档要靠人主动去读。
 
 ## 权限模型：看是公开的，改要登录
 
@@ -44,7 +66,7 @@
 - **学习进度**：每门课可以勾选完成，顶部进度条与每个阶段的完成度会同步更新；进度保存在本机浏览器（键名 `weiwei-blog-study-progress`），尚未同步到账号。
 - 另有主线顺序图、重要程度标尺、每周学习模板、毕业考试规则、Python 起步时间线、第一年目标、最终毕业画像与核心资源入口。
 
-课程数据由原始文档结构化生成（`frontend/src/data/studyPlan.js`），页面只负责呈现，不在前端改写内容。
+课程数据由原始文档结构化生成（`frontend/src/pages/study/data/studyPlan.js`），页面只负责呈现，不在前端改写内容。
 
 ## 绩效计算器
 
@@ -95,7 +117,7 @@
 | 加班工资 / 三薪工资 | `加班时长 × 31` / `三薪时长 × 62` |
 | 合计 | `审核工资 + 补时工资 + 加班工资 + 三薪工资` |
 
-测试：`node verify-perf.mjs`（71 项，含 17 个队列由 KPI 推出的 AHT 与表格逐个核对、多队列汇总）、`node verify-ocr.mjs`（36 项，含**用你真实截图的真实 OCR 输出**做的回归：12 人全部匹配、12 个数全部正确）。
+测试：`npm run verify:perf`（82 项，含 17 个队列由 KPI 推出的 AHT 与表格逐个核对、多队列汇总）、`npm run verify:ocr`（41 项，含**用你真实截图的真实 OCR 输出**做的回归：12 人全部匹配、12 个数全部正确）。
 
 单价用的是**四舍五入到两位小数之后**的 AHT。这一点是验证出来的：用 17 个队列反解月要求工时都收敛到 184 小时，用未取整的 AHT 就会散开。
 
@@ -167,7 +189,7 @@ node measure.mjs                     # 打印关键元素的字号/盒尺寸/溢
 - **粒子背景**：连线原来是 O(n²)——132 个粒子两两算距离，每帧 8600 多次 `Math.hypot`，而且每条命中的连线都单独 `beginPath + stroke` 一次。现在改成格子分桶只比相邻格子，并把同一档透明度的连线合并成一条路径一次描边；`devicePixelRatio` 封顶 1（铺满全屏的画布按 1.25 倍渲染等于多涂五成像素，而粒子只有一个像素大）。标签页切到后台时停笔。
 - **频谱画布**：以前不管在不在播放都跑满 60fps，而音乐页上同时挂着三块画布。现在分档：真实频谱取 `maxFps`（默认 45，唱片涟漪只要 30）、外链播放 30fps、纯待机 15fps，滚出视口或标签页在后台时一帧都不画；频谱柱的渐变按高度量化成 24 档缓存复用，不再每根柱子每帧 `createLinearGradient`；`devicePixelRatio` 封顶 1.5。
 - **起播那一瞬不和播放抢资源**：老曲目要现去解析歌词时，`probeDuration` 会另建一个 `<audio>` 把同一个文件再解码一遍，正好和用户的播放抢 CPU。现在正在播放的那一首不探时长（用播放器读到的值，还没有就先不带时长去搜），而且现去解析会推迟 1.2 秒，让音频先起来。
-- **样式冲突**：`style.css` 是追加式演进的，同一个选择器会在不同层次里被反复定义。之前 `.music-row` 有 6 条互相打架的全局规则、`:hover` 有 4 条不同的位移（最后一层还带 `!important`），暗色主题 16px 圆角、浅色主题 10px。现在曲目行只剩一条基准规则 + 一条窄屏覆盖 + 一条主题配色。
+- **样式冲突**：样式表是追加式演进的，同一个选择器会在不同层次里被反复定义。之前 `.music-row` 有 6 条互相打架的全局规则、`:hover` 有 4 条不同的位移（最后一层还带 `!important`），暗色主题 16px 圆角、浅色主题 10px。现在曲目行只剩一条基准规则 + 一条窄屏覆盖 + 一条主题配色。样式拆成了 `frontend/src/styles/` 下的若干文件，**import 顺序就是层叠顺序**，不要调整。
 
 ## 音乐与歌词
 
@@ -188,7 +210,7 @@ node measure.mjs                     # 打印关键元素的字号/盒尺寸/溢
 
 四层都没命中不是报错，而是把控制权交回给你：右栏变成「粘贴 / 上传 LRC」。手动保存的那一份会覆盖自动匹配的结果，`lyrics_source` 记着它是从哪来的。
 
-存的是 **LRC 原文**而不是解析结果：这样自动匹配到的那份可以被你直接改时间轴再存回去，前后端也不用维护两套格式。时间轴、当前句定位、乱序排序、`[offset:]`、`[mm:ss:xx]` 这种不规范写法都有 `node verify-lyrics.mjs` 覆盖。
+存的是 **LRC 原文**而不是解析结果：这样自动匹配到的那份可以被你直接改时间轴再存回去，前后端也不用维护两套格式。时间轴、当前句定位、乱序排序、`[offset:]`、`[mm:ss:xx]` 这种不规范写法都有 `npm run verify:lyrics` 覆盖。
 
 老曲目（这次改动之前上传的）在第一次播放时补解析一次；也可以点曲库上方的「补全歌词」把缺的批量匹配一遍。
 
@@ -271,55 +293,53 @@ npm install
 npm run dev
 ```
 
-可先不启动后端浏览页面和试用演示内容：接口不可达时会退回内置示例。此状态下只能看，不能写——新建和修改一律需要登录，所以没有后端时写不了东西。
+**不配任何环境变量也能跑。** 这时前端进入「本机预览模式」：接口不可达时会退回内置示例，
+数据只留在这个浏览器里。此状态下只能看、不能写——新建和修改一律需要登录。
+
+要连真实的 Supabase，复制 `frontend/.env.example` 成 `frontend/.env.local` 并填三个变量：
+`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`（这两个值设计上就是公开的，会打进前端产物）、
+以及可选的 `VITE_LYRICS_PROXY`（中文歌词中转，见 [音乐与歌词](#音乐与歌词)）。
 
 ## 自检命令
 
-这些检查不需要 Java、Maven 或数据库，用于在提交前挡住最容易被漏掉的问题：
+这些检查不需要浏览器、数据库或任何后端，用于在提交前挡住最容易被漏掉的问题：
 
 ```bash
 cd frontend
-npm run verify        # 模板里是否有未定义变量；每个页面是否有对应路由
-npm run test:render   # 用真实路由把 16 个页面各渲染一遍，再单渲染歌词栏/音乐盒的 7 个状态分支
+npm run new:page -- notes "随手记"      # 加页面：建好目录并把三处注册点一起改掉
+
+npm run verify        # 12 项结构检查：模板标识符、自定义指令、路由/页面注册表一致性、
+                      # 模板 class 是否有样式、fixed 包含块、粒子可见性、下拉菜单裁剪、
+                      # 目录 README 覆盖、孤儿文件
+npm run verify:all    # 上面这个 + 歌词解析 / 绩效公式 / 导入解析器三个离线自检
+npm run test:render   # 用真实路由把 16 个页面各渲染一遍，再渲染歌词栏/音乐盒的 7 个状态分支
 npm run build         # 生产构建
-
-cd ..
-node verify-lyrics.mjs         # 歌词解析：LRC 时间轴、当前句定位、曲名拆分、ID3 内嵌歌词
-node verify-backend.mjs        # 配置占位符、重复键、括号平衡、前后端接口对齐、实体字段 vs 迁移列
-node verify-backend-deps.mjs   # 逐个向 Maven Central 确认依赖坐标真实存在
-node verify-backend.mjs --routes   # 附加：打印后端全部路由
+npm test              # verify:all + test:render
 ```
 
-装好 JDK 21 与 Maven 后，后端自身也可以构建和测试：
+每一项为什么存在、各自覆盖什么，见 [`frontend/scripts/README.md`](frontend/scripts/README.md)。
+
+连接真实数据层时还可以跑一遍权限隔离测试：
 
 ```bash
-cd backend
-mvn test        # 12 个集成测试：真实 Spring 上下文 + H2（不需要 Docker/MySQL/MinIO）
-mvn package     # 产出可执行 jar：target/weiwei-blog-api-0.1.0.jar
+cd frontend
+npm run verify:supabase   # 19 项：真实读写 + 越权隔离（需要 SUPABASE_URL / SUPABASE_ANON_KEY）
 ```
 
-后端已启动并有真实 MySQL 时，还可以跑一遍真实 HTTP 端到端检查：
+### 只搬代码、不改行为时怎么验证
+
+`frontend/ssr-smoke/snapshot.mjs` 会把每条路由的 SSR 渲染结果写成一堆 HTML 文件：
 
 ```bash
-node verify-backend-e2e.mjs                    # 默认 http://127.0.0.1:8080
-API_BASE_URL=http://127.0.0.1:8080 node verify-backend-e2e.mjs
+cd frontend
+npx vite build --ssr ssr-smoke/entry.js --outDir ssr-smoke/dist-ssr --logLevel warn
+node ssr-smoke/snapshot.mjs ../before      # 改动前
+# …改代码…
+node ssr-smoke/snapshot.mjs ../after       # 改动后，逐字节比对
 ```
 
-## 本机账号、MySQL 与对象存储
-
-安装 JDK 21、Maven 和 Docker Compose。复制 `backend/.env.example` 中的变量到运行环境，换掉示例密码和 JWT 密钥，然后启动 MySQL/MinIO：
-
-```bash
-docker compose up -d
-```
-
-在 `backend/` 启动 Spring Boot API。Flyway 会创建所需表。将 `VITE_API_BASE_URL` 设为 API 地址；本机默认 `http://localhost:8080`。
-
-**`APP_JWT_SECRET` 没有默认值**，这是有意的：密钥缺失或短于 32 字节时服务会明确拒绝启动，而不是用一个已知密钥跑起来。它必须 ≥ 32 个 UTF-8 字节。
-
-已接通服务端保存的内容：账号、文章 CRUD、日记 CRUD/公开设置、已上传图片和音乐的媒体记录及签名上传/读取。公开相册只会返回设为公开的图片，私有媒体的临时读取链接仅发给所属账号。
-
-仍保存在当前浏览器的功能：留言、友链、博客首页公开开关、个人资料展示设置（未登录时）。未登录时不再能新建文章/日记、上传照片/音乐或导入日记——这些入口会直接引导登录，所以也不会再有「访客草稿被下一个登录账号收走」的情况。**不要把浏览器预览中的私密内容当作服务器备份。**日记 TXT/DOCX 可批量导入、预览/编辑后确认（需登录）；TXT 导出从当前设备的数据生成。
+这个仓库上一轮的大重构（把 1540 行的 `App.vue` 拆成 15 个页面文件夹）就是靠它保证
+「只搬代码、不改渲染」的——13 条路由逐字节相同，另外两条的差异也都能逐项解释。
 
 ### 封面与头像的保存方式
 
@@ -327,7 +347,21 @@ docker compose up -d
 
 ### 关于签名链接有效期
 
-`/api/media` 等接口返回的媒体地址是 1 小时有效的签名链接（`MediaAssetController.LINK_TTL`）。页面长时间开着不刷新时，图片会在链接过期后失效，刷新即可恢复。
+媒体地址是 **1 小时**有效的签名链接（`LINK_TTL`，定义在 `frontend/src/services/api.js`）。
+页面长时间开着不刷新时，图片会在链接过期后失效，刷新即可恢复。
+文章封面和头像存的是绝对地址或 `media:<媒体 id>` 引用——存引用正是因为签名链接会过期。
+
+### 什么东西存在服务端，什么东西只在本机
+
+| 内容 | 存哪 |
+| --- | --- |
+| 账号 | Supabase Auth |
+| 文章、日记、媒体元数据、绩效工作区 | Postgres（RLS 控制可见范围） |
+| 图片、音频文件本体 | Supabase Storage |
+| **留言板、友链** | **只在当前浏览器的 localStorage**（还没有后端表；界面提示写的是「已添加到预览」） |
+| 博客首页开关、日记默认可见范围、可视化模式、省电模式、学习进度 | 本机偏好，不落库 |
+
+**不要把浏览器里的东西当作服务器备份。**
 
 ## 公网发布
 
@@ -345,50 +379,18 @@ docker compose up -d
 
 ```powershell
 cd frontend
-npm run verify            # 前端静态检查
+npm run verify:all        # 12 项结构检查 + 三个离线自检
 npm run verify:supabase   # 19 项真实数据层与权限隔离测试（需要 SUPABASE_URL / SUPABASE_ANON_KEY）
 ```
 
-完整的部署说明、表结构与权限表、验证结果和已知限制见 `deploy/HOSTING.md`。
-`backend/` 目录里的 Java 实现保留作参考，**不再参与部署**——免费容器托管在 2025–2026 年基本消失
-（Render 要绑卡、Back4App 免费档部署 50 分钟后销毁、Northflank 要绑卡），原因记录在 `deploy/HOSTING.md`。
+完整的部署说明、表结构与权限表、验证结果和已知限制见 [`deploy/HOSTING.md`](deploy/HOSTING.md)。
 
-`db/schema.sql` 与 `backend/src/main/resources/db/migration/` 是旧 Java 后端的建表脚本，**现在都不再使用**；
-当前的结构以 `supabase/schema.sql` 为准。
+`legacy/` 里那套 Java 实现保留作参考，**不参与构建也不参与部署**——
+免费容器托管在 2025–2026 年基本消失（Render 要绑卡、Back4App 免费档部署 50 分钟后销毁、
+Northflank 要绑卡），换 Supabase 的原因记录在 `deploy/HOSTING.md` 里。
+当前的数据结构以 [`supabase/schema.sql`](supabase/schema.sql) 为准。
 
-## 当前验证边界
+## 历史记录
 
-开发环境只有 Node 18，**没有 JDK、Maven、Docker 或 git**。为了真正验证后端，JDK 21.0.12.1 与 Maven 3.9.9 被下载到项目外的 `D:\a唯唯项目\.build-tools\`，MySQL 8.4.6 被解压到 `D:\weiwei-mysql\`（数据目录 `D:\weiwei-mysql-data\`）。这三处都在仓库之外，可以随时删除；仓库里没有任何构建产物。
-
-已实际执行并通过：
-
-- **后端编译、打包成功**：`mvn package` 产出可执行 jar（74 MB），这是该项目第一次真正编译。
-- **12 个集成测试全部通过**（`mvn test`）：真实 Spring 上下文 + H2，覆盖注册/登录/签发与校验 JWT、错误密码 401、重复邮箱 409、密码过短 400、匿名访问受保护接口 401、伪造签名与伪造签发者的 token 被拒、跨账号读写隔离、公开日记只含 PUBLIC、文章字段与日期校验。
-- **在真实 MySQL 8.4.6 上启动成功**：Flyway 按顺序应用 V1–V5（`flyway_schema_history` 五行 `success=1`），生产配置 `ddl-auto: validate` 通过（无 `Schema-validation` 报错），Tomcat 监听 8080。
-- **59 项真实 HTTP 端到端检查全部通过**（`node verify-backend-e2e.mjs`），包括中文与 emoji 的 utf8mb4 往返、CORS 预检只有单个 `Access-Control-Allow-Origin`、越权访问返回 404，以及本轮新增的权限模型验证：`/api/public/perf/workspaces` 匿名可读且字段完整、匿名写绩效仍是 401、第二个账号写入自己的绩效数据后第一份原样还在（互不干扰）。
-- 前端生产构建通过；`npm run verify` 通过；`npm run test:render` 的 16 个路由全部渲染无警告；`verify-perf.mjs`（81 项）与 `verify-ocr.mjs`（41 项）全部通过。
-
-仍未验证：
-
-- **浏览器视觉未经肉眼确认**（本机无浏览器），尤其是粒子背景层与响应式断点。
-- **对象存储（MinIO/S3）链路未联调**：签名上传、直传、私有媒体的临时读取链接都没有跑过真实对象存储。S3 客户端 Bean 能正常构造，但没有执行过任何一次真实上传或下载。
-- 公网发布未执行（无 GitHub 授权与远程仓库）。
-
-### 本轮自检中修复的关键问题
-
-以下问题会直接导致功能不可用或数据丢失。前三项由「真实编译 + 真实启动」暴露或确认，不是推测：
-
-- **后端无法解析依赖**：`software.amazon.awssdk:s3` 固定在不存在的 `2.34.12`（Central 上只有 2.34.0–2.34.9、2.35.0+），Maven 会直接拒绝构建。
-- **Flyway 从未执行**：Spring Boot 4 把 Flyway 自动配置移到了 `spring-boot-flyway`，而 `flyway-core` 不会传递依赖它。缺 `spring-boot-starter-flyway` 时没有任何迁移会执行，`ddl-auto: validate` 随即以「missing table [blog_users]」启动失败。日志中出现的 `org.springframework.boot.flyway.autoconfigure.FlywayMigrationInitializer` 证明这条链路现在真的在跑。
-- **登录/注册必然 500**：签发 token 时没有指定 JWS 头，而 `NimbusJwtEncoder` 默认头是 RS256，本项目用的是 HMAC 共享密钥，选不到签名密钥。
-- **匿名请求的 4xx 会被替换成 401**：控制器返回错误状态时会触发到 `/error` 的 ERROR dispatch，而授权过滤器对该 dispatch 同样生效（`shouldFilterAllDispatcherTypes` 默认为 true）。结果是公开接口上的「邮箱已注册」「密码过短」全都变成 401，真实原因传不到浏览器。这个只在**真实启动**后才暴露：MockMvc 不做容器级 ERROR dispatch，所以 H2 集成测试看不见它。
-- **6 个已实现的页面完全无法进入**：分类、标签、公开日记、留言板、友链、时光归档既没有导航入口也没有路由；「关于我」缺少路由，点击会抛错。
-- **未同步的本地草稿会被下一次刷新抹掉**：同步失败的分支注释写着「保留草稿」，但代码随后用服务端结果整体覆盖了数组，深度 watch 又把覆盖结果写回 localStorage。
-- **未登录作者的文章会被公开列表覆盖**，写完后刷新即丢失。
-- **`media:` 引用被当作图片地址直接渲染**：首页文章卡用的是原始字段，经本身上传的封面会显示为裂图。
-- **`playerPicker` 未声明**：播放器上的 ♫ 按钮点了没反应；**模板里直接用了 `localStorage`/`document`**：默认可见范围设置保存时报错、搜索按钮无法聚焦。
-- **第二次 `createMediaElementSource` 抛错**：播放过在线音乐后再播放本地音乐，音频会永久失效。
-- **`HttpStatus.PAYLOAD_TOO_LARGE` 在 Spring 7 已废弃**（改用 `CONTENT_TOO_LARGE`），编译时才有警告。
-- **示例数据会顶替真实数据**：接口一旦返回内容就不应再显示内置样例；反之访客也不该看到虚构文章。
-- **示例照片的 id 与真实媒体 id 撞号**：在处理完成前点击示例照片的「公开」，会真的改掉数据库里同号媒体记录的可见范围。
-
+以前几轮踩过的坑、当时的验证结论和已知边界，都移到了 [`CHANGELOG.md`](CHANGELOG.md)——
+那里是「当时发生了什么」，README 只保留「现在是什么样」。

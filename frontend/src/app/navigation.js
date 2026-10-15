@@ -1,0 +1,33 @@
+// 导航表。页面 id 同时是路由名，两者必须一一对应（`npm run verify` 的第 [2] 项会检查）。
+//
+// 音乐放在主导航里——之前被收进「更多」，很难找到入口。
+// 绩效计算器是独立工具，不占主导航——从「更多」或创作管理页路由进去。
+export const navigation = [
+  { id: 'home', label: '首页', icon: '⌂' },
+  { id: 'study', label: '学习', icon: '✦' },
+  { id: 'music', label: '音乐', icon: '♫' },
+  { id: 'articles', label: '文章', icon: '✎' },
+  { id: 'diary', label: '日记', icon: '❏' },
+  { id: 'gallery', label: '相册', icon: '▧' },
+]
+
+// 其余页面收在「更多」里。
+export const secondaryNavigation = [
+  { id: 'admin', label: '创作管理', icon: '⚙' },
+  { id: 'perf', label: '绩效计算器', icon: '¥' },
+  { id: 'about', label: '关于我', icon: '✿' },
+  { id: 'categories', label: '文章分类', icon: '◈' },
+  { id: 'tags', label: '标签星图', icon: '＃' },
+  { id: 'archives', label: '时光归档', icon: '◷' },
+  { id: 'messages', label: '留言板', icon: '✉' },
+  { id: 'friends', label: '朋友们', icon: '↔' },
+]
+
+// 两组导航拼成的完整表。只在本文件里给 pageLabel 用，不对外导出——
+// 外面要「有哪些页面」应该去问 app/pageRegistry.js 或 app/routes.js。
+const allNavigation = [...navigation, ...secondaryNavigation]
+
+/** 顶栏面包屑用：页面 id → 中文名。找不到就返回空串（不显示）。 */
+export function pageLabel(id) {
+  return allNavigation.find((item) => item.id === id)?.label || ''
+}

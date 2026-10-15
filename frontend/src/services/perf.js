@@ -236,25 +236,6 @@ export function computeAll(members, entries, queues, constants = PERF_CONSTANTS)
   }
 }
 
-/** 按队列分组，用于「对着队列名称录数据」的界面。 */
-export function groupByQueue(queues, entries, members) {
-  const memberMap = new Map(members.map((m) => [m.id, m]))
-  const groups = queues.map((queue) => ({
-    queue,
-    rows: entries
-      .filter((entry) => entry.queue === queue.name)
-      .map((entry) => ({ entry, member: memberMap.get(entry.memberId) || null }))
-      .filter((row) => row.member),
-  }))
-  const known = new Set(queues.map((q) => q.name))
-  const orphans = entries
-    .filter((entry) => !known.has(entry.queue))
-    .map((entry) => ({ entry, member: memberMap.get(entry.memberId) || null }))
-    .filter((row) => row.member)
-  if (orphans.length) groups.push({ queue: { name: '（已删除的队列）', kpi: 0 }, rows: orphans })
-  return groups
-}
-
 /** 单价自检：和飞书表格里的参考单价对比，能反过来验证 KPI 有没有抄错。 */
 export function priceCheck(queues, requiredHours, constants = PERF_CONSTANTS) {
   const out = []
@@ -281,28 +262,4 @@ export function normalizeQueues(stored, fallback = PERF_QUEUES) {
     if (queue.standardAht > 0) return { ...queue, kpi: Math.round(PERF_CONSTANTS.kpiBase / queue.standardAht) }
     return { ...queue, kpi: 0 }
   })
-}
-
-/**
- * 把上一版「一个员工一行、带队列与审核量」的存档，迁移成「员工 + 明细」两段式。
- */
-export function migrateLegacy(storedMembers) {
-  const members = []
-  const entries = []
-  for (const old of Array.isArray(storedMembers) ? storedMembers : []) {
-    const member = {
-      id: old.id || uid('m'),
-      name: old.name || nameFromEmail(old.email),
-      email: old.email || '',
-      requiredHours: num(old.requiredHours) || DEFAULT_REQUIRED_HOURS,
-      transferHours: num(old.transferHours),
-      overtimeHours: num(old.overtimeHours),
-      tripleHours: num(old.tripleHours),
-    }
-    members.push(member)
-    if (old.queue || num(old.auditCount) || num(old.actualAht)) {
-      entries.push({ id: uid('e'), memberId: member.id, queue: old.queue || '', actualAht: num(old.actualAht), auditCount: num(old.auditCount) })
-    }
-  }
-  return { members, entries }
 }

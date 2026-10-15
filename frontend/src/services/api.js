@@ -17,8 +17,8 @@ const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.met
 const SUPABASE_URL = env.VITE_SUPABASE_URL || ''
 const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || ''
 
-/** 对象存储桶名，和 supabase/schema.sql 里的存储策略对应。 */
-export const MEDIA_BUCKET = 'weiwei-media'
+/** 对象存储桶名，和 supabase/schema.sql 里的存储策略对应。只在本文件里用。 */
+const MEDIA_BUCKET = 'weiwei-media'
 /** 签名链接有效期（秒），和原来后端的 1 小时一致。 */
 const LINK_TTL = 3600
 const MAX_UPLOAD_BYTES = 30 * 1024 * 1024

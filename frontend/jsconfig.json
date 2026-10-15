@@ -1,0 +1,25 @@
+{
+  "// 说明": "给编辑器和 TypeScript 语言服务看的配置。项目本身是纯 JS，不需要编译步骤——这个文件唯一的作用是让 IDE 认得 vite.config.js 里定义的 `@/` 别名，并给 .vue 文件正确的语言支持。",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/**/*.js",
+    "src/**/*.vue",
+    "scripts/**/*.mjs",
+    "ssr-smoke/**/*.js",
+    "ssr-smoke/**/*.mjs",
+    "vite.config.js"
+  ],
+  "exclude": ["node_modules", "dist", "ssr-smoke/dist-ssr"]
+}

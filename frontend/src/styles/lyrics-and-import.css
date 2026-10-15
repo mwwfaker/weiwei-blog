@@ -1,0 +1,196 @@
+/* ===== 歌词栏（音乐页右栏） ============================================ */
+.lyrics-panel{
+  display:grid;grid-template-rows:auto minmax(0,1fr);min-height:380px;
+  border-radius:26px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--panel) 90%,transparent);
+  overflow:hidden;
+}
+.lyrics-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:18px 20px 13px;border-bottom:1px solid var(--line);
+}
+.lyrics-head h2{margin:6px 0 0;font-family:var(--serif);font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.lyrics-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lyrics-source{font-size:9px;color:var(--muted);letter-spacing:.03em;margin-right:2px}
+.lyrics-tool{
+  padding:5px 10px;border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  background:color-mix(in srgb,var(--panel-raised) 70%,transparent);color:var(--muted);font-size:10.5px;
+  transition:color .3s ease,border-color .3s ease,background-color .3s ease,transform .3s ease;
+}
+.lyrics-tool:hover{color:var(--accent);border-color:var(--accent);transform:translateY(-1px)}
+.lyrics-tool.is-primary{color:#fff;border-color:transparent;background:linear-gradient(140deg,#b48bf5,#7a52d8)}
+
+.lyrics-scroll{
+  position:relative;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  padding:14px 12px;scrollbar-width:thin;
+  /* 上下边缘淡出：歌词从中间浮出来，而不是被硬切一刀 */
+  mask-image:linear-gradient(180deg,transparent 0,#000 52px,#000 calc(100% - 52px),transparent 100%);
+}
+.lyrics-scroll.is-static{mask-image:none;padding:18px 22px}
+.lyrics-pad{height:42%}
+
+/* 歌词居中。唱到的那一句用 transform 放大而不是改 font-size：
+   改 font-size 会让整个列表回流，每次换行都可能抖一下；transform 只影响合成层，
+   而且「变高 + 字体变大」的观感完全一样。                                       */
+.lyric-line{
+  display:block;margin:5px 0;padding:9px 16px;border-radius:12px;cursor:pointer;
+  text-align:center;
+  color:color-mix(in srgb,var(--muted) 78%,transparent);
+  font-family:var(--serif);font-size:14px;line-height:1.65;
+  transform-origin:center center;
+  transition:color .35s ease,background-color .35s ease,transform .38s cubic-bezier(.22,.9,.24,1),
+             opacity .35s ease,box-shadow .38s ease;
+}
+.lyric-line:hover{color:var(--ink);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.lyric-line.is-past{color:color-mix(in srgb,var(--muted) 55%,transparent)}
+.lyric-line.is-active{
+  color:var(--ink);font-weight:700;
+  background:color-mix(in srgb,var(--accent) 15%,transparent);
+  box-shadow:0 10px 30px -18px color-mix(in srgb,var(--accent) 90%,transparent);
+  transform:scale(1.16);
+}
+.lyric-text{display:block;overflow-wrap:anywhere}
+.lyrics-plain{margin:0;white-space:pre-wrap;text-align:center;font-family:var(--serif);font-size:13px;line-height:2;color:var(--ink)}
+
+.lyrics-status{display:grid;place-content:center;justify-items:center;gap:9px;text-align:center;padding:26px}
+.lyrics-status h3{margin:0;font-family:var(--serif);font-size:15px;font-weight:600}
+.lyrics-status p{margin:0;font-size:11px;line-height:1.8;color:var(--muted);max-width:34ch}
+.lyrics-empty-mark{font-size:26px;color:color-mix(in srgb,var(--accent) 60%,transparent)}
+.lyrics-empty-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:5px}
+.lyrics-spinner,.import-row-spinner{
+  display:inline-block;width:13px;height:13px;border-radius:50%;
+  border:2px solid color-mix(in srgb,var(--accent) 28%,transparent);border-top-color:var(--accent);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 解析歌词时的骨架行：让右栏在等待期间也有内容感，而不是一句提示悬在中央。 */
+.lyrics-skeleton{display:grid;gap:9px;width:min(300px,72%);margin-top:8px}
+.lyrics-skeleton i{
+  height:11px;border-radius:999px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--ink) 7%,transparent) 0%,
+    color-mix(in srgb,var(--accent) 26%,transparent) 45%,color-mix(in srgb,var(--ink) 7%,transparent) 100%);
+  background-size:220% 100%;
+  animation:shimmer 1.5s ease-in-out infinite;
+  animation-delay:calc(var(--n) * .12s);
+}
+.lyrics-skeleton i:nth-child(1){width:86%;justify-self:center}
+.lyrics-skeleton i:nth-child(2){width:64%;justify-self:center}
+.lyrics-skeleton i:nth-child(3){width:78%;justify-self:center}
+.lyrics-skeleton i:nth-child(4){width:52%;justify-self:center}
+@keyframes shimmer{0%{background-position:140% 0}100%{background-position:-40% 0}}
+
+.lyrics-editor{display:grid;gap:10px;padding:15px 18px 18px;min-height:0;align-content:start}
+.lyrics-hint{margin:0;font-size:10.5px;line-height:1.75;color:var(--muted)}
+.lyrics-hint code{padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--ink) 8%,transparent);font-size:10px}
+.lyrics-textarea{
+  width:100%;min-height:150px;resize:vertical;padding:12px 13px;border-radius:12px;
+  border:1px solid var(--line);background:var(--panel-raised);color:var(--ink);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.8;
+}
+.lyrics-textarea:focus{outline:none;border-color:var(--accent)}
+.lyrics-editor-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lyrics-warn{font-size:10px;color:var(--muted)}
+
+/* ===== 曲库列表里的歌词状态 ============================================= */
+/* 曲名与副标题竖排。原来这条只在 :root.dark 里写过，浅色主题下两行会并排挤成一行。 */
+.music-row-name{display:grid;gap:4px;min-width:0;flex:1}
+
+/* ===== 后台导入任务卡 ===================================================
+   上传和歌词匹配都放在后台跑，进度就以一条队列的形式长在音乐页里，不浮在屏幕上挡人。 */
+
+/* ===== 导入队列（音乐页内联） ===========================================
+   放在曲库上方，一条一个文件。进度条和解析动效都在各自那一行里，
+   所以「哪一首正在解析歌词」是一眼的事，不用去别处找浮层。                    */
+.import-queue{
+  margin:0 0 20px;padding:16px 18px 14px;border-radius:20px;
+  border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
+  background:
+    radial-gradient(120% 120% at 0% 0%,color-mix(in srgb,var(--accent) 11%,transparent),transparent 62%),
+    color-mix(in srgb,var(--panel) 90%,transparent);
+}
+.import-queue-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.import-queue-head h2{margin:6px 0 0;font-family:var(--serif);font-size:16px;font-weight:600}
+.import-queue-head h2 em{
+  font-style:normal;font-size:11px;font-weight:600;
+  margin-left:6px;padding:2px 8px;border-radius:999px;
+  color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);
+}
+.import-queue-tools{display:flex;align-items:center;gap:9px}
+.import-queue-live{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;color:var(--accent)}
+.import-queue-live i{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  animation:queuePulse 1.4s ease-in-out infinite;
+}
+@keyframes queuePulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+
+.import-list{display:grid;gap:8px}
+.import-row{
+  display:grid;align-items:center;
+  grid-template-columns:30px 30px minmax(0,1fr) auto auto;
+  grid-template-areas:
+    "idx mark copy stage actions"
+    ".   .    bar  bar   bar";
+  gap:6px 11px;
+  padding:11px 13px;border-radius:14px;
+  border:1px solid var(--line);
+  background:color-mix(in srgb,var(--panel-raised) 60%,transparent);
+  transition:border-color .35s ease,background-color .35s ease;
+}
+.import-row.is-done{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.import-row.is-error{border-color:#c96a80}
+.import-row.is-lyrics{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.import-row-index{grid-area:idx;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.import-row-mark{
+  grid-area:mark;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;color:var(--muted);
+  border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 70%,transparent);
+}
+.import-row-mark i{font-style:normal}
+.import-row.is-done .import-row-mark{color:#fff;border-color:transparent;background:linear-gradient(140deg,#b48bf5,#7a52d8)}
+.import-row.is-error .import-row-mark{border-color:#c96a80;color:#e0879a}
+.import-row-copy{grid-area:copy;display:grid;gap:3px;min-width:0}
+.import-row-copy strong{font-family:var(--serif);font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.import-row-copy small{font-size:10px;line-height:1.6;color:var(--muted)}
+.import-row.is-error .import-row-copy small{color:#c96a80}
+.import-row-stage{
+  grid-area:stage;white-space:nowrap;font-size:9.5px;color:var(--muted);
+  padding:4px 9px;border-radius:999px;border:1px solid var(--line);
+}
+.import-row.is-lyrics .import-row-stage,.import-row.is-done .import-row-stage{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 34%,transparent)}
+.import-row-actions{grid-area:actions;display:flex;align-items:center;gap:6px}
+.import-row-play{padding:6px 12px;font-size:10.5px}
+.import-row-close{
+  width:24px;height:24px;flex:none;border:0;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;
+  background:transparent;color:var(--muted);transition:color .3s ease,background-color .3s ease;
+}
+.import-row-close:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.import-row-bar{
+  grid-area:bar;position:relative;height:5px;border-radius:999px;
+  background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden;
+}
+.import-row-bar>i{
+  display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 55%,transparent),var(--accent));
+  transition:width .5s cubic-bezier(.22,.9,.24,1);
+}
+/* 上传和在线匹配拿不到真实字节数，用一条流动的条纹表示「还在动」而不是假装知道百分比。 */
+.import-row.is-indeterminate .import-row-bar>i{
+  background-image:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.55) 50%,transparent 80%);
+  background-size:60% 100%;background-repeat:no-repeat;
+  animation:jobFlow 1.25s linear infinite;
+}
+@keyframes jobFlow{0%{background-position:-60% 0}100%{background-position:160% 0}}
+
+/* 解析歌词时这一行自己的电平柱：动效就在这条队列上，而不是另开一个弹窗。 */
+.import-row-eq{display:flex;align-items:flex-end;gap:2px;height:13px}
+.import-row-eq i{
+  width:2px;height:100%;border-radius:2px;background:var(--accent);
+  transform-origin:bottom;animation:rowBar .95s ease-in-out infinite;
+  animation-delay:calc(var(--n) * .12s);
+}
+.import-row-eq i:nth-child(1){height:55%}
+.import-row-eq i:nth-child(2){height:100%}
+.import-row-eq i:nth-child(3){height:70%}
+.import-row-eq i:nth-child(4){height:88%}
+

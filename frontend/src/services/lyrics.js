@@ -352,7 +352,7 @@ async function fetchWithTimeout(url, options = {}) {
  * LRCLIB：免费开源歌词库，接口直接允许浏览器跨域调用，不需要 key、不需要后端。
  * 先按「曲名 + 歌手 + 时长」做精确查询（命中率高且不会拿错歌），失败再退回模糊搜索。
  */
-export async function fetchFromLrclib({ title, artist, album, duration }) {
+async function fetchFromLrclib({ title, artist, album, duration }) {
   const trackName = String(title || '').trim()
   if (!trackName) return null
 
@@ -401,7 +401,7 @@ export async function fetchFromLrclib({ title, artist, album, duration }) {
  *
  * 中转的约定：`GET <proxy>?title=歌名&artist=歌手`，返回 `{ lrc, source }` 或直接返回 LRC 文本。
  */
-export async function fetchFromChineseSource({ title, artist }, proxyUrl) {
+async function fetchFromChineseSource({ title, artist }, proxyUrl) {
   if (!proxyUrl) return null
   const trackName = String(title || '').trim()
   if (!trackName) return null
@@ -427,10 +427,14 @@ export async function fetchFromChineseSource({ title, artist }, proxyUrl) {
 
 // ==================================================================== 统一入口
 
-/** 这个浏览器会不会自动去网上找歌词。访客的浏览器也一样会找，所以默认开着。 */
-let networkEnabled = true
-export function setLyricsNetworkEnabled(value) { networkEnabled = Boolean(value) }
-export function lyricsNetworkEnabled() { return networkEnabled }
+/**
+ * 这个浏览器会不会自动去网上找歌词。访客的浏览器也一样会找，所以默认开着。
+ *
+ * 目前**没有任何地方会把它关掉**——它是留给「不联网找歌词」这个偏好设置的唯一开关。
+ * 之前配套导出的 setLyricsNetworkEnabled / lyricsNetworkEnabled 从来没有被调用过，
+ * 已经删掉；要加那个偏好设置时，在这里补一个 setter 并接到设置页即可。
+ */
+const networkEnabled = true
 
 /**
  * 按四层顺序把一首歌的歌词找出来。

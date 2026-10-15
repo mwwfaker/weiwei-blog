@@ -1,0 +1,28 @@
+root = true
+
+# 这个仓库前端是 LF、2 空格；下面按类型分开写，避免不同编辑器的默认值打架。
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Markdown 里的行尾空格是有意义的（硬换行），不要清掉。
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+# 已归档的 Java 后端（legacy/）沿用 Java 惯例。
+[*.java]
+indent_size = 4
+
+[*.{json,jsonc}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab

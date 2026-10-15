@@ -21,7 +21,7 @@ GitHub 仓库 ──自动构建──> GitHub Pages    → https://mwwfaker.git
 **没有后端服务器**。原来是 Java（Spring Boot）+ MySQL + MinIO，现在这些都不需要跑了：账号交给 Supabase Auth，
 数据存在 Postgres 里，图片音乐放在 Storage。前端通过 [frontend/src/services/api.js](../frontend/src/services/api.js)
 这个「后端模拟器」直接和 Supabase 对话 —— 对外仍然是 `request('/api/diaries', ...)`，
-所以 App.vue 那些调用点一行都不用改。
+所以各个 store 与页面里的调用点一行都不用改。
 
 访问控制不在前端做，而在数据库的 RLS 策略里：**前端就算被改坏，也读不到别人的私密数据**。
 
@@ -47,8 +47,8 @@ cd D:\a唯唯项目\唯唯博客网
 git add -A; git commit -m "改了什么"; git push
 ```
 
-推送后 GitHub Actions 会自动构建并发布（约 2 分钟）。只要改动落在 `frontend/**`、
-`verify-frontend.mjs` 或工作流文件里就会触发；只改 README 之类不会。
+推送后 GitHub Actions 会自动构建并发布（约 2 分钟）。只要改动落在 `frontend/**`
+或工作流文件里就会触发；只改 README 之类不会。
 
 > 桌面上有 `唯唯园-推送代码.bat`，双击等价于上面三条命令。
 
@@ -140,7 +140,8 @@ node supabase/apply.mjs
 - **绩效数据的公开读取是按既定设计做的**：`perf_members` 里含成员姓名和邮箱，
   且匿名可读。如果这些是同事的真实信息，请再确认一次是否真的要公开。
 - **旧资源可以清理**：Aiven 的 MySQL、Back4App 的应用现在都不再被使用，想省事可以直接删除；
-  `backend/` 目录的 Java 代码保留在仓库里做参考，不再参与部署。
+  `legacy/backend/` 的 Java 代码保留在仓库里做参考（见 [legacy/README.md](../legacy/README.md)），
+  不参与构建也不参与部署。
 
 ## 七、数据备份
 
@@ -157,10 +158,11 @@ node supabase/apply.mjs
 
 ## 八、历史记录：已经废弃的部署尝试
 
-这些配置仍留在仓库里，但**都已失效，不要照着用**：
+这些配置仍留在仓库里（都在 [`legacy/`](../legacy/README.md) 下），但**都已失效，不要照着用**：
 
-- [render.yaml](../render.yaml) —— Render 蓝图（需要绑卡）
-- [backend/Dockerfile](../backend/Dockerfile)、[Dockerfile](../Dockerfile) —— 旧 Java 后端镜像
-  （Back4App 用它部署，免费档约 50 分钟后销毁）
-- [deploy/production.env.example](production.env.example) —— 旧 Java 后端的环境变量模板
-- [deploy/r2-cors.json](r2-cors.json) —— Cloudflare R2 的跨域配置（R2 需绑卡，未开通）
+- [legacy/render.yaml](../legacy/render.yaml) —— Render 蓝图（需要绑卡）
+- [legacy/backend/Dockerfile](../legacy/backend/Dockerfile)、[legacy/Dockerfile](../legacy/Dockerfile)
+  —— 旧 Java 后端镜像（Back4App 用它部署，免费档约 50 分钟后销毁）
+- [legacy/deploy/production.env.example](../legacy/deploy/production.env.example) —— 旧 Java 后端的环境变量模板
+- [legacy/deploy/r2-cors.json](../legacy/deploy/r2-cors.json) —— Cloudflare R2 的跨域配置（R2 需绑卡，未开通）
+- [legacy/deploy/minio-cors.json](../legacy/deploy/minio-cors.json) —— 本机 MinIO 的跨域配置

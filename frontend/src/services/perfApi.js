@@ -1,11 +1,6 @@
 // 绩效工作区：整份读、整份写。后端在事务里整体替换，所以不会出现写了一半的状态。
 import { request } from './api'
 
-/** 后端存的是队列 / 员工 / 明细三段，前端直接用字符串 id 引用，中间不做映射。 */
-export async function loadWorkspace(token) {
-  return request('/api/perf/workspace', { token })
-}
-
 /**
  * 公开读取：不登录也能读到全部账号的绩效工作区（`{ ownerId, ownerName, queues, members, entries }[]`）。
  * 查看对所有人开放，写仍然要登录，并且只会覆盖自己的那一份。

@@ -7,11 +7,15 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "verify": "node ../verify-frontend.mjs",
-    "verify:perf": "node ../verify-perf.mjs",
-    "verify:ocr": "node ../verify-ocr.mjs",
+    "verify": "node scripts/verify-frontend.mjs",
+    "verify:lyrics": "node scripts/verify-lyrics.mjs",
+    "verify:perf": "node scripts/verify-perf.mjs",
+    "verify:ocr": "node scripts/verify-ocr.mjs",
     "verify:supabase": "node verify-supabase.mjs",
-    "test:render": "vite build --ssr ssr-smoke/entry.js --outDir ssr-smoke/dist-ssr --logLevel warn && node ssr-smoke/run.mjs"
+    "verify:all": "npm run verify && npm run verify:lyrics && npm run verify:perf && npm run verify:ocr",
+    "new:page": "node scripts/new-page.mjs",
+    "test:render": "vite build --ssr ssr-smoke/entry.js --outDir ssr-smoke/dist-ssr --logLevel warn && node ssr-smoke/run.mjs",
+    "test": "npm run verify:all && npm run test:render"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",
@@ -26,5 +30,8 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
     "vite": "^6.4.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

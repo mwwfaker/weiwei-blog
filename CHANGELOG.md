@@ -1,0 +1,109 @@
+# 变更记录
+
+按时间倒序。这份文件记的是**「当时发生了什么」**——踩过的坑、当时的验证结论与已知边界；
+README 只保留「现在是什么样」。新的一条加在最上面。
+
+---
+
+## 2026 · 把「约定」变成会自己执行的规则
+
+上一轮把结构定下来了，但约定只写在文档里——**新会话里的 AI 读不到，人类也会忘记**。
+这一轮解决的是「怎么保证以后也照这样做」。
+
+- **新增 `AGENTS.md`。** 这是 DSH 在**新会话的第一条消息里唯一会自动注入**的文件
+  （「项目根 → 当前工作目录」链上的 `AGENTS.md`，60 KB 预算）。
+  以前写的 `CONTRIBUTING.md` / `项目结构说明.md` / 那 47 份 `README.md` **一份都不会被自动加载**——
+  所以把「必须照做且会被检查」的部分全搬进了这一份。
+- **新增 `npm run new:page` 生成器。** 加页面要同时改三处注册点，靠人记一定会漏。
+  现在一条命令建目录、写骨架与 README、改好 `routes.js` / `pageRegistry.js` / `navigation.js`，
+  写完还会自己重读确认。
+- **`verify-frontend.mjs` 从 9 项扩到 12 项**，补上「改代码」时最容易破的三条：
+  - **[10] 分层越界** —— 页面/模块里直接 `request()`/读 `localStorage`、`services/` 反过来 import store
+  - **[11] 不许新增 `<style scoped>`**
+  - **[12] 单文件体积提示**（> 400 行）
+- **`run.mjs` 的渲染测试改成从真实路由表推导**，不再手写路径列表——
+  原来新加页面没人同步它，测试会一直绿着而新页面从没被渲染过。
+- **纠正了两条和代码实际做法不符的规则**（这是这一轮最值钱的产出）：
+  1. 「被两个及以上页面用到才进 `modules/`」——实际不是这样（`MusicPlayerPanel` 只被音乐页用，
+     却在 `modules/music/`）。真实原则是**按领域成套装**，`pages/<页面>/components/` 放页面版面部件。
+  2. 「不要写 `<style scoped>`」——学习页自己就违规，而且后果是实在的：
+     scoped 的属性选择器让它压过 `styles/polish-and-light-theme.css` 的「统一圆角」层，
+     于是那一层**对学习页从来没生效过**（学习页到现在还有 30/19/17 三种圆角）。
+     这一条现在登记在 `KNOWN_SCOPED_STYLES` 里，并在 `pages/study/README.md` 写清了来龙去脉。
+     要收拾得连着视觉一起改，所以留作待办。
+
+### 生成器自己踩的坑（被检查当场抓住）
+
+`npm run new:page` 第一次跑生成了 `smoke-test: SmokeTestPage,`——连字符不是合法标识符，
+这是个**语法错误**，SSR 构建直接挂。是 `verify` 第 [3] 项和 `test:render` 一起把它抓出来的。
+顺带发现 `verify` 第 [3] 项读不懂带引号的键（`'smoke-test': X`）会误报，也一并修了。
+
+---
+
+## 2026 · 结构大修（前端重排 + 归档 Java 后端）
+
+**前端从「大文件堆叠」重排成按页面/模块分层：**
+
+| 文件 | 之前 | 之后 |
+| --- | --- | --- |
+| `frontend/src/App.vue` | 1540 行（15 个页面 + 9 个弹窗 + 播放器 + 全部业务状态） | 16 行，只挂外壳 |
+| `frontend/src/pages/perf/PerfPage.vue` | 2424 行单文件 | 页面本体 + 9 个板块组件 + 8 个 composable + `perf.css` |
+| `frontend/src/styles/` | 单个 1159 行的 `style.css` | 7 个文件，import 顺序即层叠顺序 |
+| 仓库根目录 | 8 个 verify 脚本 + 79 个一次性补丁脚本 | 只剩 README/LICENSE/CONTRIBUTING 等文档 |
+
+- 新增分层：`app/`（骨架）、`layouts/`（外壳）、`pages/`（15 个页面文件夹）、
+  `modules/`（跨页面复用块）、`stores/`（8 个 Pinia store）。
+- 每个目录配一份 `README.md`；`npm run verify` 从「只查 App.vue」改成对全部 62 个组件逐项检查，
+  并且会强制这些约定（目录缺 README、页面没注册、模板 class 没样式、孤儿文件都会红）。
+- 验证方式：改动前后把 16 条路由的 SSR 渲染结果逐字节比对，13 条完全相同，
+  另外两条的差异（学习页补回丢失的外层包裹、绩效页去 scoped 后少掉的 `data-v` 属性）都能逐项解释。
+  首屏 CSS 产物哈希与重构前一致。
+- **顺带修好 3 个一直存在的 bug**：绩效页的 `filledCount` / `resetQueues` / `resetConstants`
+  在模板里被引用但从未定义——「已填 N」永远是空的，两个「恢复默认」按钮点了没反应。
+  旧的 verify 只检查 App.vue，所以一直没被发现。
+- 清理死代码：删掉 29 个只在样式表里出现、代码里一次都没用到的类（首屏 CSS 108133 → 105026 字节），
+  11 个从未被引用的导出，以及 1 个孤儿 `@keyframes`。
+- **归档 Java 后端**：`backend/`、`db/`、`Dockerfile`、`render.yaml`、`compose.yaml`、后端相关的
+  verify 脚本与部署配置整体移到 `legacy/`，不参与构建也不参与部署（见 `legacy/README.md`）。
+
+---
+
+## 更早：Java 后端那一轮（现已在 `legacy/`）
+
+下面这些是换成 Supabase 之前、用 Java 21 + Spring Boot + MySQL + MinIO 时留下的记录。
+
+## 当前验证边界
+
+开发环境只有 Node 18，**没有 JDK、Maven、Docker 或 git**。为了真正验证后端，JDK 21.0.12.1 与 Maven 3.9.9 被下载到项目外的 `D:\a唯唯项目\.build-tools\`，MySQL 8.4.6 被解压到 `D:\weiwei-mysql\`（数据目录 `D:\weiwei-mysql-data\`）。这三处都在仓库之外，可以随时删除；仓库里没有任何构建产物。
+
+已实际执行并通过：
+
+- **后端编译、打包成功**：`mvn package` 产出可执行 jar（74 MB），这是该项目第一次真正编译。
+- **12 个集成测试全部通过**（`mvn test`）：真实 Spring 上下文 + H2，覆盖注册/登录/签发与校验 JWT、错误密码 401、重复邮箱 409、密码过短 400、匿名访问受保护接口 401、伪造签名与伪造签发者的 token 被拒、跨账号读写隔离、公开日记只含 PUBLIC、文章字段与日期校验。
+- **在真实 MySQL 8.4.6 上启动成功**：Flyway 按顺序应用 V1–V5（`flyway_schema_history` 五行 `success=1`），生产配置 `ddl-auto: validate` 通过（无 `Schema-validation` 报错），Tomcat 监听 8080。
+- **59 项真实 HTTP 端到端检查全部通过**（`node verify-backend-e2e.mjs`），包括中文与 emoji 的 utf8mb4 往返、CORS 预检只有单个 `Access-Control-Allow-Origin`、越权访问返回 404，以及本轮新增的权限模型验证：`/api/public/perf/workspaces` 匿名可读且字段完整、匿名写绩效仍是 401、第二个账号写入自己的绩效数据后第一份原样还在（互不干扰）。
+- 前端生产构建通过；`npm run verify` 通过；`npm run test:render` 的 16 个路由全部渲染无警告；`verify-perf.mjs`（81 项）与 `verify-ocr.mjs`（41 项）全部通过。
+
+仍未验证：
+
+- **浏览器视觉未经肉眼确认**（本机无浏览器），尤其是粒子背景层与响应式断点。
+- **对象存储（MinIO/S3）链路未联调**：签名上传、直传、私有媒体的临时读取链接都没有跑过真实对象存储。S3 客户端 Bean 能正常构造，但没有执行过任何一次真实上传或下载。
+- 公网发布未执行（无 GitHub 授权与远程仓库）。
+
+### 本轮自检中修复的关键问题
+
+以下问题会直接导致功能不可用或数据丢失。前三项由「真实编译 + 真实启动」暴露或确认，不是推测：
+
+- **后端无法解析依赖**：`software.amazon.awssdk:s3` 固定在不存在的 `2.34.12`（Central 上只有 2.34.0–2.34.9、2.35.0+），Maven 会直接拒绝构建。
+- **Flyway 从未执行**：Spring Boot 4 把 Flyway 自动配置移到了 `spring-boot-flyway`，而 `flyway-core` 不会传递依赖它。缺 `spring-boot-starter-flyway` 时没有任何迁移会执行，`ddl-auto: validate` 随即以「missing table [blog_users]」启动失败。日志中出现的 `org.springframework.boot.flyway.autoconfigure.FlywayMigrationInitializer` 证明这条链路现在真的在跑。
+- **登录/注册必然 500**：签发 token 时没有指定 JWS 头，而 `NimbusJwtEncoder` 默认头是 RS256，本项目用的是 HMAC 共享密钥，选不到签名密钥。
+- **匿名请求的 4xx 会被替换成 401**：控制器返回错误状态时会触发到 `/error` 的 ERROR dispatch，而授权过滤器对该 dispatch 同样生效（`shouldFilterAllDispatcherTypes` 默认为 true）。结果是公开接口上的「邮箱已注册」「密码过短」全都变成 401，真实原因传不到浏览器。这个只在**真实启动**后才暴露：MockMvc 不做容器级 ERROR dispatch，所以 H2 集成测试看不见它。
+- **6 个已实现的页面完全无法进入**：分类、标签、公开日记、留言板、友链、时光归档既没有导航入口也没有路由；「关于我」缺少路由，点击会抛错。
+- **未同步的本地草稿会被下一次刷新抹掉**：同步失败的分支注释写着「保留草稿」，但代码随后用服务端结果整体覆盖了数组，深度 watch 又把覆盖结果写回 localStorage。
+- **未登录作者的文章会被公开列表覆盖**，写完后刷新即丢失。
+- **`media:` 引用被当作图片地址直接渲染**：首页文章卡用的是原始字段，经本身上传的封面会显示为裂图。
+- **`playerPicker` 未声明**：播放器上的 ♫ 按钮点了没反应；**模板里直接用了 `localStorage`/`document`**：默认可见范围设置保存时报错、搜索按钮无法聚焦。
+- **第二次 `createMediaElementSource` 抛错**：播放过在线音乐后再播放本地音乐，音频会永久失效。
+- **`HttpStatus.PAYLOAD_TOO_LARGE` 在 Spring 7 已废弃**（改用 `CONTENT_TOO_LARGE`），编译时才有警告。
+- **示例数据会顶替真实数据**：接口一旦返回内容就不应再显示内置样例；反之访客也不该看到虚构文章。
+- **示例照片的 id 与真实媒体 id 撞号**：在处理完成前点击示例照片的「公开」，会真的改掉数据库里同号媒体记录的可见范围。

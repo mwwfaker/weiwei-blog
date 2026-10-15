@@ -1,0 +1,201 @@
+/* ---- F. 整体放柔：位移缩短、时长加长、去掉生硬的模糊 --------------------- */
+.reveal{
+  translate:0 16px;
+  scale:.994;
+  filter:none;
+  transition:opacity .85s cubic-bezier(.22,.9,.24,1),translate 1.05s cubic-bezier(.22,.9,.24,1),scale 1.05s cubic-bezier(.22,.9,.24,1);
+}
+.reveal.is-visible{opacity:1;translate:none;scale:none}
+.page-enter-active{transition:opacity .42s ease,translate .62s cubic-bezier(.22,.9,.24,1)}
+.page-leave-active{transition:opacity .26s ease,translate .3s ease}
+.page-enter-from{opacity:0;translate:0 14px}
+.page-leave-to{opacity:0;translate:0 -8px}
+.article-card,.diary-card,.taxonomy-card,.friend-card,.message-card,.stats-grid article{
+  transition:transform .55s cubic-bezier(.22,.9,.24,1),box-shadow .55s ease,border-color .45s ease,background-color .45s ease;
+}
+.article-card:hover,.diary-card:hover,.taxonomy-card:hover,.friend-card:hover,
+.message-card:hover,.stats-grid article:hover{transform:translateY(-4px)}
+.article-card:hover .article-image-wrap img,.gallery-photo:hover img{transform:scale(1.05)}
+.article-image-wrap img,.gallery-photo img{transition:transform 1.1s cubic-bezier(.22,.9,.24,1)}
+.button-primary,.button-secondary,.icon-button,.nav-item,.view-all,.round-link,.study-check{
+  transition:transform .48s cubic-bezier(.22,.9,.24,1),box-shadow .48s ease,background-color .4s ease,
+             color .4s ease,border-color .4s ease;
+}
+.button-primary:hover{transform:translateY(-2px)}
+.button-secondary:hover{transform:translateY(-2px)}
+.modal-card{animation:modalIn .5s cubic-bezier(.22,.9,.24,1) both}
+@keyframes modalIn{from{opacity:0;translate:0 14px;scale:.985}to{opacity:1;translate:none;scale:none}}
+.toast-message{animation:toastIn .5s cubic-bezier(.22,.9,.24,1) both}
+@keyframes toastIn{from{opacity:0;translate:0 12px;scale:.96}to{opacity:1;translate:none;scale:none}}
+.nav-more-menu{animation:menuIn .34s cubic-bezier(.22,.9,.24,1) both}
+@keyframes menuIn{from{opacity:0;translate:0 -7px;scale:.98}to{opacity:1;translate:none;scale:none}}
+/* 统一圆角与表面质感，减少同一页面里出现四五种不同圆角的情况 */
+.music-player-panel,.study-panel,.study-resource-card,.study-course,.study-stage-card,.study-hero{border-radius:22px}
+.article-card,.diary-card,.taxonomy-card,.friend-card,.message-card,.admin-panel,.stats-grid article{border-radius:16px}
+.sidebar.condensed .side-nav{justify-content:safe center}
+
+@media (max-width:1080px){
+  /* 两栏在中等宽度下改成上下堆叠：歌词栏横向变窄后每行放不下几个字。
+     堆叠以后不再要求等高，各自按内容定高，歌词栏给一个够用的下限就行。 */
+  /* 窄屏：上下堆叠，各自按内容定高，不再套用等高（那是两栏布局才需要的约束） */
+  .music-console{grid-template-columns:1fr}
+  .lyrics-panel{height:auto}
+  .music-player-panel{justify-items:stretch;align-content:start}
+  .music-player-copy{justify-items:start;text-align:left}
+  .music-player-panel .music-controls{justify-content:flex-start}
+  .music-disc{width:118px;justify-self:center}
+  .lyrics-panel{min-height:340px}
+}
+@media (max-width:760px){
+  .sidebar.condensed{height:54px;min-height:54px}
+  .music-player-panel{padding:18px}
+  .music-stage-viz{height:60px}
+  .lyrics-panel{min-height:300px}
+  .lyric-line{font-size:13px;padding:8px 12px}
+  .lyric-line.is-active{transform:scale(1.1)}
+  .music-title-actions{width:100%;justify-content:flex-start}
+  /* 任务卡挪到音乐盒上方，两者都贴右下角会打架 */
+  /* 窄屏：队列行改成两段式，进度条铺满整行 */
+  .import-row{
+    grid-template-columns:26px 26px minmax(0,1fr) auto;
+    grid-template-areas:
+      "idx mark copy actions"
+      ".   .    bar  bar"
+      ".   .    stage stage";
+    padding:10px 11px;
+  }
+  .import-row-copy small{display:none}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .music-disc-vinyl.spinning,.music-control-main.isPlaying,.music-row-bars i,
+  .music-dock-vinyl.spinning,.music-dock-eq i,.music-dock-toggle.isPlaying,
+  .import-row.is-indeterminate .import-row-bar>i,.import-row-eq i,.lyrics-skeleton i,
+  .import-queue-live i{animation:none!important}
+}
+
+/* ===== 创作管理页的白天主题写法 =====
+   这一页原先只写了 `:root.dark` 的样式，白天主题下会退回浏览器默认样式
+   （按钮是灰色方块、统计卡没有盒子）。这里补一套基于主题变量的浅色写法。
+   注意用 `:root:not(.dark)` 限定，不要去动黑夜主题已有的样式。 */
+:root:not(.dark) .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+:root:not(.dark) .stats-grid article{padding:16px;border-radius:12px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 84%,transparent)}
+:root:not(.dark) .stats-grid small{display:block;font-size:9px;letter-spacing:.06em;color:var(--muted)}
+:root:not(.dark) .stats-grid strong{display:block;font-family:var(--serif);font-size:26px;font-weight:600;color:var(--accent);margin:3px 0 2px}
+:root:not(.dark) .stats-grid span{display:block;font-size:10px;color:var(--muted)}
+:root:not(.dark) .quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
+:root:not(.dark) .quick-actions button{
+  padding:10px 12px;text-align:left;font-size:11.5px;cursor:pointer;
+  border:1px solid var(--line);border-radius:9px;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);color:var(--ink);
+  transition:border-color .3s ease,background-color .3s ease,transform .3s ease;
+}
+:root:not(.dark) .quick-actions button:hover{transform:translateY(-1px);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+:root:not(.dark) .admin-panel{border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 82%,transparent);padding:18px}
+:root:not(.dark) .privacy-toggle{border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 82%,transparent);color:var(--ink);padding:7px 14px;font-size:11px;cursor:pointer}
+/* 标签星图同样只有黑夜写法 */
+:root:not(.dark) .tag-cloud{display:flex;flex-wrap:wrap;gap:8px}
+:root:not(.dark) .tag-cloud button{
+  border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);color:var(--ink);
+  padding:7px 14px;font-size:11.5px;transition:border-color .3s ease,background-color .3s ease;
+}
+:root:not(.dark) .tag-cloud button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+:root:not(.dark) .tag-cloud small{color:var(--muted);font-size:10px}
+
+/* ===== 留言板 / 朋友们 / 时光归档 的白天主题写法 =====
+   这三页原先只写了 `:root.dark` 的样式，白天主题下卡片没有背景和描边，
+   看起来就是一堆没有样式的文字。布局属性原样保留，颜色改走主题变量。 */
+:root:not(.dark) .article-toolbar select, :root:not(.dark) .article-toolbar input, :root:not(.dark) .music-library-controls input, :root:not(.dark) .friend-request input, :root:not(.dark) .guestbook-form input, :root:not(.dark) .guestbook-form textarea{background:color-mix(in srgb, var(--panel) 84%, transparent);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:9px 11px;outline:none}
+:root:not(.dark) .music-row, :root:not(.dark) .message-card, :root:not(.dark) .friend-card, :root:not(.dark) .friend-request, :root:not(.dark) .taxonomy-card, :root:not(.dark) .stats-grid article, :root:not(.dark) .admin-panel, :root:not(.dark) .archive-month, :root:not(.dark) .account-card{background:color-mix(in srgb, var(--panel) 84%, transparent);border:1px solid var(--line);border-radius:10px;color:var(--ink)}
+:root:not(.dark) .music-row-index, :root:not(.dark) .archive-event time{color:var(--muted);font-size:9px}
+:root:not(.dark) .message-card{display:flex;align-items:flex-start;gap:13px;padding:15px;margin-bottom:9px}
+:root:not(.dark) .message-avatar, :root:not(.dark) .friend-mark{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;background:color-mix(in srgb, var(--panel) 84%, transparent);color:#c1b3f7;font-family:var(--serif)}
+:root:not(.dark) .message-card>div{flex:1}
+:root:not(.dark) .message-meta{display:flex;justify-content:space-between;gap:12px}
+:root:not(.dark) .message-meta strong{font-size:10px;font-weight:500}
+:root:not(.dark) .message-meta time, :root:not(.dark) .message-index{font-size:8px;color:var(--muted)}
+:root:not(.dark) .message-card p{font-family:var(--serif);font-size:10px;line-height:1.8;color:var(--ink);margin:7px 0 0;white-space:pre-wrap}
+:root:not(.dark) .guestbook-form{display:grid;grid-template-columns:160px 1fr auto;gap:9px;padding:14px;background:color-mix(in srgb, var(--panel) 84%, transparent);border:1px solid var(--line);border-radius:10px;margin-bottom:17px}
+:root:not(.dark) .guestbook-form textarea{resize:vertical}
+:root:not(.dark) .guestbook-form .button-primary{align-self:center}
+:root:not(.dark) .friends-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+:root:not(.dark) .friend-card{display:flex;align-items:center;gap:12px;padding:16px;text-decoration:none;color:var(--ink)}
+:root:not(.dark) .friend-card>span:nth-child(2){display:grid;gap:5px;flex:1}
+:root:not(.dark) .friend-card strong{font-family:var(--serif);font-size:12px;font-weight:500}
+:root:not(.dark) .friend-card small{font-size:9px;color:var(--muted)}
+:root:not(.dark) .friend-card i{font-style:normal;color:var(--accent)}
+:root:not(.dark) .friend-request{display:grid;gap:9px;padding:15px}
+:root:not(.dark) .friend-request strong{font-family:var(--serif);font-size:12px;font-weight:500;margin-bottom:3px}
+:root:not(.dark) .friend-request .button-secondary{justify-self:start}
+:root:not(.dark) .archive-timeline{display:grid;gap:13px}
+:root:not(.dark) .archive-month{padding:17px 20px}
+:root:not(.dark) .archive-month h2{font-family:var(--serif);font-weight:500;color:var(--accent);font-size:16px;margin:0 0 10px}
+:root:not(.dark) .archive-event{display:grid;grid-template-columns:140px 1fr auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}
+:root:not(.dark) .archive-type{font-size:8px;color:var(--accent)}
+:root:not(.dark) .archive-type.diary-type{color:var(--accent)}
+:root:not(.dark) .archive-event strong{font-family:var(--serif);font-size:11px;font-weight:400}
+
+/* 这些卡片的背景是 linear-gradient(...)，上面那轮只替换了 `background:#hex`，
+   所以白天主题下卡片仍然是深色。这里统一按面板色覆盖。 */
+:root:not(.dark) .message-card,
+:root:not(.dark) .friend-card,
+:root:not(.dark) .friend-request,
+:root:not(.dark) .guestbook-form,
+:root:not(.dark) .archive-month,
+:root:not(.dark) .taxonomy-card,
+:root:not(.dark) .admin-panel,
+:root:not(.dark) .stats-grid article,
+:root:not(.dark) .music-row{
+  background:color-mix(in srgb,var(--panel) 94%,transparent);
+  border:1px solid var(--line);
+}
+:root:not(.dark) .friend-request strong,
+:root:not(.dark) .message-meta strong,
+:root:not(.dark) .archive-month h2{color:var(--ink)}
+:root:not(.dark) .archive-month h2{color:var(--accent)}
+:root:not(.dark) .guestbook-form input,
+:root:not(.dark) .guestbook-form textarea,
+:root:not(.dark) .friend-request input{
+  background:var(--panel-raised);border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:9px 12px;font-size:11.5px;
+}
+:root:not(.dark) .message-avatar,
+:root:not(.dark) .friend-mark{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+
+/* ===== 登录 / 账号页的白天主题写法 =====
+   这一页原先整套样式（含布局）都只写在 `:root.dark` 下，白天主题下卡片没有
+   背景、输入框是白底黑边的默认样式。布局原样搬过来，颜色改走主题变量。 */
+:root:not(.dark) .account-page{display:grid;place-items:center;min-height:calc(100vh - 165px)}
+:root:not(.dark) .account-card{
+  display:grid;grid-template-columns:.9fr 1.1fr;width:min(790px,100%);
+  overflow:hidden;border-radius:16px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--panel) 94%,transparent);
+}
+:root:not(.dark) .account-visual{
+  position:relative;min-height:420px;padding:96px 30px 30px;
+  background:radial-gradient(circle at 55% 37%,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--panel) 94%,transparent));
+  border-right:1px solid var(--line);
+}
+:root:not(.dark) .account-visual>span{
+  position:absolute;left:30px;top:30px;width:42px;height:42px;border-radius:50%;
+  display:grid;place-items:center;color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
+}
+:root:not(.dark) .account-visual strong{font-family:var(--serif);font-weight:400;font-size:22px;line-height:1.75;color:var(--ink)}
+:root:not(.dark) .account-visual small{font-size:7px;letter-spacing:.18em;color:var(--muted);margin-top:17px;display:block}
+:root:not(.dark) .account-form{padding:33px}
+:root:not(.dark) .account-form h1{font-family:var(--serif);font-size:23px;font-weight:500;margin:13px 0 8px;color:var(--ink)}
+:root:not(.dark) .account-form>p{font-family:var(--serif);font-size:10px;color:var(--muted);line-height:1.8;margin:0 0 19px}
+:root:not(.dark) .account-form label{display:grid;gap:6px;color:var(--muted);font-size:9px;margin:12px 0}
+:root:not(.dark) .account-form input{
+  background:var(--panel-raised);border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:10px;font-size:12px;
+}
+:root:not(.dark) .account-form input::placeholder{color:color-mix(in srgb,var(--muted) 85%,transparent)}
+:root:not(.dark) .account-form label small,
+:root:not(.dark) .account-note{font-size:8px;color:var(--muted)}
+:root:not(.dark) .account-submit{width:100%;margin-top:7px}
+:root:not(.dark) .account-switch{display:block;margin:12px auto}
+:root:not(.dark) .account-note{display:block;line-height:1.6;text-align:center}

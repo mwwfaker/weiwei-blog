@@ -1,0 +1,13 @@
+/* 样式入口：只做 @import，不放规则。
+   这里的 import 顺序就是层叠顺序（后面的覆盖前面的），
+   文件划分与行区间见 styles/README.md 的表格，不要重排、不要插队。
+
+   注意：这里**不放** pages/perf/perf.css。绩效页是按需加载的，它那份样式由
+   PerfPage.vue 自己 `import './perf.css'`，跟着异步 chunk 走，首屏就不会多下 36 kB。 */
+@import './base.css';
+@import './dark-theme.css';
+@import './editorial-2026.css';
+@import './effects-and-fixes.css';
+@import './music.css';
+@import './lyrics-and-import.css';
+@import './polish-and-light-theme.css';

@@ -23,10 +23,10 @@ globalThis.history = { pushState() {}, replaceState() {}, state: null, go() {}, 
 globalThis.addEventListener = () => {}
 globalThis.removeEventListener = () => {}
 
-const { render, renderLyrics, renderDock } = await import('./dist-ssr/entry.js')
+const { render, renderLyrics, renderDock, routePaths } = await import('./dist-ssr/entry.js')
 
-const routes = ['/', '/about', '/study', '/perf', '/articles', '/categories', '/tags', '/diary', '/public-diary',
-  '/gallery', '/music', '/messages', '/friends', '/archives', '/admin', '/account']
+// 路径来自真实路由表（见 entry.js 的 routePaths），新加页面会自动被覆盖。
+const routes = routePaths
 
 let failures = 0
 for (const route of routes) {

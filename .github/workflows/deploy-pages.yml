@@ -3,7 +3,7 @@ name: Publish blog preview
 on:
   push:
     branches: [main]
-    paths: ['frontend/**', 'verify-frontend.mjs', 'verify-lyrics.mjs', '.github/workflows/deploy-pages.yml']
+    paths: ['frontend/**', '.github/workflows/deploy-pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,11 +27,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npm run verify
+      # 静态检查 + 三个离线自检（歌词解析 / 绩效公式 / 导入解析器）。
+      # 它们全都在 frontend/scripts/ 下，所以工作目录统一是 frontend。
+      - run: npm run verify:all
         working-directory: frontend
-      # 歌词解析的离线自检。它在仓库根目录，而且会直接 import frontend/src 下的模块，
-      # 所以工作目录必须是根目录，不能跟着上面几条走。
-      - run: node verify-lyrics.mjs
+      - run: npm run test:render
+        working-directory: frontend
       - run: npm run build
         working-directory: frontend
         env:
