@@ -119,58 +119,64 @@ const nodes = computed(() => {
   return out
 })
 
-/** 右边时间表的刻度：每年一条。位置（`top`）要在挂载后量出来，用于点击跳转。 */
-const root = ref(null)
-const ticks = ref([])
 /**
- * 当前读到哪一年了，**可以是小数**（在两年的刻度之间就取中间值）。
- * 时间表靠它把「当前这一年」摆到正中，所以必须连续，否则每年跳一格会很生硬。
+ * 右边时间表的刻度：**一篇一条**（不是一年一条）。用户要能大致判断时间，
+ * 也要能细化到每一篇，所以刻度就是日记本身，当前那一篇把完整日期显示出来。
+ *
+ * 刻度的位置**不按树里的像素坐标排**，而是按篇序号等距：树可以上万像素高，
+ * 直接映射到 420px 的带子上会挤成一条缝，一篇都分不出来。
+ * 像素位置（`tops`）只用来算「当前读到哪一篇」和点击跳转。
+ */
+const root = ref(null)
+/** 每篇挂件在树里的像素位置，挂载后量。 */
+const tops = ref([])
+/**
+ * 当前读到第几篇，**可以是小数**（落在两篇之间就取中间值）。
+ * 时间表靠它把「当前这一篇」摆到正中，所以必须连续，否则每翻一篇就跳一格，很生硬。
  */
 const activeIndex = ref(0)
 let observer = null
 let frame = 0
 
+/** 刻度之间的间距（px）。太小挤成一片，太大一屏看不到几篇。 */
+const TICK_STEP = 26
+
+const ticks = computed(() => props.entries.map((entry, index) => {
+  const date = String(entry?.date || '')
+  const prev = String(props.entries[index - 1]?.date || '')
+  return {
+    index,
+    label: date.replace(/-/g, '.'),
+    year: date.slice(0, 4),
+    // 跨年那一篇要标出来，否则一列日期里看不出年份从哪儿断的
+    yearStart: Boolean(date) && date.slice(0, 4) !== prev.slice(0, 4),
+  }
+}))
+
 function measureTicks() {
   const el = root.value
   if (!el) return
-  const cards = [...el.querySelectorAll('.diary-tree-node')]
-  const out = []
-  let lastYear = ''
-  props.entries.forEach((entry, index) => {
-    const year = String(entry?.date || '').slice(0, 4)
-    if (!year || year === lastYear) return
-    lastYear = year
-    const node = cards[index]
-    if (!node) return
-    out.push({
-      year,
-      top: node.offsetTop,
-      // 记节点下标而不是元素本身：把 DOM 节点塞进 ref 会被 Vue 代理一层，纯属浪费
-      index,
-      count: props.entries.filter((item) => String(item?.date || '').startsWith(year)).length,
-    })
-  })
-  ticks.value = out
+  tops.value = [...el.querySelectorAll('.diary-tree-node')].map((node) => node.offsetTop)
   syncActive()
 }
 
 /**
- * 把「视口上偏下一点那条线」换算成树里的位置，再看它落在哪两年的刻度之间。
+ * 把「视口上偏下一点那条线」换算成树里的位置，再看它落在哪两篇之间。
  * 线取 42% 而不是正中：视线停在屏幕中上部，用正中会永远慢半拍。
  */
 function syncActive() {
   const el = root.value
-  const list = ticks.value
+  const list = tops.value
   if (!el || !list.length) return
   const focus = (globalThis.innerHeight || 800) * 0.42
   const current = (globalThis.scrollY || 0) + focus - el.getBoundingClientRect().top
-  if (current <= list[0].top) { activeIndex.value = 0; return }
+  if (current <= list[0]) { activeIndex.value = 0; return }
   const last = list.length - 1
-  if (current >= list[last].top) { activeIndex.value = last; return }
+  if (current >= list[last]) { activeIndex.value = last; return }
   for (let i = 0; i < last; i += 1) {
-    if (current >= list[i].top && current < list[i + 1].top) {
-      const span = list[i + 1].top - list[i].top || 1
-      activeIndex.value = i + (current - list[i].top) / span
+    if (current >= list[i] && current < list[i + 1]) {
+      const span = list[i + 1] - list[i] || 1
+      activeIndex.value = i + (current - list[i]) / span
       return
     }
   }
@@ -181,9 +187,9 @@ function onScroll() {
   frame = globalThis.requestAnimationFrame(() => { frame = 0; syncActive() })
 }
 
-/** 点刻度 → 滚到那一年的第一篇。留一点上边距，别让卡片贴在顶栏底下。 */
-function jumpTo(tick) {
-  const el = root.value?.querySelectorAll('.diary-tree-node')?.[tick.index]
+/** 点刻度 → 滚到那一篇。留一点上边距，别让卡片贴在顶栏底下。 */
+function jumpTo(index) {
+  const el = root.value?.querySelectorAll('.diary-tree-node')?.[index]
   if (!el) return
   const target = (globalThis.scrollY || 0) + el.getBoundingClientRect().top - (globalThis.innerHeight || 800) * 0.24
   globalThis.scrollTo({ top: Math.max(0, target), behavior: motion.prefersReducedMotion() ? 'auto' : 'smooth' })
@@ -245,27 +251,26 @@ watch(() => props.entries, () => nextTick(measureTicks))
       </svg>
     </div>
 
-    <!-- 右边的时间表：一条**居中聚焦**的窄带。当前读到的那一年摆正中间，
-         上下的年份按固定步长排开，越靠边越淡（渐隐交给 CSS 的 mask，不是逐条算透明度）。
-         刻度位置不在树的像素坐标上——树可以有上万像素高，直接映射到 400px 的带子上
-         会挤成一条缝；按「年」为步长反而能看清，也才对得上「大致判断」这个用途。
-         点一条就滚到那一年的第一篇。没有 JS（或还没量到）时整条不渲染，
-         否则会留下一排飘在空中的年份。 -->
+    <!-- 右边的时间表：一条**居中聚焦**的窄带，一格就是一篇日记。
+         当前读到的那一篇摆正中间（显示完整日期），上下按固定步长排开，越靠边越淡
+         （渐隐交给 CSS 的 mask，不是逐条算透明度）。跨年那一篇标出年份。
+         点一条就滚到那一篇。没有 JS（或还没量到）时整条不渲染，
+         否则会留下一排飘在空中的日期。 -->
     <div v-if="ticks.length" class="diary-tree-ruler">
       <div class="diary-tree-ruler-track">
         <button
-          v-for="(tick, index) in ticks"
-          :key="tick.year"
+          v-for="tick in ticks"
+          :key="tick.index"
           type="button"
           class="diary-tree-tick"
-          :class="{ 'is-active': Math.round(activeIndex) === index }"
-          :style="{ top: `calc(50% + ${((index - activeIndex) * 92).toFixed(1)}px)` }"
-          :aria-label="`跳到 ${tick.year} 年，共 ${tick.count} 篇`"
-          @click="jumpTo(tick)"
+          :class="{ 'is-active': Math.round(activeIndex) === tick.index, 'is-year': tick.yearStart }"
+          :style="{ top: `calc(50% + ${((tick.index - activeIndex) * TICK_STEP).toFixed(1)}px)` }"
+          :aria-label="`跳到 ${tick.label} 的日记`"
+          @click="jumpTo(tick.index)"
         >
           <span class="diary-tree-tick-line" aria-hidden="true"></span>
+          <span class="diary-tree-tick-date">{{ tick.label }}</span>
           <span class="diary-tree-tick-year">{{ tick.year }}</span>
-          <span class="diary-tree-tick-count">{{ tick.count }} 篇</span>
         </button>
       </div>
     </div>

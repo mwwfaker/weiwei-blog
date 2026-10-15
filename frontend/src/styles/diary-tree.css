@@ -77,51 +77,65 @@
 .diary-tree-leaf:nth-child(4){opacity:clamp(0,calc((var(--lush,0) - .44) * 2.6),.9)}
 .diary-tree-leaf:nth-child(5){opacity:clamp(0,calc((var(--lush,0) - .7) * 3),.85)}
 
-/* ---- 右边的时间表：居中聚焦的窄带 ---------------------------------------------
-   当前读到的那一年摆正中间，上下按固定步长排开，越靠边越淡——渐隐交给 mask，
+/* ---- 右边的时间表：居中聚焦的窄带，一格一篇 -----------------------------------
+   当前读到的那一篇摆正中间，上下按固定步长排开，越靠边越淡——渐隐交给 mask，
    不是逐条算透明度（逐条算的话，透明度变化和位置变化对不齐，看着会「跳」）。
    刻度位置**不在树的像素坐标上**：树可以上万像素高，直接映射到 420px 的带子上
-   会挤成一条缝；按「年」为步长反而看得清，也才对得上「大致判断」这个用途。
+   会挤成一条缝，一篇都分不出来；按「篇」等距反而看得清。
    居中那条要**浅**——重色会把视线从正文上拽走，它只是个路标。
-   窄屏不显示：本来就没地方，挤在卡片上反而碍事。桌面要让宽度，而且左右都要让，
-   只让一边轴就不在内容中间了。 */
+
+   ⚠️ 这一条 sticky 元素是 height:0，子元素**必须绝对定位**。
+   一开始给子元素用了 `margin-top:-210px` 想把它居中，结果那 -210px 直接**穿透上去**
+   把整棵树往上拽了 210px（外边距塌陷：父元素没有 border/padding、高度又不是 auto），
+   现象就是「树突破了上限穿上去了」。绝对定位的子元素不参与外边距塌陷。
+
+   它靠着 `margin-right` 的负值一直推到树干右侧留白之外（再往右 36px 进 main-area 的内边距），
+   比只贴在树边缘更靠右；没有 overflow 的祖先不会裁掉它。 */
 .diary-tree-ruler{display:none}
 @media(min-width:1000px){
   .diary-tree{padding-left:80px;padding-right:80px}
   .diary-tree-ruler{
-    /* height:0 + 子元素负外边距：sticky 需要在正常流里，但这一条不该占任何版面高度 */
-    display:block;position:sticky;top:calc(50vh - 210px);height:0;
-    width:72px;margin-left:auto;z-index:6;pointer-events:none;
+    display:block;position:sticky;top:50vh;height:0;
+    width:78px;margin-left:auto;margin-right:-116px;
+    z-index:6;pointer-events:none;
   }
   .diary-tree-ruler-track{
-    position:relative;height:420px;margin-top:-210px;overflow:hidden;
+    position:absolute;left:0;right:0;top:0;height:420px;
+    transform:translateY(-50%);overflow:hidden;
     mask-image:linear-gradient(180deg,transparent 0,#000 30%,#000 70%,transparent 100%);
   }
   .diary-tree-tick{
-    position:absolute;left:0;display:flex;align-items:center;gap:8px;
-    padding:5px 0;border:0;background:none;cursor:pointer;font:inherit;
+    position:absolute;left:0;display:flex;align-items:center;gap:7px;
+    padding:3px 0;border:0;background:none;cursor:pointer;font:inherit;
     transform:translateY(-50%);white-space:nowrap;
-    pointer-events:auto;opacity:.3;transition:opacity .35s ease,color .35s ease;
+    pointer-events:auto;opacity:.3;transition:opacity .3s ease,color .3s ease;
     color:var(--muted);
   }
-  .diary-tree-tick:hover{opacity:.7}
+  .diary-tree-tick:hover{opacity:.75}
+  /* 跨年那一篇的线加长一点，一眼能看出年份从哪儿断的 */
+  .diary-tree-tick.is-year{opacity:.5}
   /* 居中的那条：浅色 + 亮起来。不要加深、不要加粗——它只是路标，不是标题 */
   .diary-tree-tick.is-active{opacity:1;color:color-mix(in srgb,var(--accent) 58%,var(--muted))}
   .diary-tree-tick-line{
-    flex:none;width:18px;height:1px;background:currentColor;opacity:.55;
-    transition:width .35s ease;
+    flex:none;width:14px;height:1px;background:currentColor;opacity:.6;
+    transition:width .3s ease;
   }
-  .diary-tree-tick.is-active .diary-tree-tick-line{width:26px;opacity:.9}
+  .diary-tree-tick.is-year .diary-tree-tick-line{width:22px}
+  .diary-tree-tick.is-active .diary-tree-tick-line{width:26px;opacity:.95}
+  /* 完整日期只在居中那条上出现：每条都写就成了一列数字，反而看不清 */
+  .diary-tree-tick-date{
+    font-size:10px;letter-spacing:.04em;font-variant-numeric:tabular-nums;
+    opacity:0;transition:opacity .3s ease;
+  }
+  .diary-tree-tick.is-active .diary-tree-tick-date{opacity:1}
+  /* 年份也只在跨年那条上常显；它正好是居中那条时让位给完整日期 */
   .diary-tree-tick-year{
-    font-family:var(--serif);font-size:12px;font-weight:500;letter-spacing:.1em;
+    position:absolute;left:23px;top:-11px;font-family:var(--serif);
+    font-size:8px;letter-spacing:.1em;color:var(--muted);
+    opacity:0;transition:opacity .3s ease;
   }
-  /* 篇数只在居中那条上出现：每条都写就成了一列数字，反而看不清哪年是哪年 */
-  .diary-tree-tick-count{
-    position:absolute;left:26px;top:-13px;font-size:8px;letter-spacing:.06em;
-    color:var(--muted);font-variant-numeric:tabular-nums;
-    opacity:0;transition:opacity .35s ease;
-  }
-  .diary-tree-tick.is-active .diary-tree-tick-count{opacity:.8}
+  .diary-tree-tick.is-year .diary-tree-tick-year{opacity:.7}
+  .diary-tree-tick.is-active .diary-tree-tick-year{opacity:0}
 }
 
 .diary-tree-nodes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:38px}
@@ -174,24 +188,33 @@
 .diary-tree .diary-card{width:100%;backdrop-filter:none;box-shadow:0 14px 34px -26px rgba(0,0,0,.55)}
 .diary-tree .diary-excerpt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 
-/* ---- 入场：从树干展开到自己的那一侧 ----------------------------------------
+/* ---- 入场：交叉展开 ----------------------------------------------------------
    v-reveal 加的是 .reveal / .is-visible 两个类，隐藏态由 JS 添加，
    所以脚本没跑起来时内容照常可见（这是 v-reveal 的设计，别改成纯 CSS 隐藏）。
-   左边：从右往左（起点在树干这边，+46px）；右边：从左往右（起点 -46px）。
-   挂件同时从一点点倾斜摆正，像挂在枝上晃了一下才停住。 */
-/* 距离和角度都给足：46px / 4.5° 那版用户看不出左右有别，读起来像「所有卡片都从一边进」。
-   64px / 6° 才在余光里也分得清方向。 */
-.diary-tree-node.is-left{--tree-enter:64px;--tree-tilt:-.5deg;--tree-tilt-from:-6deg}
-.diary-tree-node.is-right{--tree-enter:-64px;--tree-tilt:.5deg;--tree-tilt-from:6deg}
 
-.diary-tree-node.reveal{translate:var(--tree-enter,0) 0;scale:1}
+   **距离用百分比（卡片自身宽度的 52% ≈ 220px），不是固定 64px。**
+   固定距离那两版（46px、64px）用户两次反馈「看不到左右有别」——因为卡片有 430px 宽，
+   几十像素的位移在余光里根本不算方向。52% 会让左边那张从树干**另一侧**扫过来，
+   右边的反过来，两张对着走，才读得出「交叉」。
+
+   过渡**写在这里、不靠别处的 `.reveal`**：`.reveal` 的 `transition` 声明在前面的
+   样式表里，任何一次追加都可能把它顶掉，那时入场会直接跳到终点（没有动画）。
+   自己的动画自己声明，别人改不坏。 */
+.diary-tree-node.is-left{--tree-enter:52%;--tree-tilt:-.5deg;--tree-tilt-from:-7deg}
+.diary-tree-node.is-right{--tree-enter:-52%;--tree-tilt:.5deg;--tree-tilt-from:7deg}
+
+.diary-tree-node{
+  transition:opacity .72s cubic-bezier(.22,.9,.24,1),translate 1.05s cubic-bezier(.22,.9,.24,1),
+    transform .5s cubic-bezier(.22,.9,.24,1);
+}
+.diary-tree-node.reveal{translate:var(--tree-enter,0) 0;scale:1;transition-delay:var(--reveal-delay,0ms)}
 .diary-tree-node.reveal .diary-tree-hang{
   rotate:var(--tree-tilt-from,0deg);
   transition:rotate 1.15s cubic-bezier(.22,.9,.24,1) var(--reveal-delay,0ms);
 }
 /* 这两条必须比 polish 里的 `.reveal.is-visible{translate:none}` 更具体，
    否则挂件停在被推开的位置上（同分选择器、它在前，会被这里覆盖掉）。 */
-.diary-tree-node.reveal.is-visible{translate:none}
+.diary-tree-node.reveal.is-visible{translate:none;transition-delay:var(--reveal-delay,0ms)}
 .diary-tree-node.reveal.is-visible .diary-tree-hang{rotate:var(--tree-tilt,0deg)}
 /* 悬停时轻轻晃一下，呼应「挂在树上」 */
 .diary-tree-node .diary-card:hover{rotate:calc(var(--tree-tilt,0deg) * 2)}
@@ -214,9 +237,9 @@
     background:linear-gradient(90deg,currentColor,transparent);
   }
   .diary-tree-year{left:22px;transform:none;top:-24px}
-  /* 单侧时统一「从树干往右展开」，不再按左右分 */
+  /* 单侧时没有「左右交叉」可言，统一从树干往右展开 */
   .diary-tree-node.is-left,
-  .diary-tree-node.is-right{--tree-enter:-34px;--tree-tilt:0deg;--tree-tilt-from:4deg}
+  .diary-tree-node.is-right{--tree-enter:-44px;--tree-tilt:0deg;--tree-tilt-from:5deg}
 }
 
 /* ---- 增删日记：树长高 / 变矮 -------------------------------------------------
@@ -236,9 +259,9 @@
 }
 .tree-leave-from{max-height:900px}
 .tree-leave-to{max-height:0;opacity:0;transform:translateY(-10px) scale(.965)}
-/* 留一条 move 过渡兜底：正常情况下位置变化已经被高度折叠连续带走了，
-   它只在极端情形（同时增删、筛选跳变）下生效，防止出现一帧的硬跳。 */
-.tree-move{transition:transform .5s cubic-bezier(.22,.9,.24,1)}
+/* 这里**故意不写 `.tree-move` 的过渡**：它会把挂件自己的 `transition`（上面那条，
+   含 opacity/translate）整条顶掉，正在入场的挂件一旦同时拿到 move 类就会「啪」地跳到终点。
+   位置变化本来就被高度折叠连续带走了，Vue 那点 FLIP 位移交给挂件自己的 `transform` 过渡兜。 */
 
 /* 减少动效：只做淡入淡出，不做高度与横向位移 */
 @media(prefers-reduced-motion:reduce){
