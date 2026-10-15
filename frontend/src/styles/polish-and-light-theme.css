@@ -221,6 +221,11 @@
 .reading-count{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.02em;white-space:nowrap}
 /* 关闭按钮原来绝对定位在卡片右上角；现在它是页眉这一行里的最后一个格子。 */
 .reading-close{position:static;flex:none;margin-top:2px}
+/* `.reading-toolbar` 自带 margin-bottom:30px（手机 22px），那是它当年**在滚动正文里**
+   用来和标题拉开距离的。搬进固定的页眉之后，页眉自己已经有 padding-bottom，
+   这 30px 就变成页眉里的一段死空白：顶栏偏高、日期与正文的间距也不齐。
+   这条必须在 polish 里清——它比 editorial-2026 晚加载，同分选择器能压住。 */
+.reading-sheet .reading-toolbar{margin-bottom:0}
 
 /* ---- 入场：桌面从右滑入中央，手机从下往上滑入 -------------------------------
    cubic-bezier 的第二段带一点点过冲（y 收在 1.02）：滑到位时会「压一下再回弹」，

@@ -172,23 +172,49 @@ export function looksLikeTocEntry(text, lenient = false) {
 }
 
 /**
+ * 从 start 开始，连续多长一段「短行 + 不像句子 + 不是标题」。
+ *
+ * 用于识别**没有页码的目录**：那种目录每一行就是个小节名（`绪论`、`研究方法`），
+ * 和正文小标题长得一样，唯一的区别是它们**成串出现、而且后面紧跟着正文的第一个标题**。
+ * 所以还要配合下面的「后面必须是标题或到底」一起判断，单靠这一段很容易吃掉正文。
+ */
+function looseRun(list, start) {
+  let index = start
+  let lines = 0
+  while (index < list.length) {
+    const block = list[index]
+    if (block?.type === 'heading') break
+    const parts = blockLines(block)
+    if (!parts.length) break
+    if (!parts.every((line) => line.length <= 46 && !/[。！？!?；;，,]$/.test(line))) break
+    lines += parts.length
+    index += 1
+  }
+  return { blocks: index - start, lines }
+}
+
+/**
  * 去掉目录。
  *
  * 为什么必须做：Word 的目录在导出的 HTML 里只是**普通的段落列表**（mammoth 不认识 TOC 字段），
  * 所以它会照着「最浅那一级标题」的规则被切进去——轻则多出一篇叫「目录」的文章，
- * 重则整份文档的正文都被算进目录那篇里。用户看到的就是文章列表里躺着一份目录。
+ * 重则整份文档的正文都被算进目录那篇里。
  *
- * 两种识别路径：
- *   1. 有「目录 / Contents」标题 → 从它开始往下吃条目（**必须先吃到一条真条目**才允许
- *      继续吃没有页码的短行，否则一篇正文恰好以「目录」为小标题时会被吃掉两段）；
- *   2. 没有标题，但**连续三块**都长得像目录条目 → 也当目录丢掉。
+ * 三种识别路径（用户实测「目录还在」之后补了后两种）：
+ *   1. 「目录 / Contents」**不一定带标题样式**——所以这里只看文本是不是恰好等于那几个词，
+ *      不要求 `type === 'heading'`（很多人是直接敲一行「目录」当普通段落的）；
+ *   2. 从它往下吃**带页码**的条目（`第一章 绪论 …… 1`）；
+ *   3. 一条带页码的都没有时，看是否存在**一串短行、且后面紧跟标题或到底**——那就是无页码目录。
+ *      这条必须两个条件同时成立才敢吃，否则正文会被误伤。
+ *   另外：没有「目录」标题、但连续三块都是带页码的条目，也整体丢掉。
  */
 export function stripTableOfContents(blocks) {
   const list = Array.isArray(blocks) ? blocks : []
   const out = []
   for (let i = 0; i < list.length; i += 1) {
     const block = list[i]
-    if (block?.type === 'heading' && isTocHeading(block.text)) {
+    // 只按文本判断，不要求标题样式（见上面第 1 条）
+    if (isTocHeading(block?.text)) {
       let j = i + 1
       let entries = 0
       let gaps = 0
@@ -210,7 +236,11 @@ export function stripTableOfContents(blocks) {
         break
       }
       if (entries > 0) { i = j - 1; continue }
-      // 「目录」标题后面不像目录（比如它其实是正文的小标题）→ 只丢掉标题本身
+      // 一条带页码的都没有 → 试「一串短行 + 后面紧跟标题（或到底）」这种无页码目录
+      const run = looseRun(list, i + 1)
+      const after = list[i + 1 + run.blocks]
+      if (run.lines >= 3 && (!after || after.type === 'heading')) { i = i + run.blocks; continue }
+      // 都不像目录：只丢掉「目录」这个标题本身，正文一个字不动
       continue
     }
     // 没有「目录」标题的情况：连续三块都是目录条目，就整体丢掉

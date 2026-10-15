@@ -167,25 +167,50 @@ export const useArticlesStore = defineStore('articles', () => {
     articleDialog.value = true
   }
 
+  /**
+   * 上传一张封面、登记进媒体库，返回 `media:<id>` 引用。
+   *
+   * 编辑器和导入器共用：两边都是「上传对象 → 建媒体记录 → 记引用」，
+   * 只有「记到哪儿」不同（一个是 articleDraft，一个是某条导入草稿）。
+   */
+  async function uploadCover(file, { title, visibility }) {
+    const uploaded = await uploadMedia(file, auth.token)
+    const saved = await request('/api/media', {
+      token: auth.token,
+      method: 'POST',
+      body: JSON.stringify({
+        kind: 'IMAGE',
+        title: `${title || '文章'}封面`,
+        objectKey: uploaded.key,
+        contentType: uploaded.contentType,
+        visibility: visibility || 'PUBLIC',
+        albumName: '文章封面',
+      }),
+    })
+    media.galleryItems.unshift({ ...media.mapMedia(saved), mine: true })
+    return `media:${saved.id}`
+  }
+
   async function chooseCover(file) {
     if (!file) return
     if (!requireLogin('上传封面')) return
     try {
-      const uploaded = await uploadMedia(file, auth.token)
-      const saved = await request('/api/media', {
-        token: auth.token,
-        method: 'POST',
-        body: JSON.stringify({
-          kind: 'IMAGE',
-          title: `${articleDraft.value.title || '文章'}封面`,
-          objectKey: uploaded.key,
-          contentType: uploaded.contentType,
-          visibility: articleDraft.value.visibility || 'PUBLIC',
-          albumName: '文章封面',
-        }),
+      articleDraft.value.image = await uploadCover(file, {
+        title: articleDraft.value.title,
+        visibility: articleDraft.value.visibility,
       })
-      media.galleryItems.unshift({ ...media.mapMedia(saved), mine: true })
-      articleDraft.value.image = `media:${saved.id}`
+    } catch (error) { notify(`封面上传失败：${error.message}`) }
+  }
+
+  /**
+   * 导入草稿的封面。导入器里每篇都要能单独配一张，
+   * 所以和编辑器走同一个上传流程，只是写到传进来的那条草稿上。
+   */
+  async function chooseImportCover(file, entry) {
+    if (!file || !entry) return
+    if (!requireLogin('上传封面')) return
+    try {
+      entry.image = await uploadCover(file, { title: entry.title, visibility: entry.visibility })
     } catch (error) { notify(`封面上传失败：${error.message}`) }
   }
 
@@ -350,7 +375,7 @@ export const useArticlesStore = defineStore('articles', () => {
     importReview, importDialog, importVisibility, importCategory, importTags, importing, importSaved,
     categoryNames, tagNames, visibleArticles,
     articlePayload, mapArticle, articleImage, emptyDraft,
-    refresh, open, create, edit, save, remove, chooseCover,
+    refresh, open, create, edit, save, remove, chooseCover, chooseImportCover,
     parseImportFiles, applyImportVisibility, applyImportCategory, applyImportTags,
     dropImportDraft, toggleImportVisibility, confirmImport,
   }

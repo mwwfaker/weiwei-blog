@@ -262,6 +262,60 @@ check('looksLikeTocEntry：严格档不接受单空格页码', looksLikeTocEntry
 check('looksLikeTocEntry：放宽档接受（只在已确认目录后用）', looksLikeTocEntry('绪论 1', true) === true)
 check('looksLikeTocEntry：句子即使短也不算', looksLikeTocEntry('今天很好。', true) === false)
 
+console.log('\n[16] 用户实测「目录还在」之后补的两种情况')
+// 情况一：目录标题只是普通段落（没套标题样式）
+const tocAsParagraph = [
+  { type: 'paragraph', text: '目录' },
+  { type: 'paragraph', text: '第一章 缘起 ………… 1' },
+  { type: 'paragraph', text: '第二章 经过 ………… 8' },
+  { type: 'heading', level: 1, text: '第一章 缘起' },
+  { type: 'paragraph', text: '正文。' },
+]
+const asParagraph = splitArticleBlocks(tocAsParagraph, '随笔')
+check('「目录」只是普通段落时也能认出', asParagraph.length === 1 && asParagraph[0].title === '第一章 缘起',
+  JSON.stringify(asParagraph.map((a) => a.title)))
+
+// 情况二：目录条目完全没有页码
+const tocNoPages = [
+  { type: 'paragraph', text: '目录' },
+  { type: 'paragraph', text: '第一部分 童年' },
+  { type: 'paragraph', text: '第二部分 求学' },
+  { type: 'paragraph', text: '第三部分 工作' },
+  { type: 'heading', level: 1, text: '第一部分 童年' },
+  { type: 'paragraph', text: '我出生在一个小城。' },
+]
+const noPages = splitArticleBlocks(tocNoPages, '自传')
+check('无页码的目录也能剔掉', !noPages.some((a) => a.title.includes('目录') || a.title.includes('第二部分')),
+  JSON.stringify(noPages.map((a) => a.title)))
+check('正文照常', noPages.length === 1 && noPages[0].title === '第一部分 童年', JSON.stringify(noPages.map((a) => a.title)))
+
+// 但「一串短行」不能单独成立——后面不是标题就不敢吃
+const looseNotToc = [
+  { type: 'paragraph', text: '目录' },
+  { type: 'paragraph', text: '第一条备忘' },
+  { type: 'paragraph', text: '第二条备忘' },
+  { type: 'paragraph', text: '第三条备忘' },
+  { type: 'paragraph', text: '后面这段是接着讲事情的正文，不是标题。' },
+]
+const notToc = splitArticleBlocks(looseNotToc, '备忘')
+check('后面不是标题时不吃（宁可不删也别误删）',
+  notToc.length === 1 && notToc[0].content.includes('第一条备忘') && notToc[0].content.includes('第三条备忘'),
+  JSON.stringify(notToc.map((a) => a.content.slice(0, 30))))
+// 只有两行短行时也不吃（要求 >= 3）。
+// 注意这几行要**放在标题之后**——放在标题之前会被「标题前那段太短就丢掉」的规则收走，
+// 那就验不到目录这条了（第一版断言就是这么写错的）。
+const twoLoose = [
+  { type: 'heading', level: 1, text: '第一章' },
+  { type: 'paragraph', text: '目录' },
+  { type: 'paragraph', text: '甲' },
+  { type: 'paragraph', text: '乙' },
+  { type: 'heading', level: 1, text: '第二章' },
+  { type: 'paragraph', text: '内容。' },
+]
+const twoLooseResult = splitArticleBlocks(twoLoose, '随笔')
+check('短行不足三条不吃', twoLooseResult[0].content.includes('甲') && twoLooseResult[0].content.includes('乙'),
+  JSON.stringify(twoLooseResult.map((a) => a.content.slice(0, 20))))
+
 // ---------------------------------------------------------------------------
 console.log(`\n${pass} 项通过${failures.length ? `，${failures.length} 项失败` : ''}`)
 if (failures.length) {

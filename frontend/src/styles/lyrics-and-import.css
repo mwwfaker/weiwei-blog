@@ -269,6 +269,27 @@
 .import-card .import-bulk-field>span{font-size:10px;color:var(--muted);letter-spacing:.04em}
 .import-card .import-bulk-field input{padding:7px 9px;font-size:11px}
 
+/* 导入草稿的封面行（article 独有）。
+   缩略图给固定尺寸，别让不同长宽比的图把每一行撑成不同高度——
+   十几篇排在一起时高度不齐会非常乱。 */
+.import-card .import-item-cover{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.import-card .import-item-cover img{
+  width:74px;height:46px;flex:none;object-fit:cover;border-radius:9px;
+  border:1px solid var(--line);
+}
+.import-card .import-item-cover-empty{
+  width:74px;height:46px;flex:none;display:grid;place-items:center;border-radius:9px;
+  border:1px dashed var(--line);color:var(--muted);font-size:10px;
+}
+.import-card .import-item-cover-pick,
+.import-card .import-item-cover-clear{
+  padding:6px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  background:transparent;color:var(--muted);font-size:10.5px;
+  transition:color .3s ease,border-color .3s ease;
+}
+.import-card .import-item-cover-pick:hover{border-color:var(--accent);color:var(--accent)}
+.import-card .import-item-cover-clear:hover{border-color:#c96a80;color:#c96a80}
+
 /* 「这个文件打不开」的提示窗（modules/modal/ImportProblemDialog.vue）。
    它要说清三件事：哪里不对、别做什么、该做什么。所以正文和步骤分开排版，
    步骤用有序列表——用户是照着做的，序号比圆点好认。 */

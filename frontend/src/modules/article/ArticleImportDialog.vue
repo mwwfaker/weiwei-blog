@@ -6,7 +6,7 @@
 //
 // 类名全部复用日记导入那套（`.import-*`）：两边的核对界面本来就该长一样，
 // 复制一份样式只会让以后改一处漏一处。
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import ModalShell from '@/modules/modal/ModalShell.vue'
 import { useArticlesStore } from '@/stores/articles'
 
@@ -15,6 +15,25 @@ const articles = useArticlesStore()
 const total = computed(() => articles.importReview.length)
 const publicCount = computed(() => articles.importReview.filter((entry) => entry.visibility === 'PUBLIC').length)
 const categoryNames = computed(() => articles.categoryNames)
+
+/**
+ * 封面选择：一个隐藏的 file input 服务所有草稿。
+ * 每篇一个 input 也行，但那样要管 N 个 ref；这里只记住「这次是给哪一篇选的」。
+ */
+const coverPicker = ref(null)
+const coverTarget = ref(null)
+
+function pickCover(entry) {
+  coverTarget.value = entry
+  coverPicker.value?.click()
+}
+
+function onCoverPicked(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (file && coverTarget.value) articles.chooseImportCover(file, coverTarget.value)
+  coverTarget.value = null
+}
 </script>
 
 <template>
@@ -80,13 +99,30 @@ const categoryNames = computed(() => articles.categoryNames)
           >{{ entry.visibility === 'PUBLIC' ? '◉ 公开给访客' : '◌ 仅自己可见' }}</button>
           <small>来自 {{ entry.source }}</small>
         </div>
+        <!-- 封面：和「写文章」里那套一样能上传。导入的文章同样需要封面，
+             否则列表和阅读页都只有一片空白。每篇单独配。 -->
+        <div class="import-item-cover">
+          <img v-if="articles.articleImage(entry)" :src="articles.articleImage(entry)" :alt="entry.title" />
+          <span v-else class="import-item-cover-empty">无封面</span>
+          <button type="button" class="import-item-cover-pick" @click="pickCover(entry)">
+            {{ articles.articleImage(entry) ? '换一张' : '选择封面' }}
+          </button>
+          <button
+            v-if="articles.articleImage(entry)"
+            type="button"
+            class="import-item-cover-clear"
+            @click="entry.image = ''"
+          >移除</button>
+        </div>
         <textarea v-model="entry.content" rows="7" aria-label="文章正文"></textarea>
       </article>
     </div>
 
     <div class="modal-actions">
+      <!-- 一个隐藏的 input 服务所有草稿，避免给每篇都挂一个 ref -->
+      <input ref="coverPicker" type="file" accept="image/*" hidden @change="onCoverPicked" />
       <span v-if="articles.importing">正在写入数据库… {{ articles.importSaved }} / {{ total }}</span>
-      <span v-else>支持 .docx / .txt / .md · 一篇一个标题，会按最浅那一级标题自动拆开</span>
+      <span v-else>支持 .docx / .txt / .md · 标题按文档里最浅那一级标题切，目录会自动剔掉；封面可逐篇选</span>
       <!-- 写入期间必须禁用：一次点击会发很多请求，能再点一下就会存进两份一模一样的内容。 -->
       <button class="button-primary" :disabled="!total || articles.importing" @click="articles.confirmImport()">
         {{ articles.importing ? `保存中 ${articles.importSaved} / ${total}` : `确认并保存 ${total} 篇` }} &nbsp;↗
