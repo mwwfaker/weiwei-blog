@@ -3,7 +3,7 @@
 // 增删改都 emit 回 PerfPage——名单是云端同步的核心数据，不能在面板里自己改。
 //
 // 三个重置按钮也只是 emit 意图：清哪些字段、保留什么、怎么确认，全在 PerfPage 里定，
-// 这里说的「重置」只清数据，姓名/邮箱/队列/实际 AHT 都留着（提示文案写在 PerfPage）。
+// 这里说的「重置」只清数据，姓名/邮箱/队列归属都留着（提示文案写在 PerfPage）。
 import { DEFAULT_REQUIRED_HOURS } from '@/services/perf'
 import { money } from '../composables/format.js'
 
@@ -76,7 +76,7 @@ function resetExtraHours() { emit('reset-extra-hours') }
             <td class="num muted">{{ rowByMember.get(member.id)?.result.actualHours.toFixed(2) || '0.00' }} h</td>
             <td class="num total">¥ {{ money(rowByMember.get(member.id)?.result.total || 0) }}</td>
             <td class="act">
-              <button class="perf-del reset" :aria-label="`重置 ${member.name || '这个人'} 的数据`" title="重置他的数据（保留姓名/邮箱/队列/实际AHT）" @click="resetMemberData(member.id)">↺</button>
+              <button class="perf-del reset" :aria-label="`重置 ${member.name || '这个人'} 的数据`" title="重置他的数据（保留姓名/邮箱/队列归属）" @click="resetMemberData(member.id)">↺</button>
               <button class="perf-del" :aria-label="`删除 ${member.name || '这个人'}`" title="从名单里删掉这个人" @click="removeMember(member.id)">×</button>
             </td>
           </tr>

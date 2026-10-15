@@ -182,8 +182,14 @@ check('最高/最低收入可识别', all.summary.highest && all.summary.lowest 
 // ---- 10. 数据重置 --------------------------------------------------------------
 // 这一组的风险不在「算得对不对」，而在「清的边界对不对」：
 //   · 该清没清 → 换月之后上个月的数字还挂在工资里，而且不报错
-//   · 不该清却清了 → 直接丢数据（名单、队列归属、实际 AHT）
+//   · 不该清却清了 → 直接丢数据（名单、队列归属）
 // 所以每条断言都成对写：清的字段变成 0，保留的字段原样不动。
+//
+// 关于「实际 AHT」：它是**当月**在这条队列上测出来的平均处理时长，属于当月数据，
+// 所以「重置员工数据」要连它一起清零（曾经写成保留，那是错的——单价由队列 KPI 推，
+// 跟这个字段没关系，留着只会让新月份拿上个月的手速算工时）。
+// 而「重置抽调/加班/三薪时长」不碰队列数据，所以那一个动作必须**留下**实际 AHT，
+// 下面两条断言专门盯这个区别。
 console.log('\n[10] 数据重置')
 
 const freshMember = () => ({
@@ -216,8 +222,7 @@ function resetHarness({ members = [freshMember()], entries = [freshEntry()], ans
   check('重置该员工数据：队列归属保留', m.queue === '图片')
   check('重置该员工数据：月要求工时保留', m.requiredHours === 184)
   check('重置该员工数据：三个时长清零', m.transferHours === 0 && m.overtimeHours === 0 && m.tripleHours === 0)
-  check('重置该员工数据：审核量与三薪日清零', e.auditCount === 0 && e.tripleCount === 0)
-  check('重置该员工数据：实际 AHT 保留（它是单价口径，不是当月工作量）', e.actualAht === 29.5)
+  check('重置该员工数据：实际 AHT / 审核量 / 三薪日都清零', e.actualAht === 0 && e.auditCount === 0 && e.tripleCount === 0)
   check('重置该员工数据：弹了一次确认框', h.asked.length === 1)
 }
 
@@ -241,9 +246,8 @@ function resetHarness({ members = [freshMember()], entries = [freshEntry()], ans
   check('重置全部：返回 true', ok === true)
   check('重置全部：名单人数不变', h.members.value.length === 2)
   check('重置全部：两个人的时长都清零', h.members.value.every((m) => m.transferHours === 0 && m.overtimeHours === 0 && m.tripleHours === 0))
-  check('重置全部：两个人的录入都清零', h.entries.value.every((e) => e.auditCount === 0 && e.tripleCount === 0))
+  check('重置全部：两个人的录入都清零', h.entries.value.every((e) => e.actualAht === 0 && e.auditCount === 0 && e.tripleCount === 0))
   check('重置全部：姓名都保留', h.members.value.map((m) => m.name).join(',') === '甲,乙')
-  check('重置全部：实际 AHT 都保留', h.entries.value.every((e) => e.actualAht === 29.5))
 
   // 名单为空时不该弹框、也不该说成功
   const empty = resetHarness({ members: [], entries: [] })
@@ -257,16 +261,18 @@ function resetHarness({ members = [freshMember()], entries = [freshEntry()], ans
   const m = h.members.value[0]
   check('重置时长：返回 true', ok === true)
   check('重置时长：三个时长清零', m.transferHours === 0 && m.overtimeHours === 0 && m.tripleHours === 0)
+  check('重置时长：实际 AHT 不动（这个按钮不碰队列数据）', h.entries.value[0].actualAht === 29.5)
   check('重置时长：审核量不动', h.entries.value[0].auditCount === 120)
   check('重置时长：三薪日不动（这是两个按钮分开的原因）', h.entries.value[0].tripleCount === 40)
 }
 
-// 10.5 「重置三薪审核量」：只清 tripleCount，auditCount 与名单原样
+// 10.5 「重置三薪审核量」：只清 tripleCount，AHT / 审核量 / 名单原样
 {
   const h = resetHarness()
   const ok = h.resetMemberTripleCount('m1')
   check('重置三薪审核量：返回 true', ok === true)
   check('重置三薪审核量：三薪日清零', h.entries.value[0].tripleCount === 0)
+  check('重置三薪审核量：实际 AHT 不动', h.entries.value[0].actualAht === 29.5)
   check('重置三薪审核量：审核量不动', h.entries.value[0].auditCount === 120)
   check('重置三薪审核量：三薪时长不动（另一处存的那份不归它管）', h.members.value[0].tripleHours === 6)
 }

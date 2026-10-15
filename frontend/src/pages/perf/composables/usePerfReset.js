@@ -12,9 +12,12 @@
 //   · 名单里的 member.tripleHours —— 三薪时长，按 62 元/小时直接算钱
 //   · 明细里的 entry.tripleCount  —— 三薪日那天的审核量，要从计件量里扣掉（否则同一批活付两次）
 //
-// 所有动作都遵循同一条：**保留姓名、邮箱、队列归属与实际 AHT**。
+// 所有「重置员工数据」的动作都遵循同一条：**保留姓名、邮箱、队列归属**。
 // 清的是「当月干了多少活」，不是「这个人是谁」——所以换月不用重新加人、重新对队列。
-// 实际 AHT 之所以保留，是因为它是「单价口径」而不是当月工作量。
+//
+// 实际 AHT（`entry.actualAht`）**要一起清零**：它是这个月在这条队列上测出来的平均处理时长，
+// 属于当月数据；留着的话新月份会拿上个月的手速去算工时，工资会偏。（这一条改过一次——
+// 最初写成「保留实际 AHT，因为它是单价口径」，那是错的：单价由队列 KPI 推，与这个字段无关。）
 //
 // 全部不可撤销，所以每个动作都先确认一次，并把「会清什么 / 保留什么」写进提示里。
 
@@ -34,20 +37,21 @@ const defaultConfirm = (message) => typeof globalThis.window === 'undefined' || 
  * @returns 四个重置动作；每个都返回「是否真的执行了」（取消 / 没数据 / 找不到人时为 false）
  */
 export function usePerfReset({ members, entries, confirm = defaultConfirm }) {
-  /** 清掉某位员工所有队列的录入数据；实际 AHT 按约定保留。 */
+  /** 清掉某位员工所有队列里属于「当月」的录入数据：实际 AHT、审核量、其中三薪日。 */
   function zeroEntryCounts(memberId) {
     for (const entry of entries.value) {
       if (entry.memberId !== memberId) continue
+      entry.actualAht = 0
       entry.auditCount = 0
       entry.tripleCount = 0
     }
   }
 
-  /** 员工名单里那一行的「↺」：清抽调/加班/三薪时长，外加他所有队列的审核量与其中三薪日。 */
+  /** 员工名单里那一行的「↺」：清抽调/加班/三薪时长，外加他所有队列的实际 AHT、审核量与其中三薪日。 */
   function resetMemberData(id) {
     const member = members.value.find((m) => m.id === id)
     if (!member) return false
-    if (!confirm(`重置「${memberLabel(member)}」的数据？\n\n清空：抽调时长、加班时长、三薪时长，以及他在所有队列里的审核量、其中三薪日。\n保留：姓名、邮箱、队列归属、实际 AHT。`)) return false
+    if (!confirm(`重置「${memberLabel(member)}」的数据？\n\n清空：抽调时长、加班时长、三薪时长，以及他在所有队列里的实际 AHT、审核量、其中三薪日。\n保留：姓名、邮箱、队列归属。`)) return false
     for (const field of HOUR_FIELDS) member[field] = 0
     zeroEntryCounts(id)
     return true
@@ -56,7 +60,7 @@ export function usePerfReset({ members, entries, confirm = defaultConfirm }) {
   /** 「重置全部员工数据」：上面那件事对所有人做一遍，员工名单本身不动。 */
   function resetAllMemberData() {
     if (!members.value.length) return false
-    if (!confirm(`重置全部 ${members.value.length} 位员工的数据？\n\n清空：每个人的抽调/加班/三薪时长，以及所有队列里的审核量、其中三薪日。\n保留：员工名单、队列 KPI、每个人的实际 AHT。`)) return false
+    if (!confirm(`重置全部 ${members.value.length} 位员工的数据？\n\n清空：每个人的抽调/加班/三薪时长，以及所有队列里的实际 AHT、审核量、其中三薪日。\n保留：员工名单、队列 KPI。`)) return false
     for (const member of members.value) {
       for (const field of HOUR_FIELDS) member[field] = 0
       zeroEntryCounts(member.id)
