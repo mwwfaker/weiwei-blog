@@ -13,7 +13,6 @@
    ========================================================================== */
 
 .diary-tree{position:relative;padding:34px 0 46px}
-
 /* ---- 树干 ---------------------------------------------------------------- */
 /* 矢量树干：会微微蜿蜒，纵向填满整棵树。
    为什么不用贴图：高度由日记篇数决定、会一直加，贴图纵向平铺在接缝处会露馅；
@@ -50,6 +49,63 @@
 .diary-tree-limb{
   fill:none;stroke:currentColor;stroke-linecap:round;stroke-width:17;
   vector-effect:non-scaling-stroke;
+}
+
+/* ---- 枝叶：浓密程度跟着写作量走 ----------------------------------------------
+   挂在卡片对面的那半边（卡片在左就挂右边），所以一行里两侧都有东西，
+   树干不会显得空。茂盛度 --lush（0~1，由组件按前后 21 天的篇数算）在这里只做两件事：
+   整体缩放，以及**四片叶子错开出现阈值**——稀疏的一段只冒出一点，密集的才是一整簇。
+   阈值用 clamp(0, (lush - 门槛) * 斜率, 上限) 写，纯 CSS 就能做条件显隐。 */
+.diary-tree-foliage{
+  position:absolute;top:4px;width:130px;height:96px;overflow:visible;z-index:0;
+  color:color-mix(in srgb,var(--accent) 30%,transparent);
+  transform:scale(calc(.72 + var(--lush,0) * .4));
+}
+.diary-tree-node .diary-tree-foliage.is-right{left:50%;transform-origin:left center}
+.diary-tree-node .diary-tree-foliage.is-left{right:50%;transform-origin:right center;scale:-1 1}
+.diary-tree-leaf-branch{
+  fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;
+  opacity:calc(.3 + var(--lush,0) * .55);
+}
+.diary-tree-leaf{
+  fill:currentColor;transform-box:fill-box;transform-origin:center;
+  transform:scale(calc(.55 + var(--lush,0) * .6));
+}
+/* 注意 :nth-child 是把 path 也算进去的，所以第一片叶子是第 2 个子元素 */
+.diary-tree-leaf:nth-child(2){opacity:clamp(0,calc(var(--lush,0) * 2.4),.95)}
+.diary-tree-leaf:nth-child(3){opacity:clamp(0,calc((var(--lush,0) - .18) * 2.4),.95)}
+.diary-tree-leaf:nth-child(4){opacity:clamp(0,calc((var(--lush,0) - .44) * 2.6),.9)}
+.diary-tree-leaf:nth-child(5){opacity:clamp(0,calc((var(--lush,0) - .7) * 3),.85)}
+
+/* ---- 右边的时间表 ------------------------------------------------------------
+   年份 + 那一年多少篇。位置是量出来的（见组件里的 measureTicks），所以刻度和挂件对齐；
+   按时间均分的话卡片高度不一，刻度就和日记对不上，这条表也就没用了。
+   窄屏不显示：本来就没地方，挤在卡片上反而碍事。
+   桌面要让出这条表的宽度，左右都让——只让一边，轴就不在内容中间了。 */
+.diary-tree-ruler{display:none}
+@media(min-width:1000px){
+  .diary-tree{padding-left:78px;padding-right:78px}
+  .diary-tree-ruler{
+    display:block;position:absolute;right:0;top:0;bottom:0;width:78px;
+    opacity:.6;pointer-events:none;
+  }
+  .diary-tree-ruler::before{
+    content:'';position:absolute;left:14px;top:0;bottom:0;width:1px;
+    background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--muted) 45%,transparent) 8%,
+      color-mix(in srgb,var(--muted) 45%,transparent) 92%,transparent);
+  }
+  .diary-tree-tick{
+    position:absolute;left:0;right:10px;display:flex;align-items:center;justify-content:flex-end;gap:6px;
+    transform:translateY(-50%);white-space:nowrap;
+  }
+  .diary-tree-tick-line{flex:none;width:16px;height:1px;background:color-mix(in srgb,var(--muted) 60%,transparent)}
+  .diary-tree-tick-year{
+    font-family:var(--serif);font-size:12px;font-weight:600;letter-spacing:.06em;
+    color:color-mix(in srgb,var(--ink) 62%,transparent);
+  }
+  .diary-tree-tick-count{
+    font-style:normal;font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;
+  }
 }
 
 .diary-tree-nodes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:38px}

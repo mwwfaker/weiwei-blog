@@ -4,11 +4,24 @@
 // 为什么是树而不是列表：日记天然属于时间。列表把时间压成一列日期文字，
 // 树把时间变成一条能看见的轴——越往上越新，越往下越早，一眼看得到自己写了多久。
 //
-// 几个刻意的决定：
+// ---- 枝叶的疏密跟着写作量走 -------------------------------------------------
+// 「写的多的时间段枝繁叶茂」不是装饰，是这棵树想表达的第二层信息：
+// 每篇日记按**前后 21 天内有多少篇**算一个 0~1 的茂盛度，挂在卡片对面的那半边。
+// 于是 2023 年 6 月那片（13 篇）会明显浓密，2025 年那篇（全年只有它）几乎光秃——
+// 密度不是均匀铺的，是数据给的。
+// 下限留 0.2：完全光秃的树干看着像没长起来。
+//
+// ---- 右边那条时间表 ---------------------------------------------------------
+// 半透明的年份刻度，位置**不是按时间均分、而是量出来的**：每到一个新年份，
+// 取那一年第一篇挂在轴上的实际像素位置。按时间均分的话，卡片高度不一，
+// 刻度和日记就会对不上，那这条表也就没用了。窗口尺寸变化要重新量。
+//
+// ---- 其余几个刻意的决定 -----------------------------------------------------
 //   · **树干是矢量、不是贴图**。高度由日记篇数决定、会一直加，贴图纵向平铺在接缝处会露馅；
 //     而且贴图只有一种色，伺候不了深浅两套主题——这里描边走 currentColor，跟着主题变。
 //     试过更写实的一版（双描边做圆柱感 + 粗的弯曲枝），观感反而「不自然」，
 //     和站点 2026 编辑风的平、软对不上，所以只保留这一条有机曲线。
+//     也试过螺旋版（挂件绕轴盘旋而上），不如这版，已撤回。
 //   · **左右不是每帧随机的**。真用 Math.random() 的话，任何一次重渲染（搜索、切标签、
 //     可见范围一变）所有挂件都会左右横跳。所以按 id 做 FNV-1a 哈希 → 同一个 id 永远同一侧，
 //     看起来乱、但稳定。哈希还会**避免连续三篇同侧**，否则一边堆成一坨、另一边空着。
@@ -19,16 +32,18 @@
 //     51 篇一起播会像整页抖一下；它同时负责 `prefers-reduced-motion` 与
 //     「没有 IntersectionObserver 就直接显示」的兜底。
 //   · **增删日记时让树真的长高 / 变矮**：用 TransitionGroup 折叠节点自身的高度
-//     （max-height → 0），而不是靠 FLIP 位移补间。原因是删除时 Vue 会先把要走的
-//     那个节点留在 DOM 里播 leave，等它播完才移除——那时其余节点的位置才变，
-//     而那一刻已经没有新的更新了，FLIP 补不上，树干会在移除瞬间「啪」地缩一截。
-//     高度折叠是连续的，后面的挂件一路滑上来，树干（bottom:0）跟着连续变短。
+//     （max-height → 0），而不是靠 FLIP 位移补间。删除时 Vue 会先把要走的节点留在
+//     DOM 里播 leave，等它播完才移除——那一刻其余节点的位置才变，而已经没有新的更新了，
+//     FLIP 补不上，树干会在移除瞬间「啪」地缩一截。高度折叠是连续的。
 //
-// 卡片本身复用 DiaryCard：操作行、可见范围标记、点击阅读的行为与列表页完全一致，
-// 树只是换了一种摆放方式。
-import { computed } from 'vue'
+// 卡片本身复用 DiaryCard：操作行、可见范围标记、点击阅读的行为与列表页完全一致。
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import DiaryCard from './DiaryCard.vue'
 import { vReveal } from '@/composables/motion'
+
+/** 茂盛度的统计窗口：前后多少天之内算「同一阵子」。 */
+const LUSH_WINDOW_DAYS = 21
+const DAY_MS = 86400000
 
 const props = defineProps({
   entries: { type: Array, required: true },
@@ -56,6 +71,26 @@ function sideOf(entry, index) {
   return (hash >>> 0) % 2 === 0 ? 'left' : 'right'
 }
 
+/** 每篇的茂盛度 0~1：前后 21 天里篇数越多越浓。 */
+const lushness = computed(() => {
+  const times = props.entries.map((entry) => {
+    const stamp = Date.parse(String(entry?.date || ''))
+    return Number.isNaN(stamp) ? null : stamp
+  })
+  const counts = times.map((stamp) => {
+    if (stamp == null) return 1
+    return times.reduce((total, other) => (
+      other != null && Math.abs(other - stamp) <= LUSH_WINDOW_DAYS * DAY_MS ? total + 1 : total
+    ), 0)
+  })
+  const peak = Math.max(1, ...counts)
+  return counts.map((count) => {
+    const norm = peak > 1 ? (count - 1) / (peak - 1) : 0
+    // 下限 0.2：完全光秃的树干看着像没长起来
+    return Number((0.2 + 0.8 * norm ** 0.65).toFixed(3))
+  })
+})
+
 const nodes = computed(() => {
   const out = []
   let lastSide = ''
@@ -72,14 +107,57 @@ const nodes = computed(() => {
     const yearLabel = year && year !== lastYear ? `${year}` : ''
     if (year) lastYear = year
 
-    out.push({ entry, side, yearLabel, delay: (index % 5) * 70 })
+    out.push({
+      entry,
+      side,
+      yearLabel,
+      lush: lushness.value[index] ?? 0.2,
+      delay: (index % 5) * 70,
+    })
   })
   return out
 })
+
+/** 右边时间表的刻度：每年一条，位置要等到挂载后才能量出来。 */
+const root = ref(null)
+const ticks = ref([])
+let observer = null
+
+function measureTicks() {
+  const el = root.value
+  if (!el) return
+  const cards = [...el.querySelectorAll('.diary-tree-node')]
+  const out = []
+  let lastYear = ''
+  props.entries.forEach((entry, index) => {
+    const year = String(entry?.date || '').slice(0, 4)
+    if (!year || year === lastYear) return
+    lastYear = year
+    const node = cards[index]
+    if (!node) return
+    out.push({
+      year,
+      top: node.offsetTop,
+      count: props.entries.filter((item) => String(item?.date || '').startsWith(year)).length,
+    })
+  })
+  ticks.value = out
+}
+
+onMounted(() => {
+  measureTicks()
+  // 卡片高度会随窗口宽度回流（正文换行），刻度的像素位置也得跟着重算
+  if (typeof ResizeObserver !== 'undefined' && root.value) {
+    observer = new ResizeObserver(() => measureTicks())
+    observer.observe(root.value)
+  }
+})
+onBeforeUnmount(() => { observer?.disconnect(); observer = null })
+watch(() => props.entries, () => nextTick(measureTicks))
 </script>
 
 <template>
-  <div class="diary-tree">
+  <div ref="root" class="diary-tree">
     <!-- 树干：一段会微微蜿蜒的曲线，纵向拉伸填满整棵树。
          描边必须 non-scaling-stroke —— 容器是被纵向拉伸的，不带它笔画会被拉成一根根竖条；
          蜿蜒幅度也只能给到 ±2px，再大挂在轴上的「结」就对不上树干了。
@@ -89,6 +167,7 @@ const nodes = computed(() => {
       <path class="diary-tree-grain" d="M5.6 0 C3 200 8.6 400 5.6 600 C3 800 8.6 1000 5.6 1200" />
       <path class="diary-tree-grain" d="M10.4 0 C13 200 7.4 400 10.4 600 C13 800 7.4 1000 10.4 1200" />
     </svg>
+
     <!-- 剪影水印：极淡的一整棵树压在卡片后面，只给纵深，不参与布局也不接指针事件。
          拆成两半是有原因的：树冠不能跟着树的高度纵向拉伸（会被拉成一根长条），
          所以树冠单独一张、按固定尺寸钉在顶部；树干与枝那半边才用 preserveAspectRatio="none"
@@ -112,6 +191,17 @@ const nodes = computed(() => {
         <path class="diary-tree-limb" d="M200 330 C246 292 276 250 296 196" />
       </svg>
     </div>
+
+    <!-- 右边的时间表：年份 + 那一年多少篇。位置由 measureTicks() 量出来，
+         所以它和挂件是对齐的；没有 JS（或还没量到）时整条不显示，不会留下一排飘着的字。 -->
+    <div v-if="ticks.length" class="diary-tree-ruler" aria-hidden="true">
+      <span v-for="tick in ticks" :key="tick.year" class="diary-tree-tick" :style="{ top: tick.top + 'px' }">
+        <i class="diary-tree-tick-line"></i>
+        <b class="diary-tree-tick-year">{{ tick.year }}</b>
+        <em class="diary-tree-tick-count">{{ tick.count }} 篇</em>
+      </span>
+    </div>
+
     <TransitionGroup name="tree" tag="ol" class="diary-tree-nodes">
       <li
         v-for="node in nodes"
@@ -122,6 +212,22 @@ const nodes = computed(() => {
       >
         <span class="diary-tree-knot" aria-hidden="true"></span>
         <span class="diary-tree-twig" aria-hidden="true"></span>
+        <!-- 枝叶：挂在卡片对面的那半边，浓密程度由这一阵子的写作量决定。
+             四片叶子的出现阈值错开（--lush 越大露出的越多），所以稀疏的一段
+             只冒出一点、密集的一段才是一整簇。 -->
+        <svg
+          class="diary-tree-foliage"
+          :class="node.side === 'left' ? 'is-right' : 'is-left'"
+          viewBox="0 0 130 96"
+          :style="{ '--lush': node.lush }"
+          aria-hidden="true"
+        >
+          <path class="diary-tree-leaf-branch" d="M0 88 C28 84 56 68 80 40" />
+          <ellipse class="diary-tree-leaf" cx="42" cy="70" rx="18" ry="11" />
+          <ellipse class="diary-tree-leaf" cx="70" cy="48" rx="20" ry="12" />
+          <ellipse class="diary-tree-leaf" cx="98" cy="26" rx="15" ry="9" />
+          <ellipse class="diary-tree-leaf" cx="22" cy="84" rx="13" ry="8" />
+        </svg>
         <span v-if="node.yearLabel" class="diary-tree-year">{{ node.yearLabel }}</span>
         <div class="diary-tree-hang">
           <DiaryCard
