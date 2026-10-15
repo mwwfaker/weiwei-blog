@@ -20,6 +20,7 @@ const auth = useAuthStore()
     card-class="article-reading"
     backdrop-class="article-reader-backdrop"
     close-label="关闭阅读"
+    :count-text="props.article.content || props.article.excerpt"
     @close="$emit('close')"
   >
     <template #head>

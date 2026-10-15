@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 // 阅读类弹窗的共用外壳：**表头与底部操作固定，只有正文滚动**。
 //
 // 原来日记和文章各自用 ModalShell 的 bare 模式，卡片是「整张一起滚」的
@@ -11,12 +12,20 @@
 //
 // 和 ModalShell 的分工：ModalShell 管普通表单弹窗（标题行 + 关闭 + 整卡滚动）；
 // 这里管阅读（页眉自己排、正文独立滚动）。两边的关闭按钮都复用 `.modal-close`。
-defineProps({
+const props = defineProps({
   cardClass: { type: [String, Array, Object], default: '' },
   backdropClass: { type: [String, Array, Object], default: '' },
   closeLabel: { type: String, default: '关闭阅读' },
+  /**
+   * 用来算字数的正文。传了就在右下角显示「共 N 字」——
+   * 放在外壳里算，是因为日记和文章要的是同一个数字口径（去掉空白后的字符数），
+   * 各写一遍迟早会出现一处算了空白、一处没算。
+   */
+  countText: { type: String, default: '' },
 })
 defineEmits(['close'])
+
+const charCount = computed(() => String(props.countText || '').replace(/\s/g, '').length)
 </script>
 
 <template>
@@ -29,8 +38,9 @@ defineEmits(['close'])
       <div class="reading-scroll">
         <slot />
       </div>
-      <footer v-if="$slots.actions" class="reading-foot">
+      <footer v-if="$slots.actions || charCount" class="reading-foot">
         <slot name="actions" />
+        <span v-if="charCount" class="reading-count">共 {{ charCount }} 字</span>
       </footer>
     </article>
   </div>

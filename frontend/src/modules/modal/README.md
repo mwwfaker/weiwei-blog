@@ -18,12 +18,18 @@
 版式、字号、图片怎么排全部由调用方决定：
 
 ```vue
-<ReadingSheet card-class="diary-reading" @close="...">
+<ReadingSheet card-class="diary-reading" :count-text="entry.content" @close="...">
   <template #head>日期 · 标题 · 标签</template>
   正文……
   <template #actions>导出 / 编辑</template>
 </ReadingSheet>
 ```
+
+## 右下角的字数由外壳算
+
+传 `countText`（正文）进来，外壳在右下角渲染「共 N 字」。**口径放在一处**是有意的：
+日记和文章要的是同一个数字（去掉空白后的字符数），各写一遍迟早会出现一处算了空白、一处没算。
+没有 `actions` 时页脚照样显示字数——访客读公开日记时看不到按钮，但应该看得到字数。
 
 所以日记（`.diary-reading`，窄卡片）和文章（`.article-reading`，整页、带封面图）**各自有一节样式**，
 互不影响——见 `styles/polish-and-light-theme.css` 末尾的「阅读」一节。
