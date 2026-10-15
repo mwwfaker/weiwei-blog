@@ -25,7 +25,7 @@ const ENTER_MS = 560
  */
 const DUST_HOLD_MS = 180
 /** 退场总时长（毫秒）。必须覆盖「静止 + 消散 + 最后一批粒子飞完」，JS 要等它跑完再交差。 */
-const DUST_MS = 1180
+const DUST_MS = 1320
 
 const props = defineProps({
   cardClass: { type: [String, Array, Object], default: '' },
@@ -47,20 +47,31 @@ const charCount = computed(() => String(props.countText || '').replace(/\s/g, ''
 const card = ref(null)
 const closing = ref(false)
 const dustRect = ref(null)
+const dustCount = ref(420)
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+/** 窄屏粒子给少一些：几百个带发光阴影的圆点在小手机上不划算。 */
+const particleCount = () => (typeof matchMedia === 'function' && matchMedia('(min-width: 761px)').matches ? 420 : 240)
 
 /**
- * 三条关闭路径（叉、点空白、调用方主动关）都走这里。
+ * 三条关闭路径（叉、点空白、代码里主动关）都走这里。
  * 动画跑完才 emit，父组件那时才把组件摘掉。
  */
 function requestClose() {
   if (closing.value) return
   if (!props.motion || reducedMotion()) { emit('close'); return }
   closing.value = true
+  dustCount.value = particleCount()
+
+  // 粒子层要有地方铺。正常情况用卡片的实际位置；万一量不到（ref 没就绪等），
+  // 退回一块屏幕中央的区域——**宁可铺得不准，也不能一声不响地什么都不显示**。
   const rect = card.value?.getBoundingClientRect?.()
-  if (rect && rect.width && rect.height) {
+  if (rect && rect.width > 1 && rect.height > 1) {
     dustRect.value = { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+  } else {
+    const vw = globalThis.innerWidth || 1024
+    const vh = globalThis.innerHeight || 768
+    dustRect.value = { left: vw * 0.16, top: vh * 0.12, width: vw * 0.68, height: vh * 0.62 }
   }
   globalThis.setTimeout(() => emit('close'), DUST_MS)
 }
@@ -88,6 +99,6 @@ defineExpose({ requestClose })
         <span v-if="charCount" class="reading-count">共 {{ charCount }} 字</span>
       </footer>
     </article>
-    <DustBurst v-if="closing && dustRect" :rect="dustRect" :hold="DUST_HOLD_MS" />
+    <DustBurst v-if="closing && dustRect" :rect="dustRect" :hold="DUST_HOLD_MS" :count="dustCount" />
   </div>
 </template>
