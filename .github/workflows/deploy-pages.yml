@@ -3,7 +3,7 @@ name: Publish blog preview
 on:
   push:
     branches: [main]
-    paths: ['frontend/**', 'verify-frontend.mjs', '.github/workflows/deploy-pages.yml']
+    paths: ['frontend/**', 'verify-frontend.mjs', 'verify-lyrics.mjs', '.github/workflows/deploy-pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -29,6 +29,9 @@ jobs:
         working-directory: frontend
       - run: npm run verify
         working-directory: frontend
+      # 歌词解析的离线自检。它在仓库根目录，而且会直接 import frontend/src 下的模块，
+      # 所以工作目录必须是根目录，不能跟着上面几条走。
+      - run: node verify-lyrics.mjs
       - run: npm run build
         working-directory: frontend
         env:
@@ -38,6 +41,9 @@ jobs:
           # 没设置时前端进入本机预览模式，数据只留在访客浏览器里。
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # 可选：中文歌词源的中转地址（Supabase Edge Function，见 supabase/functions/lyrics）。
+          # 不设置就只用 LRCLIB 自动匹配 + 手动粘贴，功能正常。
+          VITE_LYRICS_PROXY: ${{ vars.VITE_LYRICS_PROXY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist

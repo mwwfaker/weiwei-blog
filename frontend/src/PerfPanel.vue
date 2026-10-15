@@ -948,10 +948,36 @@ function rowAvgAht(row, key) {
 const pctText = (v) => (Number.isFinite(v) ? `${(v * 100).toFixed(2)}%` : '')
 
 function backToBlog() { router.push({ name: 'home' }) }
+
+// ---- 氛围层：跟着指针走的那团柔光 ------------------------------------------
+// 位置只用 transform 写，而且按帧合并一次——鼠标连点也不会堆出一串待处理的写入。
+// 不用 CSS 变量：改 .perf-tool 上的自定义属性会让整棵子树（几百个单元格）重算样式，
+// 而 transform 这条路只走合成器，表格滚动时也不会跟着掉帧。
+const auraRef = ref(null)
+const toolRef = ref(null)
+let auraTarget = null
+let auraFrame = 0
+
+function flushAura() {
+  auraFrame = 0
+  const el = auraRef.value
+  const host = toolRef.value
+  if (!el || !host || !auraTarget) return
+  const rect = host.getBoundingClientRect()
+  el.style.transform = `translate3d(${auraTarget.x - rect.left}px,${auraTarget.y - rect.top}px,0)`
+}
+
+function trackCursor(event) {
+  auraTarget = { x: event.clientX, y: event.clientY }
+  if (!auraFrame) auraFrame = requestAnimationFrame(flushAura)
+}
+
+onUnmounted(() => { if (auraFrame) cancelAnimationFrame(auraFrame) })
 </script>
 
 <template>
-  <div class="perf-tool" :class="{ 'is-readonly': readOnly }">
+  <div ref="toolRef" class="perf-tool" :class="{ 'is-readonly': readOnly }" @pointermove="trackCursor">
+    <span ref="auraRef" class="perf-aura" aria-hidden="true"></span>
     <header class="perf-bar">
       <div class="perf-bar-left">
         <span class="perf-mark">¥</span>
@@ -1422,7 +1448,7 @@ function backToBlog() { router.push({ name: 'home' }) }
               <text v-for="(q, i) in vizScatter.quadrants" :key="'q' + i" :x="q.x" :y="q.y" class="quadlabel" :text-anchor="q.anchor">{{ q.text }}</text>
 
               <!-- 数据点 -->
-              <g v-for="p in vizScatter.points" :key="p.id" class="dotgroup">
+              <g v-for="(p, i) in vizScatter.points" :key="p.id" class="dotgroup" :style="{ animationDelay: (i % 9) * 0.32 + 's' }">
                 <title>{{ p.tip }}</title>
                 <circle :cx="p.x" :cy="p.y" :r="p.r" class="dot" :class="{ over: p.overX || p.overY }" />
                 <text
@@ -2153,4 +2179,246 @@ function backToBlog() { router.push({ name: 'home' }) }
 .perf-grid tbody tr.picked:hover,
 .perf-grid tbody tr.picked:focus-within{background:color-mix(in srgb,var(--accent) 24%,transparent)}
 .perf-grid tbody tr.picked>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+
+
+/* ==========================================================================
+   氛围层：光束、呼吸灯、流光
+   --------------------------------------------------------------------------
+   这一层纯粹是「好看」，所以每条都守两个底线：
+     1. 只动 transform / opacity / 颜色，不触发布局——表格滚动时不跟着重排；
+     2. 全部挂在伪元素上，不改模板结构，只读模式、手机端、打印都照常。
+   强度都刻意压得很低（峰值透明度 0.2~0.4），因为这是每天要盯着算钱的工具，
+   不是宣传页：看得见在动，但不该抢走数字的注意力。
+   想要彻底安静的人由文件末尾的 prefers-reduced-motion 一次性关掉。
+   ========================================================================== */
+
+/* ---- 1. 全屏斜向光束：从左上角扫到右下角 --------------------------------
+   18 秒一轮，但只有开头那 2.5 秒真的在扫，其余时间停在屏幕外——
+   「时不时掠过」比一直闪要自然得多，也不会让人分心。
+   浅色主题普通混合（白芯在浅底上本来就看不见，靠紫色带子显形），
+   深色主题改用 screen，让光束真的把暗部提亮。
+   白芯只留一点点点睛：纯白扫过去会像开了手电筒，和这个克制的紫色主题不搭。 */
+.perf-tool{position:relative}
+.perf-tool::before{
+  content:"";position:absolute;inset:-32%;z-index:30;pointer-events:none;
+  --beam-peak:.22;
+  background:linear-gradient(135deg,
+    transparent 40%,
+    color-mix(in srgb,var(--accent) 26%,transparent) 47%,
+    color-mix(in srgb,#fff 34%,var(--accent)) 50%,
+    color-mix(in srgb,var(--accent) 26%,transparent) 53%,
+    transparent 60%);
+  filter:blur(20px);opacity:0;
+  animation:perfBeam 18s cubic-bezier(.45,.05,.55,.95) infinite;
+}
+:root.dark .perf-tool::before{mix-blend-mode:screen;filter:blur(26px);--beam-peak:.34}
+@keyframes perfBeam{
+  0%{transform:translate3d(-46%,-46%,0);opacity:0}
+  5%{opacity:var(--beam-peak)}
+  15%{transform:translate3d(44%,44%,0);opacity:0}
+  100%{transform:translate3d(44%,44%,0);opacity:0}
+}
+
+/* ---- 2. 光标氛围光 ------------------------------------------------------
+   跟着指针走的一团柔光，压在面板下面；面板本身是半透明的（78%），
+   所以光会从表格底下透出来。触屏设备没有「指针」，整块不生效。
+   0.24s 的 transform 过渡 = 一团拖在指针后面的光，比硬跟随耐看。 */
+.perf-body{position:relative;z-index:1}
+.perf-aura{display:none}
+@media (hover:hover) and (pointer:fine){
+  .perf-aura{
+    display:block;position:absolute;left:0;top:0;width:820px;height:820px;margin:-410px 0 0 -410px;
+    z-index:0;pointer-events:none;border-radius:50%;opacity:0;
+    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 16%,transparent) 0%,transparent 68%);
+    transform:translate3d(-2000px,-2000px,0);will-change:transform;
+    transition:opacity .7s ease,transform .24s cubic-bezier(.22,.8,.3,1);
+  }
+  .perf-tool:hover .perf-aura{opacity:1}
+}
+
+/* ---- 3. 顶栏：一道横向流光 + 底边跑动的亮线 -----------------------------
+   底边那条线同时兼任状态指示：正在保存时跑得快，读取时慢一点，
+   平时最慢——不用看文字也能感觉出「它在忙」。 */
+.perf-bar::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(112deg,transparent 36%,color-mix(in srgb,var(--accent) 11%,transparent) 50%,transparent 64%);
+  background-size:280% 100%;background-repeat:no-repeat;opacity:.5;
+  animation:perfBarSheen 7.6s ease-in-out infinite;
+}
+.perf-bar::before{
+  content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  background-size:42% 100%;background-repeat:no-repeat;
+  animation:perfEdgeRun 6.4s ease-in-out infinite;
+}
+@keyframes perfBarSheen{0%{background-position:135% 0}60%,100%{background-position:-70% 0}}
+@keyframes perfEdgeRun{0%,100%{background-position:-40% 0;opacity:.1}50%{background-position:140% 0;opacity:.45}}
+.perf-tool:has(.perf-sync.saving) .perf-bar::before{animation-duration:1.4s}
+.perf-tool:has(.perf-sync.loading) .perf-bar::before{animation-duration:2.2s}
+
+/* ---- 4. ¥ 徽标：呼吸的灯 + 一圈荡开的涟漪 ------------------------------ */
+.perf-mark{position:relative;animation:perfMarkBreathe 4.6s ease-in-out infinite}
+.perf-mark::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  animation:perfHalo 3.8s cubic-bezier(.2,.7,.3,1) infinite;
+}
+@keyframes perfMarkBreathe{
+  0%,100%{box-shadow:0 5px 14px -9px color-mix(in srgb,var(--accent) 40%,transparent)}
+  50%{box-shadow:0 7px 20px -8px color-mix(in srgb,var(--accent) 60%,transparent)}
+}
+@keyframes perfHalo{0%{opacity:.45;transform:scale(.9)}65%,100%{opacity:0;transform:scale(1.4)}}
+
+/* ---- 5. 顶栏状态：一颗会呼吸的小灯 -------------------------------------
+   颜色跟状态走，用 --dot 传，不改文字本身的颜色。 */
+.perf-sync{--dot:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.perf-sync::before{
+  content:"";width:6px;height:6px;border-radius:50%;flex:none;background:var(--dot);
+  animation:perfDotPulse 3.4s ease-in-out infinite;
+}
+.perf-sync.saved{--dot:#46b06a}
+.perf-sync.saving,.perf-sync.loading{--dot:var(--accent)}
+.perf-sync.error{--dot:#e0716f}
+.perf-sync.readonly::before{animation:none;opacity:.6}
+@keyframes perfDotPulse{
+  0%,100%{opacity:.5;box-shadow:0 0 0 0 color-mix(in srgb,var(--dot) 55%,transparent)}
+  50%{opacity:1;box-shadow:0 0 0 5px color-mix(in srgb,var(--dot) 0%,transparent)}
+}
+/* 正在读写的时候心跳快一点——不用读文字也知道它在忙 */
+.perf-sync.saving::before,.perf-sync.loading::before,.perf-sync.error::before{animation-duration:1.1s}
+
+/* ---- 6. 标签与主按钮：呼吸的光晕 + 掠过的反光 -------------------------- */
+.perf-tabs button.active{
+  position:relative;overflow:hidden;
+  animation:perfSoftGlow 4.8s ease-in-out infinite;
+}
+.perf-btn.primary{
+  position:relative;overflow:hidden;
+  animation:perfSoftGlow 5.8s ease-in-out infinite;
+}
+.perf-tabs button.active::after,
+.perf-btn.primary::after,.shot-icon::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.2) 50%,transparent 62%);
+  background-size:240% 100%;background-repeat:no-repeat;
+  animation:perfSheenRun 6.8s ease-in-out infinite;
+}
+.perf-btn.primary::after{animation-delay:1.1s}
+@keyframes perfSoftGlow{
+  0%,100%{box-shadow:0 3px 12px -9px color-mix(in srgb,var(--accent) 42%,transparent)}
+  50%{box-shadow:0 7px 20px -8px color-mix(in srgb,var(--accent) 62%,transparent)}
+}
+@keyframes perfSheenRun{0%{background-position:170% 0}45%,100%{background-position:-95% 0}}
+
+/* ---- 7. 钱：合计数字一呼一吸，表格里的合计常亮一层薄光 ------------------ */
+.perf-breakdown .grand strong,
+.perf-summary-line b.hl{animation:perfMoneyGlow 5.6s ease-in-out infinite}
+@keyframes perfMoneyGlow{
+  0%,100%{text-shadow:0 0 0 transparent}
+  50%{text-shadow:0 0 12px color-mix(in srgb,var(--accent) 40%,transparent)}
+}
+.perf-grid .total{text-shadow:0 0 10px color-mix(in srgb,var(--accent) 16%,transparent)}
+
+/* ---- 8. 条状图：一道光从左往右流过 -------------------------------------
+   相邻两行错开半个周期，看起来像数据在「流」，而不是整块在闪。 */
+.viz-bar{position:relative}
+.viz-bar::after,.viz-track::after,.viz-dev-track::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.18) 50%,transparent 60%);
+  background-size:220% 100%;background-repeat:no-repeat;
+  animation:perfSheenRun 5.4s ease-in-out infinite;
+}
+.viz-bar::after{animation-delay:1.6s}
+.viz-row:nth-child(even) .viz-track::after,
+.viz-row.dev:nth-child(odd) .viz-dev-track::after{animation-delay:1.2s}
+
+/* ---- 9. 冠军徽章：金属反光 --------------------------------------------- */
+.rank-badge.top1{position:relative;overflow:hidden}
+.rank-badge.top1::after{
+  content:"";position:absolute;inset:-20%;pointer-events:none;
+  background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.5) 50%,transparent 58%);
+  background-size:260% 100%;background-repeat:no-repeat;
+  animation:perfSheenRun 4.4s ease-in-out infinite;
+}
+
+/* ---- 10. 热力块：悬停时亮起来 ------------------------------------------ */
+.matrix-chip{position:relative;transition:transform .2s ease,box-shadow .25s ease}
+.matrix-chip:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 42%,transparent),0 6px 18px -10px color-mix(in srgb,var(--accent) 55%,transparent)}
+
+/* ---- 11. 入场：切标签、换人、换月份时数据「浮」上来 --------------------
+   用 backwards 而不是 both：动画结束后元素回到没有 translate 的状态，
+   不会留下一个包含块把里面的定位元素带偏。错峰 22ms 一行，像翻牌。 */
+.perf-body>section:is(.perf-panel,.perf-import){
+  animation:perfPanelIn .4s cubic-bezier(.22,.9,.24,1) backwards;
+}
+@keyframes perfPanelIn{from{opacity:0;translate:0 10px}}
+.perf-grid tbody tr{animation:perfRowIn .3s ease backwards}
+@keyframes perfRowIn{from{opacity:0}}
+.perf-grid tbody tr:nth-child(1){animation-delay:0s}
+.perf-grid tbody tr:nth-child(2){animation-delay:.022s}
+.perf-grid tbody tr:nth-child(3){animation-delay:.044s}
+.perf-grid tbody tr:nth-child(4){animation-delay:.066s}
+.perf-grid tbody tr:nth-child(5){animation-delay:.088s}
+.perf-grid tbody tr:nth-child(6){animation-delay:.11s}
+.perf-grid tbody tr:nth-child(7){animation-delay:.132s}
+.perf-grid tbody tr:nth-child(8){animation-delay:.154s}
+.perf-grid tbody tr:nth-child(9){animation-delay:.176s}
+.perf-grid tbody tr:nth-child(10){animation-delay:.198s}
+.perf-grid tbody tr:nth-child(n+11){animation-delay:.22s}
+
+.matrix-chip{animation:perfChipIn .34s cubic-bezier(.22,.9,.24,1) backwards}
+@keyframes perfChipIn{from{opacity:0;scale:.74}}
+.matrix tbody tr:nth-child(1) .matrix-chip{animation-delay:.02s}
+.matrix tbody tr:nth-child(2) .matrix-chip{animation-delay:.06s}
+.matrix tbody tr:nth-child(3) .matrix-chip{animation-delay:.1s}
+.matrix tbody tr:nth-child(4) .matrix-chip{animation-delay:.14s}
+.matrix tbody tr:nth-child(5) .matrix-chip{animation-delay:.18s}
+.matrix tbody tr:nth-child(6) .matrix-chip{animation-delay:.22s}
+.matrix tbody tr:nth-child(n+7) .matrix-chip{animation-delay:.26s}
+
+/* 散点：每颗气球的呼吸错开（延迟由模板按序号给） */
+.viz-scatter .dotgroup{animation:perfDotBreathe 4.2s ease-in-out infinite}
+@keyframes perfDotBreathe{0%,100%{opacity:.82}50%{opacity:1}}
+
+/* ---- 12. 空状态与上传区：别让「还没有数据」看着像坏了 ------------------ */
+.perf-empty{animation:perfEmptyBreathe 5.5s ease-in-out infinite}
+@keyframes perfEmptyBreathe{
+  0%,100%{border-color:var(--line)}
+  50%{border-color:color-mix(in srgb,var(--accent) 32%,transparent)}
+}
+.shot-icon{position:relative;overflow:hidden;animation:perfMarkBreathe 4.2s ease-in-out infinite}
+
+/* ---- 13. 汇总条与队列条：一道极光慢慢淌过 ------------------------------ */
+.perf-summary-line,.perf-queue-bar{position:relative}
+.perf-summary-line::after,.perf-queue-bar::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(100deg,transparent 44%,color-mix(in srgb,var(--accent) 9%,transparent) 50%,transparent 56%);
+  background-size:300% 100%;background-repeat:no-repeat;
+  animation:perfSheenRun 8.4s ease-in-out infinite;
+}
+.perf-queue-bar::after{animation-delay:2.4s}
+
+/* ---- 14. 药丸与行：悬停时轻微发光 -------------------------------------- */
+.queue-pill{transition:background-color .25s ease,color .25s ease,box-shadow .25s ease}
+.queue-pill:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent),0 0 12px -5px color-mix(in srgb,var(--accent) 50%,transparent)}
+
+/* ---- 15. 要安静的人：一条都不留 ---------------------------------------
+   全局那条 prefers-reduced-motion 会把时长压到 0.01ms，但光束会「跳」到
+   某个中间状态；这里显式关掉，并保证两个整屏图层彻底透明。 */
+@media (prefers-reduced-motion:reduce){
+  .perf-tool::before,.perf-aura,
+  .perf-bar::before,.perf-bar::after,
+  .perf-mark,.perf-mark::after,.perf-sync::before,
+  .perf-tabs button.active,.perf-tabs button.active::after,
+  .perf-btn.primary,.perf-btn.primary::after,.shot-icon,.shot-icon::after,
+  .perf-breakdown .grand strong,.perf-summary-line b.hl,
+  .viz-bar::after,.viz-track::after,.viz-dev-track::after,
+  .rank-badge.top1::after,.matrix-chip,.viz-scatter .dotgroup,
+  .perf-empty,.perf-summary-line::after,.perf-queue-bar::after,
+  .perf-grid tbody tr,.perf-body>section:is(.perf-panel,.perf-import){
+    animation:none!important;
+  }
+  .perf-tool::before{opacity:0!important}
+  .perf-aura{display:none!important}
+}
 </style>

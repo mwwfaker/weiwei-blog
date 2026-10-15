@@ -7,8 +7,15 @@ import { request, uploadMedia } from './services/api'
 import { useAuthStore } from './stores/auth'
 import ParticleField from './ParticleField.vue'
 import MusicVisualizer from './MusicVisualizer.vue'
+import LyricsPanel from './components/LyricsPanel.vue'
+import MusicDock from './components/MusicDock.vue'
+import { parseLrc, resolveLyrics, LYRICS_SOURCE_LABELS } from './services/lyrics'
 import { vReveal } from './composables/motion'
 import { readStoredJson, readStoredText, writeStoredJson, writeStoredText } from './services/storage'
+
+// 中文歌词源要经一个中转才能从浏览器调用（它的接口不带跨域响应头）。没配就整条源跳过，
+// 只走 LRCLIB 和「手动粘贴」。仓库里附了一个 Supabase Edge Function 的实现。
+const LYRICS_PROXY = import.meta.env?.VITE_LYRICS_PROXY || ''
 
 // The study plan carries ~300 kB of course data. Loading it on demand keeps that out of the bundle
 // every visitor downloads; the delay means the placeholder never flashes on a warm cache.
@@ -78,21 +85,13 @@ function onScroll() {
   requestAnimationFrame(applyScrollState)
 }
 
-// 播放器默认是右下角的小胶囊，不挡内容；悬停或刚开始播放时才展开。
-// 滚动不再影响它的尺寸——它一直待在旁边，需要时才变大。
-const playerHover = ref(false)
-const playerPinned = ref(false)
-let playerPinTimer
-function revealPlayer() {
-  playerPinned.value = true
-  clearTimeout(playerPinTimer)
-  playerPinTimer = setTimeout(() => { playerPinned.value = false }, 6000)
-}
-function hidePlayerSoon() {
-  clearTimeout(playerPinTimer)
-  playerPinned.value = false
-}
-const playerExpanded = computed(() => playerHover.value || playerPinned.value)
+// 播放器不再是一个「悬停会变大」的浮动方块。
+//
+// 原来右下角那块东西平时是 300×52 的胶囊，悬停/开始播放时展开成 430×200 的卡片，尺寸过渡
+// 还带着 backdrop-filter。三个后果：一直压在正文右下角、鼠标扫过就自己长大、而且每次收放
+// 都要重新模糊整个背景（掉帧的直接来源）。现在桌面端的播放器固定在侧边栏的空白处，
+// 尺寸恒定不展开；窄屏才退回底部的一条小胶囊。
+// 播放器：歌词与「曲目 → 解析状态」的对应关系都放在下面的音乐状态里。
 // 读：公开内容对所有人完全一致——登录与否都从 /api/public/* 读同一份数据。
 // 登录不会改变别人看到的东西，只是在同一份公开内容上再叠一层自己账号里的私密内容。
 onMounted(async () => {
@@ -114,6 +113,8 @@ onMounted(() => {
   document.addEventListener('keydown', onDocumentKeydown)
   window.addEventListener('resize', onViewportChange)
   window.addEventListener('scroll', onViewportChange, { passive: true })
+  // 直接打开音乐页时也要对一次高度（上面的 watch 只在歌词变化时才跑）。
+  requestAnimationFrame(syncConsoleHeight)
 })
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
@@ -182,6 +183,8 @@ function onDocumentKeydown(event) {
 }
 function onViewportChange() {
   if (moreOpen.value) moreOpen.value = false
+  // 窗口尺寸变了，播放器栏的高度跟着变，歌词栏要重新对齐。
+  syncConsoleHeight()
 }
 
 const currentPageLabel = computed(() => allNavigation.find((item) => item.id === currentPage.value)?.label || '')
@@ -273,7 +276,7 @@ const mediaDraft = ref({ title: '', albumName: '日常', visibility: 'PRIVATE' }
 const albumNames = computed(() => ['全部', ...new Set(galleryItems.value.map((item) => item.albumName || '日常'))])
 const visibleGallery = computed(() => selectedAlbum.value === '全部' ? galleryItems.value : galleryItems.value.filter((item) => (item.albumName || '日常') === selectedAlbum.value))
 function mapMedia(media) {
-  return { id: media.id, caption: media.title, name: media.title, albumName: media.albumName || '日常', date: media.createdAt ? media.createdAt.slice(0, 7).replace('-', ' / ') : new Date().toISOString().slice(0, 7).replace('-', ' / '), image: media.url, src: media.url, key: media.objectKey, visibility: media.visibility, kind: media.kind }
+  return { id: media.id, caption: media.title, name: media.title, albumName: media.albumName || '日常', date: media.createdAt ? media.createdAt.slice(0, 7).replace('-', ' / ') : new Date().toISOString().slice(0, 7).replace('-', ' / '), image: media.url, src: media.url, key: media.objectKey, visibility: media.visibility, kind: media.kind, lyrics: media.lyrics || '', lyricsSource: media.lyricsSource || '' }
 }
 // A stored media record always carries an object key and was never created in this browser. The
 // built-in samples and anything added while signed out are local-only, so only real records may be
@@ -459,12 +462,179 @@ const activeTrackId = ref(null)
 const currentTime = ref(0)
 const trackDuration = ref(0)
 const currentTrack = computed(() => musicItems.value.find((track) => track.id === activeTrackId.value) || null)
+
+/**
+ * 这是不是一个能直接交给 <audio> 的地址。
+ *
+ * 必须区分：签名链接失败时 API 会把 url 退化成**对象键**（`users/…/x.mp3`），
+ * 那是个相对路径——交给 <audio> 只会被解析成页面下的路径然后 404。
+ * 以前 playMusicItem 判断的是 `if (!source && item.key)`，而对象键是真值，
+ * 于是"换一次短期链接"的分支永远不会执行。表现就是：有的歌点了没反应，
+ * 有的抛一个解不出来的错、再被笼统地报成"浏览器不允许播放"。
+ */
+function isDirectAudioUrl(value) {
+  return /^(https?:|blob:|data:)/.test(String(value || ''))
+}
+
+/**
+ * 一首歌到底能不能播。
+ *
+ * 曲库里的条目未必都放得出来：签名链接可能没签成功（那时 src 会是对象键而不是地址）、
+ * 也可能只有对象键需要现换链接。把它们排除掉，切歌和"播第一首"才不会一上去就卡住。
+ */
+function isPlayableTrack(track) {
+  if (!track) return false
+  if (track.file) return true
+  if (isDirectAudioUrl(track.src)) return true
+  return Boolean(track.key)
+}
+/** 曲库里真正能播的那些，顺序就是列表顺序。 */
+const playableTracks = computed(() => musicItems.value.filter(isPlayableTrack))
+
 // 没有选中曲目时显示中性文案，不再显示一个假的示例曲名。
 const nowPlayingLabel = computed(() => currentTrack.value?.name || musicName.value || '未选择曲目')
 const progressPercent = computed(() => (trackDuration.value > 0 ? Math.min(100, (currentTime.value / trackDuration.value) * 100) : 0))
-// 可视化模式：频谱柱 / 连续声波 / 黑胶涟漪。选择记在本机，下次打开保持一致。
+// 本机临时选中的文件（不在曲库里）。它也要能有歌词，所以单独留一份引用。
+const localFileTrack = ref(null)
+
+// ---- 歌词 -----------------------------------------------------------------
+// 歌词的解析发生在上传的时候，不是打开页面的时候：上传时手里有完整文件（能读内嵌标签），
+// 上传的人又是登录状态（能把匹配结果直接存回数据库）。这样访客打开音乐页时，歌词已经是
+// 现成的一行文本，不用等、也不会因为在线接口挂了就看不到。
+//
+// lyricsLrc 是当前正在播放这首歌的歌词原文，LyricsPanel 直接吃它。
+const lyricsLrc = ref('')
+const lyricsSource = ref('')
+const lyricsParsed = computed(() => (lyricsLrc.value ? parseLrc(lyricsLrc.value) : null))
+// 每首歌一个解析任务状态：parsing / ready / none。曲库列表和上传弹窗都读它。
+const lyricJobs = ref({})
+function lyricJob(id) { return lyricJobs.value[id] || null }
+function setLyricJob(id, patch) {
+  lyricJobs.value = { ...lyricJobs.value, [id]: { ...(lyricJobs.value[id] || {}), ...patch } }
+}
+// ---- 音频通路 --------------------------------------------------------------
+// 本机播放的音频会被接进 Web Audio（AnalyserNode）来驱动频谱和粒子律动。
+// 代价是这时候音频不再走浏览器原生的播放通路，而是绕一圈经过音频图——在 GPU/主线程
+// 比较吃紧的机器上，这一绕就可能表现为"播一下卡一下"。
+//
+// 省电模式就是把这一圈整个去掉：不建音频图（原生通路最稳）、不画粒子、不画频谱。
+// 它同时也是一个诊断开关——打开它之后如果不卡了，问题就在这条通路上；
+// 如果还是卡，那问题在文件本身或存储端的读取。
+const lowPower = ref(readStoredText('weiwei-blog-low-power', '') === '1')
+function setLowPower(value) {
+  lowPower.value = value
+  writeStoredText('weiwei-blog-low-power', value ? '1' : '0')
+  // 音频图一旦建起来，就和当时那个 <audio> 元素绑死了（同一元素只能接一个
+  // MediaElementAudioSourceNode，且无法断开）。所以切换设置时要连元素一起换掉：
+  // 模板里 <audio> 的 key 绑在 lowPower 上，Vue 会重新创建一个干净的元素。
+  if (audioGraph) { audioGraph.context.close().catch(() => {}); audioGraph = null }
+  analyser.value = null
+  playing.value = false
+  notify(value
+    ? '已切到省电模式：原生播放通路 + 关闭粒子与频谱，重新选一首歌即可'
+    : '已恢复完整动效，重新选一首歌即可')
+}
+
+// 曲目取源只做两件事：本机文件直接用，其余交给 <audio> 自己流式播放。
+// 这里刻意**不再**做「后台整段取回 blob」那套缓存：它和下面的预缓冲抢同一份带宽
+// （两个都在下同一个文件），反而把起播拖慢；而且它只在空闲时跑，基本跑不完。
+const localFileUrls = new Map()
+
+/** 本次会话刚上传 / 本机选择的文件，直接给一个本地地址；没有就返回空串。 */
+function localSourceFor(item) {
+  if (!item?.file) return ''
+  if (!localFileUrls.has(item.id)) localFileUrls.set(item.id, URL.createObjectURL(item.file))
+  return localFileUrls.get(item.id) || ''
+}
+
+// 歌词是异步到位的。它一到，右侧内容就换了，这时候要：
+//   1. 重新对一次高度（歌词栏不再把整块撑长）
+//   2. 再看一眼播放器还在不在视野里 —— 之前只点了播放才滚，歌词稍后加载出来时页面已经变了
+watch([lyricsLrc, () => lyricsParsed.value?.lines.length], async () => {
+  await nextTick()
+  syncConsoleHeight()
+  revealPlayerPanel()
+})
+
+watch([currentPage, () => musicItems.value.length], () => {
+  if (currentPage.value !== 'music') return
+  preloadFirstTrack()
+})
+
+// ---- 提前预缓冲：让起播不再等待 ----------------------------------------------
+//
+// 打开音乐页、且没有在播放时，先把队列第一首的地址交给 <audio>，让浏览器自己开始缓冲。
+// 这样你点播放时数据已经在缓冲区里，起播几乎是瞬间的。
+//
+// 为什么这不算"和播放抢带宽"（那条铁律针对的是并发下载）：这里下载的就是你点播放后要下的
+// 同一个文件、走的还是媒体元素自己那条流，只是**提前开始**。没有第二路下载，也没有等整段。
+// 换歌时旧的请求会被新的 src 自动中断，重叠极少。
+let preloadedTrackId = null
+function preloadFirstTrack() {
+  if (currentPage.value !== 'music' || playing.value) return
+  const audio = audioElement.value
+  if (!audio) return
+  // 已经选过曲目（有正在用的源）就别动它，免得把当前缓冲丢掉。
+  if (activeTrackId.value) return
+  const first = playableTracks.value[0]
+  if (!first) return
+  let target = localSourceFor(first)
+  if (!target && isDirectAudioUrl(first.src)) target = first.src
+  if (!target) return
+  if (preloadedTrackId === first.id && audio.getAttribute('src')) return
+  preloadedTrackId = first.id
+  // preload=auto 才会真的缓冲音频数据（默认的 metadata 只取头部）。
+  audio.preload = 'auto'
+  audio.src = target
+  audio.load()
+}
+
+
+// 本机文件不卡、曲库里的卡，就说明瓶颈在「把文件从存储取回来」这一段，和 CPU / 解码 /
+// 渲染 / 音频图都无关。这个测速只抓前 256KB 就中止，几秒出结果，用来分清两件事：
+//   · 实测速率 < 需要的速率  → 带宽不够，只能压小文件或换更近的存储
+//   · 实测速率够、但播放还卡 → 带宽没问题，是请求模式/延迟的问题
+// ---- 后台导入任务 -----------------------------------------------------------
+const uploadJobs = ref([])
+// 每步对应的进度。上传和歌词匹配拿不到真实字节数（匹配要等在线接口），
+// 所以这两步只给一个大致位置，由 CSS 的流动条纹表示「还在动」。
+const UPLOAD_STEP_PROGRESS = { uploading: 22, saving: 48, lyrics: 74, done: 100, error: 100 }
+const UPLOAD_INDETERMINATE_STEPS = new Set(['uploading', 'lyrics'])
+
+function addUploadJob(name) {
+  const job = {
+    id: `job-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name, step: 'uploading', message: '正在上传到对象存储…',
+    trackId: null, hasLyrics: false, error: '', createdAt: Date.now(),
+  }
+  uploadJobs.value = [job, ...uploadJobs.value]
+  return job
+}
+function patchUploadJob(job, patch) {
+  uploadJobs.value = uploadJobs.value.map((item) => (item.id === job.id ? { ...item, ...patch } : item))
+}
+function dismissUploadJob(id) {
+  uploadJobs.value = uploadJobs.value.filter((item) => item.id !== id)
+}
+function uploadJobProgress(job) { return UPLOAD_STEP_PROGRESS[job.step] ?? 10 }
+function uploadJobIndeterminate(job) { return UPLOAD_INDETERMINATE_STEPS.has(job.step) }
+const UPLOAD_STEP_LABELS = { uploading: '上传中', saving: '写入音乐库', lyrics: '解析歌词', done: '已完成', error: '失败' }
+function uploadStepLabel(job) { return UPLOAD_STEP_LABELS[job.step] || job.step }
+const activeUploadCount = computed(() => uploadJobs.value.filter((job) => job.step !== 'done' && job.step !== 'error').length)
+function clearFinishedJobs() {
+  uploadJobs.value = uploadJobs.value.filter((job) => job.step !== 'done')
+}
+function playJobTrack(job) {
+  const track = musicItems.value.find((item) => item.id === job.trackId)
+  dismissUploadJob(job.id)
+  if (track) playMusicItem(track)
+  else go('music')
+}
+
+// 可视化模式：频谱柱 / 声波 / 涟漪 / 长条矩阵。选择记在本机，下次打开保持一致。
 const vizModes = [
   { id: 'bars', label: '频谱' },
+  { id: 'matrix', label: '矩阵' },
   { id: 'wave', label: '声波' },
   { id: 'ripple', label: '涟漪' },
 ]
@@ -676,27 +846,236 @@ async function authenticate() {
     notify('账号验证成功')
   } catch { /* auth.error already carries the reason and is shown in the form. */ }
 }
+// ------------------------------------------------------------------ 歌词解析
+/** 把解析到的歌词写回数据库。访客不会走到这里，只有登录的曲目所有者会。 */
+async function persistTrackLyrics(item, lrc, source) {
+  if (!isStoredMedia(item) || !auth.isLoggedIn) return false
+  try {
+    await request(`/api/media/${item.id}`, {
+      token: auth.token,
+      method: 'PUT',
+      body: JSON.stringify({ lyrics: lrc, lyricsSource: source }),
+    })
+    Object.assign(item, { lyrics: lrc, lyricsSource: source })
+    return true
+  } catch (error) {
+    setLyricJob(item.id, { saveError: error.message })
+    return false
+  }
+}
+
+/**
+ * 解析一首歌的歌词。上传时调用，也用于给老曲目补歌词、以及在音乐页点「重新匹配」。
+ *
+ * 顺序在 services/lyrics.js 里：已保存的 → 文件内嵌标签 → LRCLIB → 中文源。
+ * `force` 会跳过第一步，用于「我已经有歌词了，但想重新在线匹配一次」。
+ *
+ * 这里**刻意不为了拿时长去探测音频**。之前有个 probeDuration：另建一个 <audio>、把同一个
+ * 文件按 metadata 再下载一遍，只为了给 LRCLIB 的精确匹配补一个 duration 字段。代价完全
+ * 不成比例——那等于在用户播放的时候再抢一份同一文件的下载与解码，是"播一下卡一下"的直接来源。
+ * 现在时长只取播放器已经读到的值（有就传、没有就不传），匹配退到搜索路径，精度略降而已。
+ */
+async function resolveTrackLyrics(item, { force = false, announce = false } = {}) {
+  if (!item) return null
+  const id = item.id
+  setLyricJob(id, { status: 'parsing', source: '', error: '', saveError: '' })
+  try {
+    const duration = id === activeTrackId.value ? trackDuration.value : 0
+    const source = force ? { ...item, lyrics: '' } : item
+    const result = await resolveLyrics(source, { proxyUrl: LYRICS_PROXY, duration })
+    if (result?.lrc) {
+      Object.assign(item, { lyrics: result.lrc, lyricsSource: result.source })
+      setLyricJob(id, { status: 'ready', source: result.source })
+      // 正在播的就是这首歌 → 立刻把歌词交给右侧歌词栏，不用再等。
+      if (id === activeTrackId.value) {
+        lyricsLrc.value = result.lrc
+        lyricsSource.value = result.source
+      }
+      if (result.source !== 'saved' && result.source !== 'manual') await persistTrackLyrics(item, result.lrc, result.source)
+      if (announce) notify(`歌词已就绪（${LYRICS_SOURCE_LABELS[result.source] || result.source}）`)
+      return result
+    }
+    setLyricJob(id, { status: 'none' })
+    if (announce) notify('这首歌没有匹配到歌词，可以在歌词栏手动粘贴 LRC')
+    return null
+  } catch (error) {
+    setLyricJob(id, { status: 'none', error: error.message })
+    return null
+  }
+}
+
+/** 给曲库里所有还没有歌词的曲子补一遍。老曲目（在这次改动之前上传的）靠它补上。 */
+async function fillMissingLyrics() {
+  if (!requireLogin('补全歌词')) return
+  const pending = musicItems.value.filter((item) => item.mine && !item.lyrics && lyricJob(item.id)?.status !== 'parsing')
+  if (!pending.length) return notify('所有曲目都已经有歌词了')
+  notify(`正在为 ${pending.length} 首曲目匹配歌词…`)
+  let found = 0
+  for (const item of pending) {
+    // 一首一首来：几首歌同时打歌词接口容易被限流，也没必要。
+    const result = await resolveTrackLyrics(item)
+    if (result) found += 1
+  }
+  notify(found ? `补全完成，新增 ${found} 首歌词` : '没有匹配到新的歌词，可以在音乐页手动粘贴')
+}
+
+/** 歌词栏里手动保存的那一份。手动内容永远覆盖自动匹配的结果。 */
+async function saveLyricsFromPanel(lrc) {
+  const track = currentTrack.value || localFileTrack.value
+  lyricsLrc.value = lrc
+  lyricsSource.value = 'manual'
+  if (!track) return
+  const parsed = parseLrc(lrc)
+  if (!parsed.lines.some((line) => line.text)) return notify('这段歌词里没有内容')
+  Object.assign(track, { lyrics: lrc, lyricsSource: 'manual' })
+  setLyricJob(track.id, { status: 'ready', source: 'manual' })
+  if (!isStoredMedia(track) || !auth.isLoggedIn) {
+    notify('歌词已显示；登录后会保存到账号，换设备也能看到')
+    return
+  }
+  const saved = await persistTrackLyrics(track, lrc, 'manual')
+  notify(saved ? '歌词已保存到账号' : '歌词已显示，但没能保存到账号')
+}
+
+/** 音乐页歌词栏的「重新匹配」。跳过已保存的那一份，重新走内嵌 + 在线。 */
+async function rematchLyrics() {
+  const track = currentTrack.value || localFileTrack.value
+  if (!track) return notify('请先选择一首曲目')
+  notify('正在重新匹配歌词…')
+  await resolveTrackLyrics(track, { force: true, announce: true })
+}
+
+// ------------------------------------------------------------------ 后台导入
+/**
+ * 上传 + 入库 + 解析歌词，全程在后台跑。
+ *
+ * 这里刻意不弹模态框：上传和在线匹配都可能花上十几秒，把用户按在一个不能关的窗口前面
+ * 是没必要的。进度改由左下角的任务卡显示，关掉卡片任务照跑；跑完自动收起（出错则留着，
+ * 等你看到为止）。
+ */
 async function addMusic(event) {
   if (!requireLogin('上传音乐')) { event.target.value = ''; return }
   const file = event.target.files?.[0]
+  if (musicPicker.value) musicPicker.value.value = ''
   if (!file) return
   const item = { id: Date.now(), name: file.name, file, src: URL.createObjectURL(file), visibility: 'PRIVATE', key: '' }
+  const job = addUploadJob(file.name)
+
+  // 上传要占带宽，流式播放也要占带宽，两个一起走谁都走不动——实测过：播放中上传，
+  // 进度会一直卡在"上传中"。所以先把播放停掉，让上传独占，传完再接着放。
+  const resumeAfterUpload = playing.value
+  if (resumeAfterUpload) {
+    audioElement.value?.pause()
+    remoteAudioElement.value?.pause()
+    playing.value = false
+    notify('上传期间已暂停播放，传完会继续')
+  } else {
+    notify('已开始后台导入，解析好歌词会告诉你')
+  }
+
   try {
     const uploaded = await uploadMedia(file, auth.token)
+    patchUploadJob(job, { step: 'saving', message: '正在写入音乐库…' })
     const saved = await request('/api/media', { token: auth.token, method: 'POST', body: JSON.stringify({ kind: 'MUSIC', title: file.name, objectKey: uploaded.key, contentType: uploaded.contentType, visibility: 'PRIVATE', albumName: '我的音乐' }) })
-    Object.assign(item, mapMedia(saved), { mine: true }); item.name = saved.title
+    Object.assign(item, mapMedia(saved), { mine: true, file }); item.name = saved.title
+  } catch (error) {
+    adminUploadMessage.value = error.message
+    patchUploadJob(job, { step: 'error', message: `音乐未保存：${error.message}` })
+    return
+  } finally {
+    if (resumeAfterUpload) resumePlayback()
   }
-  catch (error) { adminUploadMessage.value = error.message; if (musicPicker.value) musicPicker.value.value = ''; return notify(`音乐未保存：${error.message}`) }
+
   musicItems.value.unshift(item)
-  if (musicPicker.value) musicPicker.value.value = ''
-  notify('音乐已上传到账号空间')
+  patchUploadJob(job, {
+    step: 'lyrics',
+    trackId: item.id,
+    message: '正在解析歌词：先读音频文件里的内嵌标签，没有就去在线歌词库匹配…',
+  })
+  const result = await resolveTrackLyrics(item)
+  const lyricState = lyricJob(item.id) || {}
+  patchUploadJob(job, {
+    step: 'done',
+    trackId: item.id,
+    hasLyrics: Boolean(result?.lrc),
+    message: result?.lrc
+      ? `歌词已就绪（${LYRICS_SOURCE_LABELS[result.source] || result.source}）${lyricState.saveError ? '，但没能保存到账号' : '，已存进音乐库'}`
+      : '这首歌没有匹配到歌词，可以到音乐页手动粘贴 LRC。',
+  })
+  // 成功就自己收起来，别一直占着；失败的那张留着。
+  setTimeout(() => dismissUploadJob(job.id), 9000)
 }
-function playMusicItem(item) {
+
+/**
+ * 把播放器/歌词那一块滚进视野。
+ *
+ * 曲库列表在页面下方，从那里点播之后，播放器和歌词其实在上面——不滚一下就得自己往上找。
+ * 已经在视野里就不动，免得把用户正在看的东西顶走。
+ */
+function revealPlayerPanel() {
+  if (currentPage.value !== 'music') return
+  const panel = document.querySelector('.music-console')
+  if (!panel) return
+  const rect = panel.getBoundingClientRect()
+  const viewport = window.innerHeight || document.documentElement.clientHeight
+  // 已经露出大半就不动。
+  if (rect.top >= 0 && rect.top < viewport * 0.55) return
+  // 顶部有吸顶导航，留出它的高度。
+  const navOffset = 96
+  window.scrollTo({ top: Math.max(0, rect.top + window.scrollY - navOffset), behavior: 'smooth' })
+}
+
+/**
+ * 让歌词栏的高度跟着播放器栏走。
+ *
+ * 歌词栏的滚动区是 `overflow:auto`，它**不会**限制自身高度——于是面板的自然高度会随着
+ * 歌词行数一起长，把整块 console 顶高，播放器栏也跟着被拉伸。这就是"歌词一加载出来
+ * 整个变长了"的原因。
+ *
+ * 这里量出播放器栏的自然高度写进 CSS 变量，歌词栏用这个高度：
+ * 两块严格等高，而且歌词再多也不会把页面撑长。
+ */
+function syncConsoleHeight() {
+  if (currentPage.value !== 'music') return
+  const consoleEl = document.querySelector('.music-console')
+  const player = consoleEl?.querySelector('.music-player-panel')
+  if (!consoleEl || !player) return
+  // 先撤掉约束再量，否则量到的是上一次的结果。
+  consoleEl.style.removeProperty('--console-h')
+  const height = player.offsetHeight
+  if (height > 0) consoleEl.style.setProperty('--console-h', `${height}px`)
+}
+
+/** 暂停之后把刚才那首接着放（上传等占用带宽的操作结束后调用）。 */
+function resumePlayback() {
+  const audio = activeAudio()
+  if (!audio || !audio.src || !audio.paused) return
+  audio.play().then(() => { playing.value = true }).catch(() => {})
+}
+
+async function playMusicItem(item) {
   musicName.value = item.name
   activeTrackId.value = item.id
+  // 从下面的曲库点播时，播放器/歌词那一块在上面，不滚一下就得自己去找。
+  revealPlayerPanel()
+  // 标题换了，播放器栏的高度可能跟着变，重新对一次高度。
+  nextTick(syncConsoleHeight)
+  localFileTrack.value = null
   currentTime.value = 0
   trackDuration.value = 0
-  revealPlayer()
+  // 歌词先立刻换上这首歌已经有的那一份（上传时就解析过），页面不会空白一下再跳出来。
+  lyricsLrc.value = item.lyrics || ''
+  lyricsSource.value = item.lyricsSource || ''
+  // 老曲目（这次改动之前上传的）没有存过歌词，这时才现去解析一次。
+  // 已经解析过的、或者刚刚解析失败的，不再重复打网络。
+  const job = lyricJob(item.id)
+  if (!lyricsLrc.value && job?.status !== 'none') {
+    // 推到 1.2 秒之后再开始：让播放器先把音频拉起来、进入播放状态，别在起播的那一瞬
+    // 和它抢 CPU 和带宽。
+    setTimeout(() => {
+      if (activeTrackId.value === item.id && !lyricsLrc.value) resolveTrackLyrics(item)
+    }, 1200)
+  }
   if (item.kind === 'MUSIC_URL') {
     activeRemoteAudio.value = true
     audioElement.value?.pause()
@@ -709,12 +1088,61 @@ function playMusicItem(item) {
   }
   activeRemoteAudio.value = false
   remoteAudioElement.value?.pause()
-  if (audioElement.value) { audioElement.value.src = item.src; audioElement.value.load() }
-  if (!item.src && item.key) {
-    request('/api/storage/presign-download', { token: auth.token, method: 'POST', body: JSON.stringify({ key: item.key }) })
-      .then((target) => { if (audioElement.value) { audioElement.value.src = target.url; audioElement.value.load(); toggleMusic() } })
-      .catch((error) => { adminUploadMessage.value = error.message; notify('无法获取已保存的音乐') })
-  } else toggleMusic()
+  const audio = audioElement.value
+  if (!audio) return
+  audio.pause()
+
+  // item.src 不一定是可以直接播的地址：签名失败时 API 会把它退化成对象键（users/…）。
+  // 那是相对路径，交给 <audio> 只会 404。这种时候必须去换一次短期链接。
+  let source = isDirectAudioUrl(item.src) ? item.src : ''
+  if (!source && item.key) {
+    try {
+      const target = await request('/api/storage/presign-download', { token: auth.token, method: 'POST', body: JSON.stringify({ key: item.key }) })
+      source = isDirectAudioUrl(target?.url) ? target.url : ''
+    } catch (error) {
+      adminUploadMessage.value = error.message
+      return skipAfterFailure('无法获取这首音乐')
+    }
+  }
+  if (activeTrackId.value !== item.id) return
+  const localUrl = localSourceFor(item)
+  if (!localUrl && !source) {
+    // 既没有本地源、也换不到链接：跳过这一首，别把队列停在这里。
+    return skipAfterFailure('这首音乐没有可播放的地址')
+  }
+  const target = localUrl || source
+  // 用本地源时把在线地址留在 dataset 上，万一本地那份坏了 @error 能切回去。
+  audio.dataset.fallback = localUrl && source ? source : ''
+  if (audio.getAttribute('src') === target) {
+    // 页面打开时已经预缓冲过这一首了。**这里绝不能再 load()** —— 那会把已经缓冲好的
+    // 数据整段丢掉、从头再来一遍，预缓冲就白做了。直接播即可。
+    preloadedTrackId = item.id
+    toggleMusic()
+    return
+  }
+  audio.src = target
+  audio.load()
+  toggleMusic()
+}
+
+/**
+ * 音频播放失败时的兜底：如果手上还有在线地址，就切回去重试一次。
+ * 没有这条，本地缓存一旦出问题就是"完全没声"，而且看不出原因。
+ */
+function onAudioError() {
+  const audio = audioElement.value
+  if (!audio) return
+  const fallback = audio.dataset.fallback
+  if (fallback) {
+    delete audio.dataset.fallback
+    notify('这段音频没能播放，已改回在线播放')
+    audio.src = fallback
+    audio.load()
+    audio.play().then(() => { consecutiveFailures = 0 }).catch(() => skipAfterFailure('这首音乐暂时无法播放'))
+    return
+  }
+  // 没有可退的地址：跳过这一首，别让队列停在一个播不出来的条目上。
+  skipAfterFailure('这首音乐暂时无法播放')
 }
 // ---- 播放进度与切歌 -------------------------------------------------------
 function activeAudio() { return activeRemoteAudio.value ? remoteAudioElement.value : audioElement.value }
@@ -736,12 +1164,35 @@ function seekTo(event) {
   audio.currentTime = ratio * trackDuration.value
   currentTime.value = audio.currentTime
 }
+/** 直接按秒跳转：歌词点某一句、侧边栏进度条都用它。 */
+function seekToTime(seconds) {
+  const audio = activeAudio()
+  if (!audio || !Number.isFinite(seconds)) return
+  const limit = trackDuration.value || audio.duration || 0
+  audio.currentTime = limit > 0 ? Math.min(Math.max(0, seconds), limit) : Math.max(0, seconds)
+  currentTime.value = audio.currentTime
+}
 function playOffset(step) {
-  const list = musicItems.value
+  // 在"能播的曲目"里走，而不是整个列表——列表里可能混着放不出来的条目，
+  // 切到它就会停在那儿，看起来就是"卡住了不往下走"。
+  const list = playableTracks.value
   if (!list.length) return
   const index = list.findIndex((track) => track.id === activeTrackId.value)
   const next = index < 0 ? 0 : (index + step + list.length) % list.length
   playMusicItem(list[next])
+}
+
+/** 播放失败之后自动跳到下一首，别让整个队列停在一个播不出来的条目上。 */
+let consecutiveFailures = 0
+function skipAfterFailure(reason) {
+  if (consecutiveFailures >= 3) return notify(reason)
+  consecutiveFailures += 1
+  if (playableTracks.value.length > 1) {
+    notify(`${reason}，已跳到下一首`)
+    playOffset(1)
+  } else {
+    notify(reason)
+  }
 }
 function formatTime(value) {
   if (!Number.isFinite(value) || value <= 0) return '0:00'
@@ -755,12 +1206,15 @@ function addRemoteMusic() {
   try { url = new URL(remoteMusicUrl.value) } catch { return notify('请输入有效的 HTTPS 音乐地址') }
   if (url.protocol !== 'https:') return notify('公网音乐地址需要使用 HTTPS')
   const item = { id: Date.now(), name: decodeURIComponent(url.pathname.split('/').pop() || '在线音乐'), src: url.href, visibility: 'PUBLIC', kind: 'MUSIC_URL', key: url.href }
+  remoteMusicUrl.value = ''
   request('/api/media', { token: auth.token, method: 'POST', body: JSON.stringify({ kind: 'MUSIC_URL', title: item.name, objectKey: url.href, contentType: 'audio/url', visibility: 'PUBLIC', albumName: '在线音乐' }) })
-    .then((raw) => {
+    .then(async (raw) => {
       const saved = mapMedia(raw)
-      musicItems.value.unshift({ ...item, ...saved, mine: true, name: saved.name || item.name, src: saved.src || item.src })
-      remoteMusicUrl.value = ''
-      notify('在线音乐已保存到账号')
+      const track = { ...item, ...saved, mine: true, name: saved.name || item.name, src: saved.src || item.src }
+      musicItems.value.unshift(track)
+      // 外链没有文件可以读内嵌标签，但曲名 + 时长照样能拿去做在线匹配。
+      notify('在线音乐已保存，正在解析歌词…')
+      await resolveTrackLyrics(track, { announce: true })
     })
     .catch((error) => notify(`在线音乐未保存：${error.message}`))
 }
@@ -789,6 +1243,7 @@ async function deleteMusic(item) {
     catch (error) { return notify(`曲目未删除：${error.message}`) }
   }
   if (musicName.value === item.name) { audioElement.value?.pause(); remoteAudioElement.value?.pause(); playing.value = false }
+  if (item.id === activeTrackId.value) { lyricsLrc.value = ''; lyricsSource.value = '' }
   musicItems.value = musicItems.value.filter((track) => track.id !== item.id)
   notify('曲目已删除')
 }
@@ -863,6 +1318,7 @@ async function confirmImport() {
 }
 function chooseMusic(event) {
   const file = event.target.files?.[0]
+  event.target.value = ''
   if (!file) return
   activeRemoteAudio.value = false
   remoteAudioElement.value?.pause()
@@ -878,12 +1334,20 @@ function chooseMusic(event) {
     audioElement.value.src = audioUrl.value
     audioElement.value.load()
   }
+  // 本机试听的文件不在曲库里，也就不进上传流水线；但它的内嵌歌词/在线匹配照常做，
+  // 放在 localFileTrack 上，歌词栏照样能显示。
+  localFileTrack.value = { id: `local-${Date.now()}`, name: file.name, file, src: audioUrl.value, local: true }
+  lyricsLrc.value = ''
+  lyricsSource.value = ''
+  resolveTrackLyrics(localFileTrack.value, { announce: true })
 }
 // The Web Audio graph for the local <audio> element is built exactly once. A media element may be
 // connected to only one MediaElementAudioSourceNode: building it again throws InvalidStateError and
 // silently kills every later local track, which is what happened after playing an online track.
 let audioGraph = null
 function ensureAnalyser(audio) {
+  // 省电模式：完全不建音频图，音频走浏览器原生通路（最稳的一条路）。
+  if (lowPower.value) { analyser.value = null; return }
   if (audioGraph) { analyser.value = audioGraph.meter; audioGraph.context.resume().catch(() => {}); return }
   const AudioContextClass = window.AudioContext || window.webkitAudioContext
   if (!AudioContextClass) return
@@ -891,7 +1355,13 @@ function ensureAnalyser(audio) {
     const context = new AudioContextClass()
     const source = context.createMediaElementSource(audio)
     const meter = context.createAnalyser()
-    meter.fftSize = 128
+    // fftSize 决定 frequencyBinCount（这里 = 512 个频点）。
+    // 原来设成 128，也就是只有 64 个频点，而柱子上限有 44 根——平均每根柱子摊到一个频点，
+    // 每根柱子都在跟着单个频点的抖动乱跳，所以看起来"波动太大、没有效果"。
+    // 512 个频点下每根柱子摊到十几个频点取平均，读数才是稳的。
+    meter.fftSize = 1024
+    // 时间平滑：0.86 比默认的 0.8 更稳，快节奏段落也不会闪成一片。
+    meter.smoothingTimeConstant = 0.86
     source.connect(meter)
     meter.connect(context.destination)
     audioGraph = { context, meter }
@@ -900,14 +1370,36 @@ function ensureAnalyser(audio) {
   } catch { /* The visualiser is optional; playback must still work without it. */ }
 }
 async function toggleMusic() {
+  // 还没有选过曲目时，播放键就应该是"放队列里的第一首"——而不是弹一句提示什么都不做。
+  if (!currentTrack.value && !localFileTrack.value && !audioUrl.value) {
+    const first = playableTracks.value[0]
+    if (!first) return notify('音乐库还是空的，先上传一首吧')
+    return playMusicItem(first)
+  }
   const audio = activeRemoteAudio.value ? remoteAudioElement.value : audioElement.value
   if (!audio) return
-  if (!audio.src) return notify('请先从列表选择一首音乐')
+  if (!audio.src) {
+    // 选过，但源还没就绪（例如刚被删掉）——退回放第一首，别让播放键失灵。
+    const first = playableTracks.value[0]
+    if (first) return playMusicItem(first)
+    return notify('请先从列表选择一首音乐')
+  }
   // Online tracks are not routed through the analyser, so clear it — the graph is reused, not rebuilt.
   if (activeRemoteAudio.value) analyser.value = null
   else ensureAnalyser(audio)
   if (audio.paused) {
-    try { await audio.play(); playing.value = true; revealPlayer() } catch { notify('浏览器暂不允许播放这首音乐') }
+    try {
+      await audio.play()
+      playing.value = true
+      consecutiveFailures = 0
+    } catch (error) {
+      // 以前这里是空的 catch + 一句"浏览器暂不允许播放"：于是**任何**失败都被报成自动播放被拦，
+      // 包括被新的加载打断的 AbortError、以及根本解不出来的源。按名字分开处理才说得清。
+      const name = error?.name || ''
+      if (name === 'AbortError') return
+      if (name === 'NotAllowedError') return notify('浏览器阻止了自动播放，再点一次播放键即可')
+      skipAfterFailure('这首音乐暂时无法播放')
+    }
   } else {
     audio.pause()
     playing.value = false
@@ -950,17 +1442,27 @@ async function chooseAvatar(event) {
   } catch (error) { notify(`头像上传失败：${error.message}`) }
   event.target.value = ''
 }
-function onAudioEnded() {
+function onAudioEnded(event) {
+  // 两个 <audio> 都挂了 ended。只有当前正在用的那个才有资格触发切歌，
+  // 否则另一个元素残留的 ended 会造成一次连跳两首。
+  if (event?.target && event.target !== activeAudio()) return
   playing.value = false
   currentTime.value = 0
-  // 有多首曲目时自动接着放下一首；只有一首就停下，免得看起来像卡住了。
-  if (musicItems.value.length > 1) playOffset(1)
+  consecutiveFailures = 0
+  // 有多首就接着放下一首；只有一首就停下，免得看起来像卡住了。
+  if (playableTracks.value.length > 1) playOffset(1)
 }
-onUnmounted(() => { clearTimeout(toastTimer); clearTimeout(playerPinTimer); if (audioUrl.value) URL.revokeObjectURL(audioUrl.value) })
+onUnmounted(() => {
+  clearTimeout(toastTimer)
+  if (audioUrl.value) URL.revokeObjectURL(audioUrl.value)
+  // 本机文件的临时地址也要释放。
+  for (const url of localFileUrls.values()) URL.revokeObjectURL(url)
+  localFileUrls.clear()
+})
 </script>
 
 <template>
-  <ParticleField v-if="!isToolPage" :playing="playing" :analyser="analyser" :is-dark="isDark" />
+  <ParticleField v-if="!isToolPage && !lowPower" :playing="playing" :analyser="analyser" :is-dark="isDark" />
   <div class="app-shell" :class="{ 'chrome-condensed': scrolled, 'tool-mode': isToolPage }">
     <aside class="sidebar" :class="{ condensed: scrolled }">
       <a class="brand" href="#/" @click.prevent="go('home')">
@@ -970,7 +1472,7 @@ onUnmounted(() => { clearTimeout(toastTimer); clearTimeout(playerPinTimer); if (
       <div class="sidebar-label">MENU <span></span></div>
       <nav class="side-nav" aria-label="主导航">
         <button v-for="item in navigation" :key="item.id" :class="['nav-item', { active: currentPage === item.id }]" @click="go(item.id)">
-          <span class="nav-icon">{{ item.icon }}</span><span>{{ item.label }}</span><span v-if="item.id === 'diary' && auth.isLoggedIn" class="nav-count">{{ diaries.length }}</span><span v-if="currentPage === item.id" class="active-dot"></span>
+          <span class="nav-icon">{{ item.icon }}</span><span>{{ item.label }}</span><span v-if="item.id === 'diary' && auth.isLoggedIn" class="nav-count">{{ diaries.length }}</span><span v-if="item.id === 'music' && activeUploadCount" class="nav-count">{{ activeUploadCount }}</span><span v-if="currentPage === item.id" class="active-dot"></span>
         </button>
         <div class="nav-more">
           <button ref="moreButton" class="nav-item nav-more-trigger" :class="{ active: secondaryNavigation.some(item => item.id === currentPage) }" :aria-expanded="moreOpen" aria-haspopup="true" @click="toggleMore">
@@ -1067,30 +1569,31 @@ onUnmounted(() => { clearTimeout(toastTimer); clearTimeout(playerPinTimer); if (
       </section>
 
       <section v-else-if="currentPage === 'music'" class="page-content inner-page">
-        <div class="inner-title-row" v-reveal><div><div class="section-kicker">SOUNDS FOR YOUR LITTLE WORLD <span></span></div><h1>音乐收藏 <em>♫</em></h1><p>播放本地或已上传的音乐，粒子会跟着节拍流动。</p></div><button class="button-primary" @click="openMusicPicker()">＋ &nbsp;添加音乐</button></div>
+        <div class="inner-title-row" v-reveal><div><div class="section-kicker">SOUNDS FOR YOUR LITTLE WORLD <span></span></div><h1>音乐收藏 <em>♫</em></h1><p>左边播放，右边跟着唱。上传时就会把歌词解析好，粒子跟着节拍流动。</p></div><div class="music-title-actions"><button v-if="auth.isLoggedIn" class="button-secondary" @click="fillMissingLyrics">↻ &nbsp;补全歌词</button><button class="button-secondary" :class="{ 'is-on': lowPower }" :title="lowPower ? '恢复粒子与频谱动效' : '关闭粒子与频谱，音频改走原生通路（卡顿时可以试）'" @click="setLowPower(!lowPower)">{{ lowPower ? '◌ 省电模式' : '◉ 完整动效' }}</button><button class="button-primary" @click="openMusicPicker()">＋ &nbsp;添加音乐</button></div></div>
 
-        <div class="music-stage" v-reveal>
-          <div class="music-disc">
-            <!-- 唱片周围的涟漪一直存在，跟着节拍一圈圈扩散 -->
-            <MusicVisualizer class="music-disc-ripple" mode="ripple" :analyser="analyser" :playing="playing" :is-dark="isDark" />
-            <div class="music-disc-vinyl" :class="{ spinning: playing }" aria-hidden="true"><span>♫</span></div>
-          </div>
-          <div class="music-stage-body">
-            <div class="music-stage-head">
-              <div>
-                <div class="section-kicker">NOW PLAYING <span></span></div>
-                <h2>{{ nowPlayingLabel }}</h2>
-              </div>
-              <div class="music-viz-modes" role="group" aria-label="可视化模式">
-                <button v-for="m in vizModes" :key="m.id" :class="{ active: vizMode === m.id }" @click="vizMode = m.id">{{ m.label }}</button>
-              </div>
+
+        <!-- 左播放器 / 右歌词：和主流播放器一致的分工。窄屏会自动上下堆叠。 -->
+        <div class="music-console" v-reveal>
+          <section class="music-player-panel" aria-label="播放器">
+            <div class="music-disc">
+              <!-- 唱片周围的涟漪一直存在，跟着节拍一圈圈扩散。
+                   它是慢速的装饰，24fps 完全够用，没必要和主频谱抢帧。 -->
+              <MusicVisualizer v-if="!lowPower" class="music-disc-ripple" mode="ripple" :analyser="analyser" :playing="playing" :is-dark="isDark" :max-fps="24" />
+              <div class="music-disc-vinyl" :class="{ spinning: playing }" aria-hidden="true"><span>♫</span></div>
             </div>
-            <p class="music-stage-note">
-              {{ playing
-                ? (analyser ? '正在播放 · 频谱驱动背景粒子' : '正在播放 · 外链音频无法读取频谱，粒子为待机呼吸')
-                : '从下面的列表选一首，或上传本机音乐' }}
-            </p>
-            <MusicVisualizer class="music-stage-viz" :mode="vizMode" :analyser="analyser" :playing="playing" :is-dark="isDark" :bars="44" />
+            <div class="music-player-copy">
+              <div class="section-kicker">NOW PLAYING <span></span></div>
+              <h2>{{ nowPlayingLabel }}</h2>
+              <p class="music-stage-note">
+                {{ playing
+                  ? (analyser ? '正在播放 · 频谱驱动背景粒子' : '正在播放 · 外链音频无法读取频谱，粒子为待机呼吸')
+                  : '从下面的曲库选一首，或上传本机音乐' }}
+              </p>
+            </div>
+            <MusicVisualizer v-if="!lowPower" class="music-stage-viz" :mode="vizMode" :analyser="analyser" :playing="playing" :is-dark="isDark" :bars="44" />
+            <div v-if="!lowPower" class="music-viz-modes" role="group" aria-label="可视化模式">
+              <button v-for="m in vizModes" :key="m.id" :class="{ active: vizMode === m.id }" @click="vizMode = m.id">{{ m.label }}</button>
+            </div>
             <div class="music-progress" role="slider" :aria-valuenow="Math.round(progressPercent)" aria-valuemin="0" aria-valuemax="100" aria-label="播放进度" @click="seekTo">
               <div class="music-progress-fill" :style="{ width: `${progressPercent}%` }"></div>
               <span class="music-progress-knob" :style="{ left: `${progressPercent}%` }"></span>
@@ -1102,11 +1605,67 @@ onUnmounted(() => { clearTimeout(toastTimer); clearTimeout(playerPinTimer); if (
               <button class="music-skip" aria-label="下一首" @click="playOffset(1)">⏭</button>
               <label class="music-volume"><span aria-hidden="true">🔊</span><input type="range" min="0" max="100" v-model="volume" @input="setVolume" aria-label="音量" /></label>
             </div>
-          </div>
+          </section>
+
+          <LyricsPanel
+            :parsed="lyricsParsed"
+            :source="lyricsSource"
+            :current-time="currentTime"
+            :loading="Boolean(lyricJob((currentTrack || localFileTrack)?.id)?.status === 'parsing')"
+            :can-save="auth.isLoggedIn"
+            :track-name="nowPlayingLabel"
+            @seek="seekToTime"
+            @save="saveLyricsFromPanel"
+            @rematch="rematchLyrics"
+          />
         </div>
 
-        <div class="music-library-controls"><button class="button-primary" @click="openMusicPicker()">＋ 上传本地音乐</button><input v-model="remoteMusicUrl" placeholder="HTTPS 音频文件直链（MP3 / M4A / OGG）" /><button class="button-secondary" @click="addRemoteMusic">加入列表</button><input ref="musicPicker" type="file" accept="audio/*" hidden @change="addMusic" /></div>
-        <div class="music-list"><article v-for="(item,index) in musicItems" :key="item.id" class="music-row" :class="{ playing: item.id === activeTrackId }"><span class="music-row-index">{{ String(index + 1).padStart(2, '0') }}</span><button class="music-row-play" :aria-label="`播放 ${item.name}`" @click="playMusicItem(item)"><span v-if="item.id === activeTrackId && playing">Ⅱ</span><span v-else>▶</span></button><span class="music-row-name"><strong>{{ item.name }}</strong><small>{{ item.visibility === 'PUBLIC' ? '公开曲目' : item.key ? '已保存到音乐库' : '本机预览' }}<template v-if="item.id === activeTrackId"> · 正在播放</template></small></span><span v-if="item.id === activeTrackId" class="music-row-bars" aria-hidden="true"><i v-for="n in 4" :key="n" :style="{ '--n': n }"></i></span><button v-if="auth.isLoggedIn && item.mine" class="privacy-toggle" @click="changeMediaVisibility(item)">{{ item.visibility === 'PUBLIC' ? '公开' : '仅自己' }}</button><button v-if="auth.isLoggedIn && item.mine" class="icon-button" title="修改曲目" @click="editMusic(item)">✎</button><button v-if="auth.isLoggedIn && item.mine" class="icon-button danger-icon" title="删除曲目" @click="deleteMusic(item)">×</button></article><div v-if="!musicItems.length" class="empty-state"><span>♫</span><h3>音乐库还是空的</h3><p>上传本地音频，或添加可直接播放的 HTTPS 音频文件地址。网页链接通常不能直接播放。</p><button class="button-primary" @click="openMusicPicker()">选择音乐文件</button></div></div>
+        <!-- 导入队列：上传、入库、解析歌词都在这一条条上走。放在曲库上方而不是浮在屏幕上，
+             因为你就在这一页，没必要再弹一个窗口挡着自己。 -->
+        <section v-if="uploadJobs.length" class="import-queue" v-reveal aria-live="polite">
+          <header class="import-queue-head">
+            <div>
+              <div class="section-kicker">IMPORT QUEUE <span></span></div>
+              <h2>导入队列 <em>{{ uploadJobs.length }}</em></h2>
+            </div>
+            <div class="import-queue-tools">
+              <span v-if="activeUploadCount" class="import-queue-live"><i aria-hidden="true"></i>{{ activeUploadCount }} 首处理中</span>
+              <button v-else class="lyrics-tool" @click="clearFinishedJobs">清空已完成</button>
+            </div>
+          </header>
+          <div class="import-list">
+            <article
+              v-for="(job, index) in uploadJobs"
+              :key="job.id"
+              class="import-row"
+              :class="[`is-${job.step}`, { 'is-indeterminate': uploadJobIndeterminate(job) }]"
+            >
+              <span class="import-row-index">{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="import-row-mark" aria-hidden="true">
+                <i v-if="job.step === 'done'">✓</i>
+                <i v-else-if="job.step === 'error'">!</i>
+                <!-- 解析歌词时动效就跑在这一行上：一排跳动的电平柱 -->
+                <span v-else-if="job.step === 'lyrics'" class="import-row-eq"><i v-for="n in 4" :key="n" :style="{ '--n': n }"></i></span>
+                <i v-else class="import-row-spinner"></i>
+              </span>
+              <span class="import-row-copy">
+                <strong :title="job.name">{{ job.name }}</strong>
+                <small>{{ job.message }}</small>
+              </span>
+              <span class="import-row-stage">{{ uploadStepLabel(job) }}</span>
+              <span class="import-row-actions">
+                <button v-if="job.step === 'done'" class="button-secondary import-row-play" @click="playJobTrack(job)">▶ &nbsp;播放</button>
+                <button class="import-row-close" :aria-label="`从队列移除 ${job.name}`" @click="dismissUploadJob(job.id)">×</button>
+              </span>
+              <span class="import-row-bar" role="progressbar" :aria-valuenow="uploadJobProgress(job)" aria-valuemin="0" aria-valuemax="100">
+                <i :style="{ width: `${uploadJobProgress(job)}%` }"></i>
+              </span>
+            </article>
+          </div>
+        </section>
+
+        <div class="music-library-controls"><button class="button-primary" @click="openMusicPicker()">＋ 上传本地音乐</button><button class="button-secondary" @click="playerPicker?.click()">♫ 本机试听</button><input v-model="remoteMusicUrl" placeholder="HTTPS 音频文件直链（MP3 / M4A / OGG）" /><button class="button-secondary" @click="addRemoteMusic">加入列表</button><input ref="musicPicker" type="file" accept="audio/*" hidden @change="addMusic" /><input ref="playerPicker" type="file" accept="audio/*" hidden @change="chooseMusic" /></div>
+        <div class="music-list"><article v-for="(item,index) in musicItems" :key="item.id" class="music-row" :class="{ playing: item.id === activeTrackId }"><span class="music-row-index">{{ String(index + 1).padStart(2, '0') }}</span><button class="music-row-play" :aria-label="`播放 ${item.name}`" @click="playMusicItem(item)"><span v-if="item.id === activeTrackId && playing">Ⅱ</span><span v-else>▶</span></button><span class="music-row-name"><strong>{{ item.name }}</strong><small>{{ item.visibility === 'PUBLIC' ? '公开曲目' : item.key ? '已保存到音乐库' : '本机预览' }}<template v-if="item.id === activeTrackId"> · 正在播放</template></small></span><span class="music-row-lyrics" :class="`is-${lyricJob(item.id)?.status || (item.lyrics ? 'ready' : 'idle')}`" :title="lyricJob(item.id)?.error || ''"><template v-if="lyricJob(item.id)?.status === 'parsing'"><i class="music-row-spinner" aria-hidden="true"></i>解析歌词中</template><template v-else-if="item.lyrics || lyricJob(item.id)?.status === 'ready'">✓ 有歌词</template><template v-else-if="lyricJob(item.id)?.status === 'none'">暂无歌词</template><template v-else>—</template></span><span v-if="item.id === activeTrackId" class="music-row-bars" aria-hidden="true"><i v-for="n in 4" :key="n" :style="{ '--n': n }"></i></span><button v-if="auth.isLoggedIn && item.mine && !item.lyrics" class="lyrics-fetch" title="为这首曲目匹配歌词" @click="resolveTrackLyrics(item, { force: true, announce: true })">↻ 取歌词</button><button v-if="auth.isLoggedIn && item.mine" class="privacy-toggle" @click="changeMediaVisibility(item)">{{ item.visibility === 'PUBLIC' ? '公开' : '仅自己' }}</button><button v-if="auth.isLoggedIn && item.mine" class="icon-button" title="修改曲目" @click="editMusic(item)">✎</button><button v-if="auth.isLoggedIn && item.mine" class="icon-button danger-icon" title="删除曲目" @click="deleteMusic(item)">×</button></article><div v-if="!musicItems.length" class="empty-state"><span>♫</span><h3>音乐库还是空的</h3><p>上传本地音频，或添加可直接播放的 HTTPS 音频文件地址。网页链接通常不能直接播放。</p><button class="button-primary" @click="openMusicPicker()">选择音乐文件</button></div></div>
       </section>
 
       <section v-else-if="currentPage === 'messages'" class="page-content inner-page">
@@ -1155,44 +1714,33 @@ onUnmounted(() => { clearTimeout(toastTimer); clearTimeout(playerPinTimer); if (
       </Transition>
     </main>
 
-    <!-- 默认是右下角的小胶囊，不挡内容；悬停或开始播放时展开。
-         两块内容叠在同一个网格单元里交叉淡入，容器只过渡尺寸，所以变化是连续的。 -->
-    <div
-      class="music-player"
-      :class="playerExpanded ? 'is-expanded' : 'is-condensed'"
-      @mouseenter="playerHover = true"
-      @mouseleave="playerHover = false; hidePlayerSoon()"
-    >
-      <div class="music-dock-mini">
-        <button class="music-play" :class="{ isPlaying: playing }" @click="toggleMusic" aria-label="播放或暂停音乐"><span v-if="playing">Ⅱ</span><span v-else>▶</span></button>
-        <div class="music-dock-mini-body">
-          <strong>{{ nowPlayingLabel }}</strong>
-          <div class="music-dock-mini-bar" @click="seekTo"><div :style="{ width: `${progressPercent}%` }"></div></div>
-        </div>
-        <span class="music-dock-mini-time">{{ formatTime(currentTime) }}</span>
-        <button class="music-dock-open" @click="go('music')" aria-label="打开音乐收藏" title="打开音乐收藏">↗</button>
-      </div>
+    <!-- 右下角的音乐盒：尺寸恒定的小卡，不展开、不模糊背景。
+         窄屏时变成贴在底部标签栏上方的一条胶囊（见 style.css 的媒体查询）。 -->
+    <MusicDock
+      :playing="playing"
+      :title="nowPlayingLabel"
+      :current-time="currentTime"
+      :duration="trackDuration"
+      :has-track="Boolean(currentTrack || localFileTrack || audioUrl)"
+      @toggle="toggleMusic"
+      @prev="playOffset(-1)"
+      @next="playOffset(1)"
+      @seek="seekToTime"
+      @open="go('music')"
+    />
+    <!-- preload="auto"：提前缓冲，别等播到一半才去要数据。
+         waiting / stalled / error 三个事件是音频卡顿的直接证据，计数显示在音乐页上。 -->
+    <audio :key="lowPower ? 'audio-lite' : 'audio-full'" ref="audioElement" crossorigin="anonymous"
+      @ended="onAudioEnded($event)" @timeupdate="onTimeUpdate" @loadedmetadata="onLoadedMetadata"
+      @play="playing = true" @pause="playing = false"
+      @error="onAudioError" />
+    <audio ref="remoteAudioElement"
+      @ended="onAudioEnded($event)" @timeupdate="onTimeUpdate" @loadedmetadata="onLoadedMetadata"
+      @play="playing = true" @pause="playing = false"
+      @error="onAudioError" />
 
-      <div class="music-dock-full">
-        <button class="music-play" :class="{ isPlaying: playing }" @click="toggleMusic" aria-label="播放或暂停音乐"><span v-if="playing">Ⅱ</span><span v-else>▶</span></button>
-        <div class="music-info">
-          <strong>{{ nowPlayingLabel }}</strong>
-          <span>{{ playing ? '正在播放 · 粒子已随音乐起舞' : '选择一首音乐，放松一下' }}</span>
-        </div>
-        <button class="music-skip player-prev" @click="playOffset(-1)" aria-label="上一首">⏮</button>
-        <button class="music-skip player-next" @click="playOffset(1)" aria-label="下一首">⏭</button>
-        <MusicVisualizer class="music-player-viz" :mode="vizMode" :analyser="analyser" :playing="playing" :is-dark="isDark" :bars="26" />
-        <div class="music-player-progress" @click="seekTo"><div :style="{ width: `${progressPercent}%` }"></div></div>
-        <div class="music-player-time"><span>{{ formatTime(currentTime) }}</span><span>{{ formatTime(trackDuration) }}</span></div>
-        <button class="music-change" @click="go('music')" aria-label="打开音乐收藏">♫</button>
-        <input class="volume-slider" type="range" min="0" max="100" v-model="volume" @input="setVolume" aria-label="音量" />
-      </div>
-
-      <input ref="playerPicker" type="file" accept="audio/*" hidden @change="chooseMusic" />
-    </div>
-    <audio ref="audioElement" crossorigin="anonymous" @ended="onAudioEnded" @timeupdate="onTimeUpdate" @loadedmetadata="onLoadedMetadata" @play="playing = true" @pause="playing = false" />
-    <audio ref="remoteAudioElement" @ended="onAudioEnded" @timeupdate="onTimeUpdate" @loadedmetadata="onLoadedMetadata" @play="playing = true" @pause="playing = false" />
-
+    <!-- 后台导入任务：上传 → 入库 → 解析歌词，全程不挡人。
+         它是音乐页里的一条内联队列（不是浮层弹窗），进度和解析动效都长在各自那一行上。 -->
     <Transition name="toast"><div v-if="toast" class="toast-message">✳ &nbsp;{{ toast }}</div></Transition>
     <div v-if="diaryDialog" class="modal-backdrop" @click.self="diaryDialog = false"><section class="modal-card diary-editor"><div class="modal-top"><div><div class="section-kicker">WRITE IT DOWN <span></span></div><h2>{{ draft.id ? '改写这一页' : '写一篇日记' }}</h2></div><button class="modal-close" @click="diaryDialog = false">×</button></div><label>标题<input v-model="draft.title" maxlength="80" placeholder="给今天起个名字…" /></label><div class="form-row"><label>日期<input v-model="draft.date" type="date" /></label><label>心情<select v-model="draft.mood"><option>平静</option><option>开心</option><option>期待</option><option>疲惫</option><option>难过</option></select></label><label>天气<select v-model="draft.weather"><option>☀️</option><option>☁️</option><option>🌦</option><option>🌧</option><option>❄️</option></select></label></div><label class="visibility-field">谁可以看到这篇日记？<select v-model="draft.visibility"><option value="PRIVATE">◌ 仅自己可见</option><option value="PUBLIC">◉ 公开给访客</option></select><small>默认仅自己可见。设为公开后，访客可以阅读这篇内容。</small></label><label>标签<input v-model="draft.tags" placeholder="用逗号分隔，例如：日常，散步" /></label><label>日记内容<textarea v-model="draft.content" rows="8" placeholder="今天发生了什么？有什么想留下来的？"></textarea></label><div class="modal-actions"><span>写给未来某天的自己 ♡</span><button class="button-primary" @click="saveDiary">保存日记 &nbsp;↗</button></div></section></div>
 

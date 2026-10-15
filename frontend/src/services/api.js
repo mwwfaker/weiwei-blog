@@ -47,6 +47,19 @@ export const supabase = backendConfigured
     })
   : null
 
+// 预连接对象存储：省掉第一次取音频时的 DNS 查询与 TLS 握手。
+// 放在模块加载时注入，越早开始握手越好——音频起播慢，有很大一部分就花在这两次往返上。
+// 注意判断 document.head：SSR 冒烟测试里的 document 是个只有两个方法的桩对象。
+if (backendConfigured && typeof document !== 'undefined' && document.head) {
+  for (const rel of ['preconnect', 'dns-prefetch']) {
+    const link = document.createElement('link')
+    link.rel = rel
+    link.href = SUPABASE_URL
+    if (rel === 'preconnect') link.crossOrigin = 'anonymous'
+    document.head.appendChild(link)
+  }
+}
+
 // ---------------------------------------------------------------- 工具
 
 function fail(message, status = 400) {
@@ -110,6 +123,7 @@ const articleView = (row) => ({
 const mediaView = (row, url) => ({
   id: row.id, kind: row.kind, title: row.title, objectKey: row.object_key, contentType: row.content_type,
   visibility: row.visibility, url: url || row.object_key, albumName: row.album_name,
+  lyrics: row.lyrics || '', lyricsSource: row.lyrics_source || '',
   ownerId: row.owner_id, createdAt: row.created_at,
 })
 
@@ -379,9 +393,14 @@ const routes = [
 
   ['PUT', /^\/api\/media\/([^/]+)$/, async ({ params, body }) => {
     const user = await requireUser()
-    const patch = { visibility: body.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', updated_at: nowIso() }
+    // 只改这次真的传上来的字段。
+    // 这里以前无条件写 visibility，于是「只保存歌词」的请求会顺手把一首公开曲目改成私密。
+    const patch = { updated_at: nowIso() }
+    if (body.visibility != null) patch.visibility = body.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE'
     if (body.title != null) patch.title = String(body.title).trim()
     if (body.albumName != null) patch.album_name = String(body.albumName).trim() || '日常'
+    if (body.lyrics != null) patch.lyrics = String(body.lyrics)
+    if (body.lyricsSource != null) patch.lyrics_source = String(body.lyricsSource)
     const row = unwrap(await supabase.from('media_assets').update(patch)
       .eq('id', params[0]).eq('owner_id', user.id).select().maybeSingle(), { notFoundMessage: '媒体不存在' })
     if (!row) throw fail('媒体不存在', 404)

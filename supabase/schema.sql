@@ -83,9 +83,17 @@ create table if not exists public.media_assets (
   object_key text not null,                    -- 对象存储里的路径，或 MUSIC_URL 时的外部链接
   content_type text not null default '',
   visibility text not null default 'PRIVATE',
+  -- 歌词原文（LRC 或纯文本）。解析发生在上传时：先读音频文件的内嵌歌词标签，再按
+  -- 「曲名 + 时长」去在线歌词库匹配，最后可以手动粘贴覆盖。存原文而不是解析结果，
+  -- 是为了让你能直接改时间轴，前后端也不用维护两套格式。
+  lyrics text not null default '',
+  lyrics_source text not null default '',      -- manual / embedded / lrclib / netease
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- 已经建过表的项目：这两句把新字段补上。列已存在时是空操作，可以放心重复执行。
+alter table public.media_assets add column if not exists lyrics text not null default '';
+alter table public.media_assets add column if not exists lyrics_source text not null default '';
 create unique index if not exists uk_media_object_key on public.media_assets (object_key);
 create index if not exists idx_media_owner_created on public.media_assets (owner_id, created_at desc);
 create index if not exists idx_media_public on public.media_assets (kind, visibility, created_at desc);

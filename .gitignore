@@ -2,6 +2,8 @@ node_modules/
 frontend/dist/
 frontend/ssr-smoke/dist-ssr/
 backend/target/
+# 无头浏览器截图的工作目录：用来人工核对视觉效果，不参与构建，也没必要进版本库
+shots/
 # 本地环境变量：每个人各自配置，不进版本库（`.env` 只匹配同名文件，
 # 所以 .env.local / .env.*.local 要单独列出来，否则会被提交上去）
 .env

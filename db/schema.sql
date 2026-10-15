@@ -69,6 +69,10 @@ CREATE TABLE IF NOT EXISTS media_assets (
   object_key VARCHAR(600) NOT NULL,
   content_type VARCHAR(100) NOT NULL,
   visibility VARCHAR(12) NOT NULL DEFAULT 'PRIVATE',
+  -- 歌词原文（LRC / 纯文本）。前端在上传时解析好再写进来，读取时原样返回。
+  -- 这里只是给手建库用的参考；线上的权威结构是 supabase/schema.sql。
+  lyrics LONGTEXT NULL,
+  lyrics_source VARCHAR(20) NOT NULL DEFAULT '',
   created_at TIMESTAMP(6) NOT NULL,
   updated_at TIMESTAMP(6) NOT NULL,
   PRIMARY KEY (id),
