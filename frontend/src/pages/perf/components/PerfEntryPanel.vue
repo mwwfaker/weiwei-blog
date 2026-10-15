@@ -1,6 +1,6 @@
 <script setup>
 // 「数据总览」：左边选人/选队列，右边填每个人的 AHT 与审核量。
-// 面板只读上面传下来的行数据；所有写入（setCell / 切标签页）都 emit 回 PerfPage，
+// 面板只读上面传下来的行数据；所有写入（setCell / 切标签页 / 重置）都 emit 回 PerfPage，
 // 因为改的是 members / entries，得连着本地存储与云端同步一起走。
 //
 // 注意：下面那个「已填 N」在拆分前一直是空的——`filledCount` 从来没有定义过。
@@ -24,10 +24,13 @@ const props = defineProps({
   activePrice: { type: Object, default: () => ({}) },
   constants: { type: Object, default: () => ({}) },
 })
-const emit = defineEmits(['set-cell', 'go-tab'])
+const emit = defineEmits(['set-cell', 'go-tab', 'reset-member-data', 'reset-member-triple-count'])
 
 /** 「已填」= 当前队列里真的填了审核量的人数。行数据由父级传下来，这里只数一遍。 */
 const filledCount = computed(() => props.queueRows.filter((row) => row.numbers && row.numbers.auditCount).length)
+
+/** 当前这个人身上还有没有三薪日的审核量：没有就别让「重置三薪审核量」看着像能点。 */
+const hasTripleCount = computed(() => props.memberQueueRows.some((row) => Number(row.entry?.tripleCount)))
 
 // 两种视图、搜索词、选中的对象都是父级的状态，这里只做双向绑定。
 const entryView = defineModel('entryView', { type: String, default: 'byMember' })
@@ -41,6 +44,13 @@ function setCell(memberId, field, raw, queue) {
   emit('set-cell', memberId, field, raw, queue)
 }
 
+/** 重置都只清数据、不动名单，确认框与具体清哪些字段在 PerfPage 里（云端保存也跟着那边走）。 */
+function resetMemberData() {
+  if (props.activeMember) emit('reset-member-data', props.activeMember.id)
+}
+function resetTripleCount() {
+  if (props.activeMember) emit('reset-member-triple-count', props.activeMember.id)
+}
 </script>
 
 <template>
@@ -106,6 +116,12 @@ function setCell(memberId, field, raw, queue) {
               <span>完成度 <b>{{ percent(memberSummary?.completion) }}</b></span>
               <span>月实际工时 <b>{{ (memberSummary?.actualHours || 0).toFixed(2) }} h</b></span>
               <span>合计 <b class="hl">¥ {{ money(memberSummary?.total || 0) }}</b></span>
+            </div>
+            <!-- 重置只针对当前选中的这个人；清哪些字段、保留什么都由 PerfPage 决定并确认 -->
+            <div class="perf-overview-bar">
+              <button class="perf-btn" :disabled="!hasTripleCount" title="把这个人在所有队列里填的「其中三薪日」清零（审核量不动）" @click="resetTripleCount">重置三薪审核量</button>
+              <button class="perf-btn" title="清掉抽调/加班/三薪时长，以及他在所有队列里的审核量与其中三薪日" @click="resetMemberData">重置该员工数据</button>
+              <span class="perf-hint">两个按钮都只清数据：姓名、邮箱、队列归属、实际 AHT 会保留。</span>
             </div>
             <div class="perf-list">
               <table class="perf-grid">

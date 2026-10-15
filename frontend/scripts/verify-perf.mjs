@@ -1,10 +1,15 @@
-// 绩效公式验证：把计算结果和用户飞书表格里的真实数字逐个对比。
+// 绩效公式与「数据重置」验证：把计算结果和用户飞书表格里的真实数字逐个对比。
 // 关键前提：KPI 是输入，标准 AHT = ROUND(24480/KPI, 2) 是算出来的。
+//
+// 重置那一组动作（[10]）也需要对拍：它是这段代码里唯一有风险的地方——
+// 清多了会丢数据、清少了没效果，而这两件事都不会报错。
 // 运行：cd frontend && npm run verify:perf
+import { ref } from 'vue'
 import {
   PERF_CONSTANTS, PERF_QUEUES, ahtOf, computeAll, entryNumbers, memberTotals,
   nameFromEmail, normalizeQueues, priceCheck, unitPriceOf,
 } from '../src/services/perf.js'
+import { usePerfReset } from '../src/pages/perf/composables/usePerfReset.js'
 
 let pass = 0
 const failures = []
@@ -173,6 +178,119 @@ check('汇总人数正确', all.summary.headcount === 3)
 check('汇总合计 = 各行合计之和', close(all.summary.total, all.rows.reduce((s, x) => s + x.result.total, 0), 1e-9))
 check('加权效率 = Σ标准时长 ÷ Σ实际时长', close(all.summary.efficiency, all.rows.reduce((s, x) => s + x.result.standardSeconds, 0) / all.rows.reduce((s, x) => s + x.result.actualSeconds, 0), 1e-9))
 check('最高/最低收入可识别', all.summary.highest && all.summary.lowest && all.summary.highest.result.total >= all.summary.lowest.result.total)
+
+// ---- 10. 数据重置 --------------------------------------------------------------
+// 这一组的风险不在「算得对不对」，而在「清的边界对不对」：
+//   · 该清没清 → 换月之后上个月的数字还挂在工资里，而且不报错
+//   · 不该清却清了 → 直接丢数据（名单、队列归属、实际 AHT）
+// 所以每条断言都成对写：清的字段变成 0，保留的字段原样不动。
+console.log('\n[10] 数据重置')
+
+const freshMember = () => ({
+  id: 'm1', name: '甲', email: 'a@x.com', queue: '图片',
+  requiredHours: 184, transferHours: 8, overtimeHours: 3, tripleHours: 6,
+})
+const freshEntry = (over = {}) => ({ id: 'e1', memberId: 'm1', queue: '图片', auditCount: 120, actualAht: 29.5, tripleCount: 40, ...over })
+
+/** 每个用例都拿到干净的一份数据，并返回 ref 与「永远确认」的动作集合。 */
+function resetHarness({ members = [freshMember()], entries = [freshEntry()], answer = true } = {}) {
+  const membersRef = ref(structuredClone(members))
+  const entriesRef = ref(structuredClone(entries))
+  const asked = []
+  const actions = usePerfReset({
+    members: membersRef,
+    entries: entriesRef,
+    confirm: (message) => { asked.push(message); return answer },
+  })
+  return { members: membersRef, entries: entriesRef, asked, ...actions }
+}
+
+// 10.1 「重置该员工数据」：三个时长与录入清零，名单信息保留
+{
+  const h = resetHarness()
+  const ok = h.resetMemberData('m1')
+  const m = h.members.value[0]
+  const e = h.entries.value[0]
+  check('重置该员工数据：返回 true', ok === true)
+  check('重置该员工数据：姓名保留', m.name === '甲' && m.email === 'a@x.com')
+  check('重置该员工数据：队列归属保留', m.queue === '图片')
+  check('重置该员工数据：月要求工时保留', m.requiredHours === 184)
+  check('重置该员工数据：三个时长清零', m.transferHours === 0 && m.overtimeHours === 0 && m.tripleHours === 0)
+  check('重置该员工数据：审核量与三薪日清零', e.auditCount === 0 && e.tripleCount === 0)
+  check('重置该员工数据：实际 AHT 保留（它是单价口径，不是当月工作量）', e.actualAht === 29.5)
+  check('重置该员工数据：弹了一次确认框', h.asked.length === 1)
+}
+
+// 10.2 取消时一个字段都不能动
+{
+  const h = resetHarness({ answer: false })
+  const ok = h.resetMemberData('m1')
+  const m = h.members.value[0]
+  check('取消确认：返回 false', ok === false)
+  check('取消确认：时长没动', m.transferHours === 8 && m.tripleHours === 6)
+  check('取消确认：录入没动', h.entries.value[0].auditCount === 120 && h.entries.value[0].tripleCount === 40)
+}
+
+// 10.3 「重置全部员工数据」：对所有人做，且不碰名单长度与队列 KPI
+{
+  const h = resetHarness({
+    members: [freshMember(), { ...freshMember(), id: 'm2', name: '乙', transferHours: 2, overtimeHours: 0, tripleHours: 1 }],
+    entries: [freshEntry(), freshEntry({ id: 'e2', memberId: 'm2', auditCount: 80, tripleCount: 5 })],
+  })
+  const ok = h.resetAllMemberData()
+  check('重置全部：返回 true', ok === true)
+  check('重置全部：名单人数不变', h.members.value.length === 2)
+  check('重置全部：两个人的时长都清零', h.members.value.every((m) => m.transferHours === 0 && m.overtimeHours === 0 && m.tripleHours === 0))
+  check('重置全部：两个人的录入都清零', h.entries.value.every((e) => e.auditCount === 0 && e.tripleCount === 0))
+  check('重置全部：姓名都保留', h.members.value.map((m) => m.name).join(',') === '甲,乙')
+  check('重置全部：实际 AHT 都保留', h.entries.value.every((e) => e.actualAht === 29.5))
+
+  // 名单为空时不该弹框、也不该说成功
+  const empty = resetHarness({ members: [], entries: [] })
+  check('重置全部：名单为空时直接返回 false 且不弹框', empty.resetAllMemberData() === false && empty.asked.length === 0)
+}
+
+// 10.4 「重置抽调/加班/三薪时长」：只动那三个数，录入一概不碰
+{
+  const h = resetHarness()
+  const ok = h.resetExtraHours()
+  const m = h.members.value[0]
+  check('重置时长：返回 true', ok === true)
+  check('重置时长：三个时长清零', m.transferHours === 0 && m.overtimeHours === 0 && m.tripleHours === 0)
+  check('重置时长：审核量不动', h.entries.value[0].auditCount === 120)
+  check('重置时长：三薪日不动（这是两个按钮分开的原因）', h.entries.value[0].tripleCount === 40)
+}
+
+// 10.5 「重置三薪审核量」：只清 tripleCount，auditCount 与名单原样
+{
+  const h = resetHarness()
+  const ok = h.resetMemberTripleCount('m1')
+  check('重置三薪审核量：返回 true', ok === true)
+  check('重置三薪审核量：三薪日清零', h.entries.value[0].tripleCount === 0)
+  check('重置三薪审核量：审核量不动', h.entries.value[0].auditCount === 120)
+  check('重置三薪审核量：三薪时长不动（另一处存的那份不归它管）', h.members.value[0].tripleHours === 6)
+}
+
+// 10.6 两个「不该弹框」的边界
+{
+  const nothing = resetHarness({ entries: [freshEntry({ tripleCount: 0 })] })
+  check('重置三薪审核量：没填过直接返回 false 且不弹框', nothing.resetMemberTripleCount('m1') === false && nothing.asked.length === 0)
+
+  const stranger = resetHarness()
+  check('重置该员工数据：id 不存在时返回 false 且不弹框', stranger.resetMemberData('不存在') === false && stranger.asked.length === 0)
+}
+
+// 10.7 只清「这个人」的：多人的时候不能连坐
+{
+  const h = resetHarness({
+    members: [freshMember(), { ...freshMember(), id: 'm2', name: '乙' }],
+    entries: [freshEntry(), freshEntry({ id: 'e2', memberId: 'm2', auditCount: 80, tripleCount: 5 })],
+  })
+  h.resetMemberData('m1')
+  const other = h.entries.value.find((e) => e.memberId === 'm2')
+  check('重置该员工数据：别人的录入不受影响', other.auditCount === 80 && other.tripleCount === 5)
+  check('重置该员工数据：别人的时长不受影响', h.members.value[1].tripleHours === 6)
+}
 
 console.log(failures.length ? `\n${failures.length} 项失败：${failures.join('; ')}` : `\n全部通过（${pass} 项）`)
 process.exitCode = failures.length ? 1 : 0

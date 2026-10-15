@@ -28,6 +28,7 @@ import { usePerfAura } from './composables/usePerfAura'
 import { usePerfCloud } from './composables/usePerfCloud'
 import { usePerfExport } from './composables/usePerfExport'
 import { usePerfImport } from './composables/usePerfImport'
+import { usePerfReset } from './composables/usePerfReset'
 import { usePerfViz } from './composables/usePerfViz'
 import PerfAboutPanel from './components/PerfAboutPanel.vue'
 import PerfDailyPanel from './components/PerfDailyPanel.vue'
@@ -381,6 +382,14 @@ function applyHoursToAll() {
 }
 const promptRef = ref(String(DEFAULT_REQUIRED_HOURS))
 
+// ---- 数据重置 --------------------------------------------------------------
+// 整块逻辑在 composables/usePerfReset.js：只清当月数据、保留名单结构，
+// 每个动作都先确认一次。放在 composable 里是为了让 verify-perf.mjs 能离线对拍
+// 「该清的清了、该保留的还留着」——那是这段代码唯一有风险的地方。
+const {
+  resetMemberData, resetAllMemberData, resetExtraHours, resetMemberTripleCount,
+} = usePerfReset({ members, entries })
+
 // ---- 导入 ------------------------------------------------------------------
 // 识别与写入整块在 composables/usePerfImport.js，粘贴监听也挂在那里。
 const {
@@ -448,6 +457,8 @@ const { trackCursor } = usePerfAura({ toolRef, auraRef })
           :constants="constants"
           @set-cell="setCell"
           @go-tab="tab = $event"
+          @reset-member-data="resetMemberData"
+          @reset-member-triple-count="resetMemberTripleCount"
         />
 
         <!-- 员工名单：一个月只填一次的固定项 -->
@@ -463,6 +474,9 @@ const { trackCursor } = usePerfAura({ toolRef, auraRef })
           @bulk-add="bulkAdd"
           @remove-member="removeMember"
           @apply-hours="applyHoursToAll"
+          @reset-member-data="resetMemberData"
+          @reset-all-data="resetAllMemberData"
+          @reset-extra-hours="resetExtraHours"
         />
 
         <!-- 队列 KPI -->

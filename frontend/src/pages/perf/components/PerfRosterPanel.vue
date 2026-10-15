@@ -1,6 +1,9 @@
 <script setup>
 // 「员工名单」：一个月只填一次的固定项（姓名/邮箱/月要求工时/抽调/加班/三薪）。
 // 增删改都 emit 回 PerfPage——名单是云端同步的核心数据，不能在面板里自己改。
+//
+// 三个重置按钮也只是 emit 意图：清哪些字段、保留什么、怎么确认，全在 PerfPage 里定，
+// 这里说的「重置」只清数据，姓名/邮箱/队列/实际 AHT 都留着（提示文案写在 PerfPage）。
 import { DEFAULT_REQUIRED_HOURS } from '@/services/perf'
 import { money } from '../composables/format.js'
 
@@ -9,7 +12,10 @@ defineProps({
   rowByMember: { type: Map, default: () => new Map() },
   bulkMessage: { type: String, default: '' },
 })
-const emit = defineEmits(['add-member', 'bulk-add', 'remove-member', 'apply-hours'])
+const emit = defineEmits([
+  'add-member', 'bulk-add', 'remove-member', 'apply-hours',
+  'reset-member-data', 'reset-all-data', 'reset-extra-hours',
+])
 
 // 批量粘贴框是否展开、粘贴内容、统一工时的输入值，都只被这一块用，但保持由父级持有，
 // 这样切走再切回来时不会把用户正在粘贴的内容丢掉。
@@ -21,6 +27,9 @@ function addMember() { emit('add-member') }
 function bulkAdd() { emit('bulk-add') }
 function removeMember(id) { emit('remove-member', id) }
 function applyHoursToAll() { emit('apply-hours') }
+function resetMemberData(id) { emit('reset-member-data', id) }
+function resetAllData() { emit('reset-all-data') }
+function resetExtraHours() { emit('reset-extra-hours') }
 </script>
 
 <template>
@@ -28,6 +37,8 @@ function applyHoursToAll() { emit('apply-hours') }
     <div class="perf-overview-bar">
       <button class="perf-btn primary" @click="addMember">＋ 添加一人</button>
       <button class="perf-btn" @click="bulkOpen = !bulkOpen">批量粘贴邮箱</button>
+      <button class="perf-btn" @click="resetExtraHours">重置抽调/加班/三薪时长</button>
+      <button class="perf-btn" @click="resetAllData">重置全部员工数据</button>
       <span class="perf-hint">这里的四项每人只需填一次，之后每月只改队列里的 AHT 与审核量。</span>
     </div>
 
@@ -64,7 +75,10 @@ function applyHoursToAll() { emit('apply-hours') }
             <td class="num"><input type="number" step="0.01" class="perf-cell" v-model.number="member.tripleHours" /></td>
             <td class="num muted">{{ rowByMember.get(member.id)?.result.actualHours.toFixed(2) || '0.00' }} h</td>
             <td class="num total">¥ {{ money(rowByMember.get(member.id)?.result.total || 0) }}</td>
-            <td class="act"><button class="perf-del" :aria-label="`删除 ${member.name || '这个人'}`" @click="removeMember(member.id)">×</button></td>
+            <td class="act">
+              <button class="perf-del reset" :aria-label="`重置 ${member.name || '这个人'} 的数据`" title="重置他的数据（保留姓名/邮箱/队列/实际AHT）" @click="resetMemberData(member.id)">↺</button>
+              <button class="perf-del" :aria-label="`删除 ${member.name || '这个人'}`" title="从名单里删掉这个人" @click="removeMember(member.id)">×</button>
+            </td>
           </tr>
         </tbody>
       </table>

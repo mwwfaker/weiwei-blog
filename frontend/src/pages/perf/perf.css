@@ -638,3 +638,12 @@
   .perf-tool::before{opacity:0!important}
   .perf-aura{display:none!important}
 }
+
+/* ---- 16. 「员工名单」的操作列：重置 + 删除两个按钮 ----------------------
+   原来这一列固定 34px，只够放一个「×」；加了每行的「↺ 重置他的数据」以后会挤成两行。
+   宽度按 22 + 5 + 22 + 两侧内边距 12*2 = 73 给，两列之外的行不再受影响。 */
+.perf-grid.roster .act{width:73px}
+.perf-grid.roster .act .perf-del{vertical-align:middle}
+.perf-grid.roster .act .perf-del + .perf-del{margin-left:5px}
+/* 重置是「可逆操作」，悬停给主题色而不是删除那种红 */
+.perf-del.reset:hover{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}

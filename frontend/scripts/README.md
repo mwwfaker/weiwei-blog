@@ -13,7 +13,7 @@ npm run test:render    # SSR 渲染冒烟测试（在 ssr-smoke/ 里）
 | --- | --- | --- | --- |
 | `verify-frontend.mjs` | `verify` | 12 项结构性检查，见下 | 构建能过但页面坏掉的问题，只有这里抓得住 |
 | `verify-lyrics.mjs` | `verify:lyrics` | LRC 时间轴、当前句定位、曲名拆分、ID3 内嵌歌词 | 「歌词整体错位一句」或「UTF-8 读出乱码」靠截图看不出来 |
-| `verify-perf.mjs` | `verify:perf` | 绩效公式与飞书表格里的真实数字逐个对拍（82 项） | 公式改错一位，算出来的工资就是错的 |
+| `verify-perf.mjs` | `verify:perf` | 绩效公式与表格里的真实数字逐个对拍，外加「数据重置」的 30 条边界断言（共 112 项） | 公式改错一位算出来的工资就是错的；重置清多了会丢数据、清少了没效果，两者都不报错 |
 | `verify-ocr.mjs` | `verify:ocr` | 飞书粘贴文本与真实截图 OCR 输出的解析（41 项） | 解析回归会让导入整段错位 |
 | `new-page.mjs` | `new:page` | **不是检查，是生成器** | 加页面要同时改三处注册点，靠人记一定会漏 |
 

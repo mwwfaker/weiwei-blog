@@ -7,8 +7,8 @@
 | --- | --- | --- |
 | `PerfToolbar.vue` | 顶部工具条 `.perf-bar`：月份、数据来源、同步状态、导出、返回 | props + `update:month` / `select` / `export` / `back` |
 | `PerfReadonlyNote.vue` | 公开只读提示 `.perf-readonly-note` | props，由 PerfPage 用 `v-if="readOnly"` 控制出现 |
-| `PerfEntryPanel.vue` | 「数据总览」：左侧清单 + 右侧单人详情 / 队列总览两张表 | 5 个 `v-model`（视图与选中对象）+ 行数据 props，`set-cell` / `go-tab` 上抛 |
-| `PerfRosterPanel.vue` | 「员工名单」：姓名邮箱、月要求工时、抽调/加班/三薪、批量粘贴 | 3 个 `v-model` + `members`/`rowByMember`，增删改 emit |
+| `PerfEntryPanel.vue` | 「数据总览」：左侧清单 + 右侧单人详情 / 队列总览两张表 | 5 个 `v-model`（视图与选中对象）+ 行数据 props，`set-cell` / `go-tab` / `reset-member-data` / `reset-member-triple-count` 上抛 |
+| `PerfRosterPanel.vue` | 「员工名单」：姓名邮箱、月要求工时、抽调/加班/三薪、批量粘贴、每行 `↺` 重置、两个批量重置 | 3 个 `v-model` + `members`/`rowByMember`，增删改与重置全部 emit |
 | `PerfQueuesPanel.vue` | 「队列 KPI」：队列名与 KPI、标准 AHT / 单价 / 当月小计 | `queues`/`summary` 等 props，新增/删除 emit（`queueForm` 直接改，因为是面板自己的表单） |
 | `PerfVizPanel.vue` | 「数据可视化」：关键指标、薪资构成、队列分布、矩阵、散点、相对均值、排序明细 | 全是 usePerfViz 算好的 props + `rankBy` 一个 `v-model` |
 | `PerfDailyPanel.vue` | 「单日计算」：对应文档表一，独立于月度数据 | 只收 `queues`/`constants`，内部用 `usePerfDaily` 自己持有当天状态 |
