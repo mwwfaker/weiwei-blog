@@ -21,7 +21,7 @@ const publicCount = computed(() => diaries.importReview.filter((entry) => entry.
   <ModalShell
     close-label="关闭导入确认"
     card-class="import-card"
-    kicker="READY TO KEEP"
+    kicker="READY TO KEEP · 导入器 v3"
     :title="`确认导入的 ${total} 篇日记`"
     @close="diaries.importDialog = false"
   >
