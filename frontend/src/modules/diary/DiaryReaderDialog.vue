@@ -12,9 +12,13 @@
 import { computed } from 'vue'
 import ReadingSheet from '@/modules/modal/ReadingSheet.vue'
 import { isLocalId } from '@/app/ids'
+import { useDiariesStore } from '@/stores/diaries'
 
 const props = defineProps({ entry: { type: Object, required: true } })
 defineEmits(['close', 'edit', 'export'])
+
+// 从用户点的那张卡片所在的一侧滑进来（时间树会告诉 store 是哪一侧）
+const diaries = useDiariesStore()
 
 const SIGN_LINE = /^\d{1,2}\s*[:：]\s*\d{1,2}/
 
@@ -34,7 +38,13 @@ const body = computed(() => {
 </script>
 
 <template>
-  <ReadingSheet card-class="diary-reading" close-label="关闭阅读" :count-text="props.entry.content" @close="$emit('close')">
+  <ReadingSheet
+    card-class="diary-reading"
+    close-label="关闭阅读"
+    :from="diaries.selectedDiaryFrom"
+    :count-text="props.entry.content"
+    @close="$emit('close')"
+  >
     <template #head>
       <div class="reading-headline">
         <div class="reading-meta">{{ props.entry.date }} &nbsp;·&nbsp; {{ props.entry.weather }} {{ props.entry.mood }}</div>

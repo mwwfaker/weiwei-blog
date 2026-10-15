@@ -19,7 +19,7 @@ const diaries = useDiariesStore()
       v-for="entry in diaries.homeDiaries"
       :key="entry.id"
       class="diary-row"
-      @click="diaries.selectedDiary = entry"
+      @click="diaries.openReader(entry)"
     >
       <span class="diary-date">
         <strong>{{ entry.date.slice(8) }}</strong>

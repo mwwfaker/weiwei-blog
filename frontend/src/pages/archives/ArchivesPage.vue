@@ -51,7 +51,7 @@ const total = computed(() => articles.articles.length + diaries.diaries.length)
           v-for="entry in diariesOf(month)"
           :key="`d-${entry.id}`"
           class="archive-event"
-          @click="diaries.selectedDiary = entry"
+          @click="diaries.openReader(entry)"
         >
           <span class="archive-type diary-type">日记 · {{ entry.visibility === 'PUBLIC' ? '公开' : '仅自己' }}</span>
           <strong>{{ entry.title }}</strong>

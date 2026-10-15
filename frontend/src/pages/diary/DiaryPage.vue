@@ -64,7 +64,7 @@ async function onImportPicked(event) {
         :entries="diaries.filteredDiaries"
         show-actions
         show-visibility
-        @open="diaries.selectedDiary = $event"
+        @open="diaries.openReader"
         @edit="diaries.openEdit"
         @toggle-visibility="diaries.changeVisibility"
         @export="diaries.exportOne"
@@ -83,7 +83,7 @@ async function onImportPicked(event) {
       <DiaryTree
         v-if="diaries.publicDiaries.length"
         :entries="diaries.publicDiaries"
-        @open="diaries.selectedDiary = $event"
+        @open="diaries.openReader"
       />
       <EmptyState
         v-else

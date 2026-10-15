@@ -225,8 +225,13 @@
 /* ---- 入场：桌面从右滑入中央，手机从下往上滑入 -------------------------------
    cubic-bezier 的第二段带一点点过冲（y 收在 1.02）：滑到位时会「压一下再回弹」，
    这就是「滑动感」的来源；纯 ease-out 会滑得很平，像被拖进来而不是甩进来。 */
-@keyframes sheetGlide{
+@keyframes sheetGlideRight{
   from{opacity:0;transform:translate3d(min(94vw,1180px),0,0) scale(.965)}
+  62%{opacity:1}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes sheetGlideLeft{
+  from{opacity:0;transform:translate3d(calc(-1 * min(94vw,1180px)),0,0) scale(.965)}
   62%{opacity:1}
   to{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
@@ -237,9 +242,11 @@
 }
 @keyframes backdropIn{from{opacity:0}to{opacity:1}}
 .reading-backdrop{animation:backdropIn calc(var(--enter-ms,560ms) * .75) ease both}
+/* 手机一律从下往上：窄屏左右滑没有意义（弹窗本来就满宽），is-from-* 只在桌面生效。 */
 .reading-sheet{animation:sheetRise var(--enter-ms,560ms) cubic-bezier(.16,.86,.28,1.02) both}
 @media(min-width:761px){
-  .reading-sheet{animation-name:sheetGlide;animation-duration:calc(var(--enter-ms,560ms) * 1.12)}
+  .reading-sheet.is-from-right{animation-name:sheetGlideRight;animation-duration:calc(var(--enter-ms,560ms) * 1.12)}
+  .reading-sheet.is-from-left{animation-name:sheetGlideLeft;animation-duration:calc(var(--enter-ms,560ms) * 1.12)}
 }
 
 /* ---- 退场：先定住一拍，再化作尘埃 --------------------------------------------

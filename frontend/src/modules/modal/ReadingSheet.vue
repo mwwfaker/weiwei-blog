@@ -39,10 +39,19 @@ const props = defineProps({
   countText: { type: String, default: '' },
   /** 关掉入场 / 化灰动效（系统开了「减少动态效果」时自动关）。 */
   motion: { type: Boolean, default: true },
+  /**
+   * 从哪一边滑进来：`'right'`（默认）/ `'left'`。
+   * 调用方按「用户点的那张卡片在哪一侧」传，弹窗就从那一侧展开，
+   * 视线不用跨过整屏去找它。手机端不看这个值——窄屏一律从下往上。
+   */
+  from: { type: String, default: 'right' },
 })
 const emit = defineEmits(['close'])
 
 const charCount = computed(() => String(props.countText || '').replace(/\s/g, '').length)
+
+/** 只做左右两档；写了别的值也按右边处理，免得一个笔误让弹窗从屏幕外永远飞进来。 */
+const fromClass = computed(() => (props.from === 'left' ? 'is-from-left' : 'is-from-right'))
 
 const card = ref(null)
 const closing = ref(false)
@@ -86,7 +95,7 @@ defineExpose({ requestClose })
     :style="{ '--enter-ms': ENTER_MS + 'ms', '--dust-ms': DUST_MS + 'ms' }"
     @click.self="requestClose"
   >
-    <article ref="card" class="modal-card reading-sheet" :class="[cardClass, { 'is-dusting': closing }]">
+    <article ref="card" class="modal-card reading-sheet" :class="[cardClass, fromClass, { 'is-dusting': closing }]">
       <header class="reading-head">
         <slot name="head" />
         <button class="modal-close reading-close" :aria-label="closeLabel" @click="requestClose">×</button>

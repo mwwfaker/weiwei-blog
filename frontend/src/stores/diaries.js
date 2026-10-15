@@ -36,6 +36,12 @@ export const useDiariesStore = defineStore('diaries', () => {
   const publicDiariesLoaded = ref(false)
 
   const selectedDiary = ref(null)
+  /**
+   * 阅读弹窗从哪一边滑进来。
+   * 时间树里点的是左边的挂件就从左边进、点右边的就从右边进——「从卡片那一侧展开」，
+   * 视线不用跨过屏幕去找弹窗。默认从右（不在树里的入口：首页日记碎片、归档页）。
+   */
+  const selectedDiaryFrom = ref('right')
   const diaryDialog = ref(false)
   const draft = ref(emptyDraft())
   const importReview = ref([])
@@ -132,6 +138,16 @@ export const useDiariesStore = defineStore('diaries', () => {
     if (!requireLogin('写日记')) return
     draft.value = emptyDraft()
     diaryDialog.value = true
+  }
+
+  /**
+   * 打开阅读弹窗。`from` 是卡片所在的那一侧（时间树传 'left' / 'right'），
+   * 决定弹窗从哪边滑进来；不在树里的入口不传，按默认的右边。
+   */
+  function openReader(entry, from) {
+    if (!entry) return
+    selectedDiaryFrom.value = from === 'left' ? 'left' : 'right'
+    selectedDiary.value = entry
   }
 
   function openEdit(entry) {
@@ -305,10 +321,10 @@ export const useDiariesStore = defineStore('diaries', () => {
 
   return {
     diaries, diaryTab, diaryScope, search, remotePublicDiaries, publicDiariesLoaded,
-    selectedDiary, diaryDialog, draft, importReview, importDialog, importVisibility, importing, importSaved,
+    selectedDiary, selectedDiaryFrom, diaryDialog, draft, importReview, importDialog, importVisibility, importing, importSaved,
     filteredDiaries, publicDiaries, showMyDiary, homeShowsOwnDiaries, homeDiaries,
     emptyDraft, diaryPayload, mapDiary,
-    refresh, openNew, openEdit, save, changeVisibility, remove,
+    refresh, openNew, openReader, openEdit, save, changeVisibility, remove,
     exportOne, exportAll, parseImportFiles, applyImportVisibility, dropImportDraft, toggleImportVisibility, confirmImport,
   }
 })
