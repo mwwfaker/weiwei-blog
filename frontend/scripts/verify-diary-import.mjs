@@ -4,7 +4,7 @@
 // 为什么需要它：拆分错了在浏览器里只表现成「多了几篇很长的、少了几篇」，
 // 而导入是写进数据库的——发现的代价是去后台一篇篇删。所以规则在这里钉死。
 import fs from 'node:fs'
-import { matchDiaryDateLine, splitDiaryText } from '../src/services/diaryImport.js'
+import { matchDiaryDateLine, matchInlineDiaryStart, splitDiaryText } from '../src/services/diaryImport.js'
 
 let pass = 0
 const failures = []
@@ -84,7 +84,43 @@ for (const line of [
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n[4] 边界情况')
+// 「今天是2025年2月7号…」这种没有独立日期行的篇。真实文件里就有一篇这样写的，
+// 以前被并进了上一篇——51 篇只拆出 50 篇，而多出来的一篇内容混在别人正文末尾。
+console.log('\n[4] 正文里自带日期的开头（没有独立日期行的篇）')
+check('认得「今天是2025年2月7号，也是农历正月初十。……」', matchInlineDiaryStart('今天是2025年2月7号，也是农历正月初十。今天晚上…')?.iso === '2025-02-07')
+check('「今天2026年9月21日」也认', matchInlineDiaryStart('今天2026年9月21日，天气不错。')?.iso === '2026-09-21')
+check('标题同样是归一化日期', matchInlineDiaryStart('今天是2025年2月7号，…')?.title === '2025年2月7日')
+check('正文中间提到的不算开头', matchInlineDiaryStart('我说今天是2025年2月7号，你信吗') === null)
+check('不带日期的不算', matchInlineDiaryStart('今天好累，不想写。') === null)
+
+const hidden = [
+  '2024年11月28日',
+  '我并非出自音乐世家，但我一直对音乐非常感兴趣。',
+  '',
+  '',
+  '',
+  '今天是2025年2月7号，也是农历正月初十。今天晚上唐奕超也把我叫出来。',
+  '',
+  '',
+  '',
+  '2026年2月9日',
+  '今天晚上起来跑到客世界吃烤肉。',
+].join('\n')
+const hiddenGroups = splitDiaryText(hidden)
+check('没有日期行的那篇被单独切出来', hiddenGroups.length === 3, `got ${hiddenGroups.length}`)
+check('它的日期取自正文那句', hiddenGroups[1]?.date === '2025-02-07' && hiddenGroups[1]?.title === '2025年2月7日', hiddenGroups[1]?.title)
+check('日期那句留在它自己的正文里（一个字不改）', hiddenGroups[1]?.content.startsWith('今天是2025年2月7号'), JSON.stringify(hiddenGroups[1]?.content.slice(0, 24)))
+check('上一篇没有被它污染', hiddenGroups[0]?.content === '我并非出自音乐世家，但我一直对音乐非常感兴趣。', JSON.stringify(hiddenGroups[0]?.content))
+check('下一篇也没被吞掉', hiddenGroups[2]?.date === '2026-02-09', hiddenGroups[2]?.date)
+
+// 一个文件一篇时，标题行下面紧跟「今天是…」不能切成「一个空篇 + 一篇」。
+const singleFile = '2025年2月7日\n\n今天是2025年2月7号，也是农历正月初十。今天晚上…\n'
+const singleGroups = splitDiaryText(singleFile)
+check('单篇文件不会多切出一个空篇', singleGroups.length === 1, `got ${singleGroups.length}`)
+check('  而且正文开头还在', singleGroups[0]?.content.startsWith('今天是2025年2月7号'), JSON.stringify(singleGroups[0]?.content.slice(0, 24)))
+
+// ---------------------------------------------------------------------------
+console.log('\n[5] 边界情况')
 check('一个日期头都没有时返回空数组（调用方按「一篇」处理）',
   splitDiaryText('我的标题\n今天过得不错。').length === 0, JSON.stringify(splitDiaryText('我的标题\n今天过得不错。')))
 check('空文本返回空数组', splitDiaryText('').length === 0)
@@ -109,14 +145,17 @@ check('同一份文本拆两次结果一致（纯函数）',
 // 真实文件回归（可选）：把整合日记的路径放进 DIARY_FILE 再跑，能对真实篇数。
 // 不写死路径——它在某台机器的桌面上，不属于仓库。
 if (process.env.DIARY_FILE) {
-  console.log(`\n[5] 真实文件：${process.env.DIARY_FILE}`)
+  console.log(`\n[6] 真实文件：${process.env.DIARY_FILE}`)
   const text = fs.readFileSync(process.env.DIARY_FILE, 'utf8')
   const groups = splitDiaryText(text)
   const lines = text.split(/\r?\n/)
-  const expectContent = lines.filter((line) => line.trim()).length - lines.filter((line) => matchDiaryDateLine(line)).length
+  // 边界 = 日期头 + 正文里自带日期的开头（真实文件里各 50 和 1，正好 51 篇）。
+  const dateLines = lines.filter((line) => matchDiaryDateLine(line)).length
+  const inlineLines = lines.filter((line) => matchInlineDiaryStart(line)).length
+  const expectContent = lines.filter((line) => line.trim()).length - dateLines
   const gotContent = groups.reduce((sum, g) => sum + g.content.split('\n').filter((l) => l.trim()).length, 0)
-  check('拆出的篇数与日期头数量一致',
-    groups.length === lines.filter((line) => matchDiaryDateLine(line)).length, `${groups.length} 篇`)
+  check('拆出的篇数与边界数量一致',
+    groups.length === dateLines + inlineLines, `${groups.length} 篇（日期头 ${dateLines} + 自带日期 ${inlineLines}）`)
   check('内容行数守恒', gotContent === expectContent, `${gotContent} vs ${expectContent}`)
   check('没有空篇', groups.every((g) => g.content.trim().length > 0))
   console.log(`  篇数：${groups.length}　时间范围：${groups[0].date} → ${groups[groups.length - 1].date}`)
