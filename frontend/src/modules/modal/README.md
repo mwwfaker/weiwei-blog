@@ -1,10 +1,34 @@
 # `modules/modal/` — 弹窗外壳
 
-`ModalShell.vue` 是所有弹窗的共同外壳：半透明背板（点空白关闭）+ 卡片 + 标题行 + 关闭按钮。
+两个外壳，按「滚什么」分工：
 
-九处弹窗原来各自抄了一遍这套结构，其中四处漏了 `aria-label`、一处写错了关闭动作。
+| 文件 | 管什么 | 滚动的是 |
+| --- | --- | --- |
+| `ModalShell.vue` | 普通表单弹窗：背板 + 卡片 + 标题行 + 关闭按钮 | **整张卡片**（`base.css` 的 `.modal-card{max-height;overflow:auto}`） |
+| `ReadingSheet.vue` | 阅读弹窗：页眉固定 / 正文独立滚动 / 底部操作固定 | **只有正文**（`.reading-scroll`） |
 
-## Props
+九处表单弹窗原来各自抄了一遍 ModalShell 那套结构，其中四处漏了 `aria-label`、一处写错了关闭动作。
+
+## `ReadingSheet` 为什么单独存在
+
+日记和文章原来都用 `ModalShell bare`，于是「整张卡片一起滚」——日记读到一半日期标题就滚出屏幕，
+文章更是一直要滚回顶部才能关。阅读需要的是一件 ModalShell 做不到的事：**把页眉和底部钉住**。
+
+**共用的只是这套滚动机制，不是外观。** 两个插槽（`head`、默认 = 正文）加一个可选的 `actions`，
+版式、字号、图片怎么排全部由调用方决定：
+
+```vue
+<ReadingSheet card-class="diary-reading" @close="...">
+  <template #head>日期 · 标题 · 标签</template>
+  正文……
+  <template #actions>导出 / 编辑</template>
+</ReadingSheet>
+```
+
+所以日记（`.diary-reading`，窄卡片）和文章（`.article-reading`，整页、带封面图）**各自有一节样式**，
+互不影响——见 `styles/polish-and-light-theme.css` 末尾的「阅读」一节。
+
+## `ModalShell` Props
 
 | prop | 说明 |
 | --- | --- |

@@ -4,7 +4,7 @@
 | --- | --- |
 | `DiaryCard.vue` | 日记卡片。`showActions` 打开下面的操作行，`showVisibility` 在元信息里显示「◉ 公开 / ◌ 仅自己」。 |
 | `DiaryEditorDialog.vue` | 写 / 改日记。可见范围默认值来自 `stores/profile.js`。 |
-| `DiaryReaderDialog.vue` | 阅读弹窗。编辑按钮只在本人（或本机草稿）时出现。 |
+| `DiaryReaderDialog.vue` | 阅读弹窗。编辑按钮只在本人（或本机草稿）时出现。版面走 `modules/modal/ReadingSheet.vue`：日期/标题/标签与底部按钮固定，**只有正文滚动**。 |
 | `DiaryImportDialog.vue` | 导入确认：先把文件解析成草稿让人核对，确认后才写库。一个文件里装很多篇会按日期拆开；顶端有「统一发布权限」，一次给所有草稿定公开/私密。写入期间按钮禁用并显示进度（见下）。 |
 
 ## 两个视图共用一张卡片

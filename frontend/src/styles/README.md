@@ -34,7 +34,9 @@
 - 歌词栏、导入队列、任务卡 → `lyrics-and-import.css`（日记导入确认弹窗也在这里，
   见文件末尾那一节：它的选择器带 `.import-card` 前缀，是为了压过 `.modal-card input`
   这类多一个元素选择器的规则）
-- 浅色（白天）主题补写、收尾微调 → `polish-and-light-theme.css`
+- 浅色（白天）主题补写、收尾微调 → `polish-and-light-theme.css`（**阅读弹窗的版面与字号行距
+  也在这一节**，见文件末尾「阅读：表头固定，只有正文滚动」——放这里是因为它必须压过
+  `base.css` 的 `.modal-card{overflow:auto}` 和 `editorial-2026.css` 的 `.article-reading`）
 
 放进已有文件时**追加到该文件末尾**；不要插到文件中间，也不要新建一个页面文件塞进 import 列表中间——
 那会改变层叠顺序。确实要新增文件时，只能接在列表末尾。

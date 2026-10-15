@@ -1,6 +1,10 @@
 <script setup>
-// 文章阅读弹窗。页眉是「分类 · 日期 + 关闭」，和日记阅读弹窗不同，所以走 ModalShell 的 bare 模式。
-import ModalShell from '@/modules/modal/ModalShell.vue'
+// 文章阅读弹窗。版面走 ReadingSheet：页眉（分类·日期 + 关闭）固定，正文独立滚动；
+// 正文里是「封面图 → 标题 → 摘要 → 标签 → 正文」这条流，跟着滚动走。
+//
+// 字号与行距在 styles/polish-and-light-theme.css 的「阅读」一节里统一调——
+// 和日记阅读共用同一套阅读体验，改一处两边都变。
+import ReadingSheet from '@/modules/modal/ReadingSheet.vue'
 import { useArticlesStore } from '@/stores/articles'
 import { useAuthStore } from '@/stores/auth'
 
@@ -12,18 +16,18 @@ const auth = useAuthStore()
 </script>
 
 <template>
-  <ModalShell
-    bare
-    as="article"
-    card-class="diary-reading article-reading"
+  <ReadingSheet
+    card-class="article-reading"
     backdrop-class="article-reader-backdrop"
     close-label="关闭阅读"
     @close="$emit('close')"
   >
-    <div class="reading-toolbar">
-      <span>{{ props.article.category }} <i>·</i> {{ props.article.date }}</span>
-      <button class="modal-close" aria-label="关闭阅读" @click="$emit('close')">×</button>
-    </div>
+    <template #head>
+      <div class="reading-toolbar">
+        <span>{{ props.article.category }} <i>·</i> {{ props.article.date }}</span>
+      </div>
+    </template>
+
     <img
       v-if="articles.articleImage(props.article)"
       class="reading-image"
@@ -34,9 +38,12 @@ const auth = useAuthStore()
     <p class="reader-excerpt">{{ props.article.excerpt }}</p>
     <div class="reading-tags"><span v-for="tag in props.article.tags" :key="tag"># {{ tag }}</span></div>
     <p class="article-body">{{ props.article.content || props.article.excerpt }}</p>
-    <div v-if="auth.isLoggedIn && props.article.mine" class="reading-actions">
-      <button class="button-secondary danger-text" @click="$emit('remove', props.article.id)">删除</button>
-      <button class="button-primary" @click="$emit('edit', props.article)">编辑文章</button>
-    </div>
-  </ModalShell>
+
+    <template v-if="auth.isLoggedIn && props.article.mine" #actions>
+      <div class="reading-actions">
+        <button class="button-secondary danger-text" @click="$emit('remove', props.article.id)">删除</button>
+        <button class="button-primary" @click="$emit('edit', props.article)">编辑文章</button>
+      </div>
+    </template>
+  </ReadingSheet>
 </template>

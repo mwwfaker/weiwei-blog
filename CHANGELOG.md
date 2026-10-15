@@ -5,7 +5,26 @@ README 只保留「现在是什么样」。新的一条加在最上面。
 
 ---
 
-## 2026 · 补：漏了「没有独立日期行」的那一篇（50 → 51）
+## 2026 · 阅读体验：页眉固定、只有正文滚动，字号行距放宽
+
+原来的日记 / 文章阅读弹窗都用 `ModalShell bare`，卡片是 `base.css` 里
+`.modal-card{max-height:min(92vh,900px);overflow:auto}` 的**整卡滚动**——
+日记读到一半，日期和标题就滚出屏幕了；文章更要一直滚回顶部才能点到关闭。
+
+- 新增 `modules/modal/ReadingSheet.vue`：一列 flex，`.reading-head` / `.reading-foot` 固定，
+  `.reading-scroll` 吃掉剩余高度并自己滚。**共用的只有这套滚动机制**，外观各归各：
+  两个插槽（`head`、默认）+ 可选 `actions`，版式与字号由调用方决定。
+- 日记阅读：正文 13px/2.2 → **16px/2.45**（手机 15px/2.35），卡片 630 → 720px 宽。
+- 文章阅读：正文 `clamp(17px,2vw,20px)`/2.05 → **`clamp(18px,2.1vw,21px)`/2.3**，
+  摘要与标题同步放大；原来「背板自己滚」，现在高度交给卡片、滚动条只属于正文。
+- 样式追加在 `polish-and-light-theme.css` 末尾（最后一个样式表），否则压不过
+  `base.css` 的 `.modal-card` 和 `editorial-2026.css` 的 `.article-reading`。
+- 深色主题补了一条：原来的 `:root.dark .diary-reading>p` 是按「p 是卡片直接子元素」写的，
+  正文挪进 `.reading-scroll` 后那条不再匹配，不补就会变成深底深字。
+
+验证：`verify:all`、`test:render`（16 路由 + 7 组件分支）、`build` 全绿。
+
+---
 
 前一条上线后按日期头数篇数是 50，但用户说「应该 51 篇」。查下来确实少了一篇：
 源文件第 297 行那篇**没有单独写日期行**，直接以正文起头——
