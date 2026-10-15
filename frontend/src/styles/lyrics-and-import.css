@@ -254,4 +254,7 @@
   color:#fff;border-color:transparent;background:linear-gradient(140deg,#b48bf5,#7a52d8);
 }
 .import-card .import-item textarea{font-size:11.5px;padding:10px 11px}
+/* 写入期间按钮是禁用的（防重复入库），得让人看出来「点了但还在跑」而不是「点了没反应」。 */
+.import-card .button-primary:disabled{opacity:.55;cursor:default;transform:none}
+.import-card .modal-actions>span{font-variant-numeric:tabular-nums}
 

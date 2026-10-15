@@ -45,6 +45,15 @@ export const useDiariesStore = defineStore('diaries', () => {
    * 所以弹窗顶端有一组按钮一次性写进所有草稿；写成响应式是为了让按钮能显示当前选的是哪个。
    */
   const importVisibility = ref(profile.defaultVisibility)
+  /**
+   * 导入正在进行 / 已经存下几篇。
+   *
+   * 加这两个是因为「确认并保存」是**一次点击发几十个请求**（实测 50 篇约 1 秒）：
+   * 按钮在这期间不禁用的话，手快的人点两下就是两份完全相同的日记，
+   * 而且它们长得一模一样，事后只能靠日期+标题配对删——踩过一次就够。
+   */
+  const importing = ref(false)
+  const importSaved = ref(0)
 
   const filteredDiaries = computed(() => diaries.value.filter((entry) => (diaryScope.value === 'ALL' || (diaryScope.value === 'PUBLIC' ? entry.visibility === 'PUBLIC' : entry.visibility !== 'PUBLIC'))
     && `${entry.title} ${entry.content} ${(entry.tags || []).join(' ')}`.toLowerCase().includes(search.value.toLowerCase())))
@@ -238,6 +247,7 @@ export const useDiariesStore = defineStore('diaries', () => {
     }
     if (!parsed.length) { notify('没有读到内容。请选择 TXT 或 DOCX 格式的日记文件'); return 0 }
     importReview.value = parsed
+    importSaved.value = 0
     importDialog.value = true
     return parsed.length
   }
@@ -261,16 +271,28 @@ export const useDiariesStore = defineStore('diaries', () => {
 
   async function confirmImport() {
     const drafts = importReview.value
-    if (!drafts.length) return
+    if (!drafts.length || importing.value) return
     if (!requireLogin('导入日记')) return
-    // allSettled, not all: one rejected file must not hide the ones the server already accepted,
-    // otherwise retrying the dialog would insert duplicates of them.
-    const results = await Promise.allSettled(drafts.map((entry) => request('/api/diaries', {
-      token: auth.token,
-      method: 'POST',
-      // 每篇自己的可见范围优先；没设过就跟随顶端的「统一发布权限」。
-      body: JSON.stringify(diaryPayload({ ...entry, visibility: entry.visibility || importVisibility.value })),
-    })))
+    importing.value = true
+    importSaved.value = 0
+    let results = []
+    try {
+      // allSettled, not all: one rejected file must not hide the ones the server already accepted,
+      // otherwise retrying the dialog would insert duplicates of them.
+      results = await Promise.allSettled(drafts.map(async (entry) => {
+        const saved = await request('/api/diaries', {
+          token: auth.token,
+          method: 'POST',
+          // 每篇自己的可见范围优先；没设过就跟随顶端的「统一发布权限」。
+          body: JSON.stringify(diaryPayload({ ...entry, visibility: entry.visibility || importVisibility.value })),
+        })
+        importSaved.value += 1
+        return saved
+      }))
+    } finally {
+      // 一定要复位：不然一次网络异常就会让按钮永久卡在「保存中」。
+      importing.value = false
+    }
     const saved = results.filter((result) => result.status === 'fulfilled').map((result) => ({ ...mapDiary(result.value), mine: true }))
     const failed = results.filter((result) => result.status === 'rejected')
     // Keep whatever the server refused so the user can retry it instead of losing it.
@@ -283,7 +305,7 @@ export const useDiariesStore = defineStore('diaries', () => {
 
   return {
     diaries, diaryTab, diaryScope, search, remotePublicDiaries, publicDiariesLoaded,
-    selectedDiary, diaryDialog, draft, importReview, importDialog, importVisibility,
+    selectedDiary, diaryDialog, draft, importReview, importDialog, importVisibility, importing, importSaved,
     filteredDiaries, publicDiaries, showMyDiary, homeShowsOwnDiaries, homeDiaries,
     emptyDraft, diaryPayload, mapDiary,
     refresh, openNew, openEdit, save, changeVisibility, remove,

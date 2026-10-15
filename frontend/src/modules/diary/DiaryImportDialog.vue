@@ -61,8 +61,12 @@ const publicCount = computed(() => diaries.importReview.filter((entry) => entry.
     </div>
 
     <div class="modal-actions">
-      <span>支持 .txt 和 .docx · 一个文件里装多篇会按日期自动拆开</span>
-      <button class="button-primary" :disabled="!total" @click="diaries.confirmImport()">确认并保存 {{ total }} 篇 &nbsp;↗</button>
+      <span v-if="diaries.importing">正在写入数据库… {{ diaries.importSaved }} / {{ total }}</span>
+      <span v-else>支持 .txt 和 .docx · 一个文件里装多篇会按日期自动拆开</span>
+      <!-- 写入期间必须禁用：一次点击会发几十个请求，能再点一下就会存进两份一模一样的内容。 -->
+      <button class="button-primary" :disabled="!total || diaries.importing" @click="diaries.confirmImport()">
+        {{ diaries.importing ? `保存中 ${diaries.importSaved} / ${total}` : `确认并保存 ${total} 篇` }} &nbsp;↗
+      </button>
     </div>
   </ModalShell>
 </template>
