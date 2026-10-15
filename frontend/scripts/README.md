@@ -5,7 +5,7 @@
 
 ```bash
 cd frontend
-npm run verify:all     # 下面四个依次跑一遍
+npm run verify:all     # 下面五个依次跑一遍
 npm run test:render    # SSR 渲染冒烟测试（在 ssr-smoke/ 里）
 ```
 
@@ -15,6 +15,7 @@ npm run test:render    # SSR 渲染冒烟测试（在 ssr-smoke/ 里）
 | `verify-lyrics.mjs` | `verify:lyrics` | LRC 时间轴、当前句定位、曲名拆分、ID3 内嵌歌词 | 「歌词整体错位一句」或「UTF-8 读出乱码」靠截图看不出来 |
 | `verify-perf.mjs` | `verify:perf` | 绩效公式与表格里的真实数字逐个对拍，外加「数据重置」的 30 条边界断言（共 112 项） | 公式改错一位算出来的工资就是错的；重置清多了会丢数据、清少了没效果，两者都不报错 |
 | `verify-ocr.mjs` | `verify:ocr` | 飞书粘贴文本与真实截图 OCR 输出的解析（41 项） | 解析回归会让导入整段错位 |
+| `verify-diary-import.mjs` | `verify:diary` | 「整合日记」按日期头拆篇的规则（51 项）；带 `DIARY_FILE=<路径>` 时还会对真实文件做行数守恒回归 | 拆分错了只是「多了几篇很长的、少了几篇」，可它直接写进数据库，发现时要去后台一篇篇删 |
 | `new-page.mjs` | `new:page` | **不是检查，是生成器** | 加页面要同时改三处注册点，靠人记一定会漏 |
 
 ## `new-page.mjs` —— 加一个页面

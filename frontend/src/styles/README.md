@@ -31,7 +31,9 @@
 - 通用重置、字体、栅格、断点 → `base.css`
 - 动效、过渡、玻璃质感、弹层动画 → `effects-and-fixes.css`
 - 播放器、唱片、音乐盒 → `music.css`
-- 歌词栏、导入队列、任务卡 → `lyrics-and-import.css`
+- 歌词栏、导入队列、任务卡 → `lyrics-and-import.css`（日记导入确认弹窗也在这里，
+  见文件末尾那一节：它的选择器带 `.import-card` 前缀，是为了压过 `.modal-card input`
+  这类多一个元素选择器的规则）
 - 浅色（白天）主题补写、收尾微调 → `polish-and-light-theme.css`
 
 放进已有文件时**追加到该文件末尾**；不要插到文件中间，也不要新建一个页面文件塞进 import 列表中间——

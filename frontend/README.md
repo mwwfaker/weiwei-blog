@@ -22,7 +22,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | 本地预览构建产物 |
 | `npm run new:page -- <id> "标题"` | **加一个页面**：建目录并把三处注册点一起改掉 |
 | `npm run verify` | 12 项静态结构检查（见 `scripts/README.md`） |
-| `npm run verify:all` | 上面这个 + 歌词 / 绩效 / OCR 三个离线自检 |
+| `npm run verify:all` | 上面这个 + 歌词 / 绩效 / OCR / 日记导入四个离线自检 |
 | `npm run test:render` | 把路由表里的每条路由各 SSR 渲染一遍，再单渲染歌词栏与音乐盒的 7 个状态分支 |
 | `npm test` | `verify:all` + `test:render` |
 | `npm run verify:supabase` | 对真实 Supabase 跑 19 项数据层与权限隔离测试（需要环境变量） |

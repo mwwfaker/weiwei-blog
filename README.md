@@ -311,7 +311,7 @@ npm run new:page -- notes "随手记"      # 加页面：建好目录并把三�
 npm run verify        # 12 项结构检查：模板标识符、自定义指令、路由/页面注册表一致性、
                       # 模板 class 是否有样式、fixed 包含块、粒子可见性、下拉菜单裁剪、
                       # 目录 README 覆盖、孤儿文件
-npm run verify:all    # 上面这个 + 歌词解析 / 绩效公式 / 导入解析器三个离线自检
+npm run verify:all    # 上面这个 + 歌词解析 / 绩效公式 / OCR / 日记拆分四个离线自检
 npm run test:render   # 用真实路由把 16 个页面各渲染一遍，再渲染歌词栏/音乐盒的 7 个状态分支
 npm run build         # 生产构建
 npm test              # verify:all + test:render
@@ -379,7 +379,7 @@ node ssr-smoke/snapshot.mjs ../after       # 改动后，逐字节比对
 
 ```powershell
 cd frontend
-npm run verify:all        # 12 项结构检查 + 三个离线自检
+npm run verify:all        # 12 项结构检查 + 四个离线自检
 npm run verify:supabase   # 19 项真实数据层与权限隔离测试（需要 SUPABASE_URL / SUPABASE_ANON_KEY）
 ```
 

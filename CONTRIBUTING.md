@@ -112,7 +112,7 @@ frontend/src/pages/<页面 id>/
 
 ```bash
 cd frontend
-npm run verify:all      # 12 项结构检查 + 歌词 / 绩效 / OCR 三个离线自检
+npm run verify:all      # 12 项结构检查 + 歌词 / 绩效 / OCR / 日记导入四个离线自检
 npm run test:render     # 用真实路由把 16 个页面各渲染一遍，再渲染歌词栏与音乐盒的状态分支
 npm run build           # 生产构建
 ```

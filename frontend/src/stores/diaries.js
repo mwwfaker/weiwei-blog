@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import mammoth from 'mammoth/mammoth.browser'
 import { request } from '@/services/api'
+import { splitDiaryText } from '@/services/diaryImport'
 import { isLocalId, localId } from '@/app/ids'
 import { downloadText } from '@/app/download'
 import { notify } from '@/app/useToast'
@@ -39,6 +40,11 @@ export const useDiariesStore = defineStore('diaries', () => {
   const draft = ref(emptyDraft())
   const importReview = ref([])
   const importDialog = ref(false)
+  /**
+   * 导入时「统一发布权限」。整合日记一次能拆出几十篇，逐篇点太累，
+   * 所以弹窗顶端有一组按钮一次性写进所有草稿；写成响应式是为了让按钮能显示当前选的是哪个。
+   */
+  const importVisibility = ref(profile.defaultVisibility)
 
   const filteredDiaries = computed(() => diaries.value.filter((entry) => (diaryScope.value === 'ALL' || (diaryScope.value === 'PUBLIC' ? entry.visibility === 'PUBLIC' : entry.visibility !== 'PUBLIC'))
     && `${entry.title} ${entry.content} ${(entry.tags || []).join(' ')}`.toLowerCase().includes(search.value.toLowerCase())))
@@ -194,6 +200,9 @@ export const useDiariesStore = defineStore('diaries', () => {
 
   /**
    * 解析 .txt / .docx 为待确认的日记草稿。真正入库在 confirmImport。
+   *
+   * 一个文件里装了很多篇（「整合日记」）时按日期头拆开——拆分规则在 services/diaryImport.js。
+   * 一个日期头都没有的文件仍按老办法当成一篇：第一行是标题。
    * 返回条数；0 表示没读到内容（提示已经发出去）。
    */
   async function parseImportFiles(files) {
@@ -208,18 +217,46 @@ export const useDiariesStore = defineStore('diaries', () => {
           const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })
           content = result.value
         } else { notify(`已跳过不支持的文件：${file.name}`); continue }
-        const lines = content.split(/\r?\n/)
-        const title = lines.shift()?.trim() || file.name.replace(/\.(txt|docx)$/i, '')
-        parsed.push({
-          id: localId(), title, date: new Date().toISOString().slice(0, 10), weather: '☀️', mood: '平静',
-          tags: ['导入'], content: lines.join('\n').trim() || content.trim(), source: file.name,
-        })
+        const groups = splitDiaryText(content)
+        if (groups.length) {
+          for (const group of groups) {
+            parsed.push({
+              id: localId(), title: group.title, date: group.date || new Date().toISOString().slice(0, 10),
+              weather: '☀️', mood: '平静', tags: ['日记'], visibility: importVisibility.value,
+              content: group.content, source: file.name,
+            })
+          }
+        } else {
+          const lines = content.split(/\r?\n/)
+          const title = lines.shift()?.trim() || file.name.replace(/\.(txt|docx)$/i, '')
+          parsed.push({
+            id: localId(), title, date: new Date().toISOString().slice(0, 10), weather: '☀️', mood: '平静',
+            tags: ['导入'], visibility: importVisibility.value, content: lines.join('\n').trim() || content.trim(), source: file.name,
+          })
+        }
       } catch (error) { notify(`无法读取 ${file.name}：${error.message}`) }
     }
     if (!parsed.length) { notify('没有读到内容。请选择 TXT 或 DOCX 格式的日记文件'); return 0 }
     importReview.value = parsed
     importDialog.value = true
     return parsed.length
+  }
+
+  /** 「统一发布权限」：一次把待确认的每一篇都设成同一个可见范围。 */
+  function applyImportVisibility(value) {
+    importVisibility.value = value === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE'
+    for (const entry of importReview.value) entry.visibility = importVisibility.value
+  }
+
+  /** 拆分偶尔会多切出一小段（例如文件顶部的总标题），导入前可以就地删掉。 */
+  function dropImportDraft(id) {
+    importReview.value = importReview.value.filter((entry) => entry.id !== id)
+  }
+
+  /** 单篇的可见范围切换（和「统一发布权限」并存：先统一，再挑几篇单独改）。 */
+  function toggleImportVisibility(entry) {
+    if (!entry) return
+    entry.visibility = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC'
   }
 
   async function confirmImport() {
@@ -229,7 +266,10 @@ export const useDiariesStore = defineStore('diaries', () => {
     // allSettled, not all: one rejected file must not hide the ones the server already accepted,
     // otherwise retrying the dialog would insert duplicates of them.
     const results = await Promise.allSettled(drafts.map((entry) => request('/api/diaries', {
-      token: auth.token, method: 'POST', body: JSON.stringify(diaryPayload(entry)),
+      token: auth.token,
+      method: 'POST',
+      // 每篇自己的可见范围优先；没设过就跟随顶端的「统一发布权限」。
+      body: JSON.stringify(diaryPayload({ ...entry, visibility: entry.visibility || importVisibility.value })),
     })))
     const saved = results.filter((result) => result.status === 'fulfilled').map((result) => ({ ...mapDiary(result.value), mine: true }))
     const failed = results.filter((result) => result.status === 'rejected')
@@ -243,10 +283,10 @@ export const useDiariesStore = defineStore('diaries', () => {
 
   return {
     diaries, diaryTab, diaryScope, search, remotePublicDiaries, publicDiariesLoaded,
-    selectedDiary, diaryDialog, draft, importReview, importDialog,
+    selectedDiary, diaryDialog, draft, importReview, importDialog, importVisibility,
     filteredDiaries, publicDiaries, showMyDiary, homeShowsOwnDiaries, homeDiaries,
     emptyDraft, diaryPayload, mapDiary,
     refresh, openNew, openEdit, save, changeVisibility, remove,
-    exportOne, exportAll, parseImportFiles, confirmImport,
+    exportOne, exportAll, parseImportFiles, applyImportVisibility, dropImportDraft, toggleImportVisibility, confirmImport,
   }
 })

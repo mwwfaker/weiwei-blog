@@ -33,7 +33,7 @@
 7. **页面 / 模块组件只做编排。** 数据从 store 拿、动作调 store 的方法。
    组件里出现 `request(...)`、`uploadMedia(...)` 或 `localStorage` 就是放错位置了。
 8. **`services/` 不读响应式状态。** 只接受参数、返回结果，**不 import Vue，也不 import store**。
-   这条保证 `verify-lyrics / verify-ocr / verify-perf` 能直接 import 它们做离线对拍。
+   这条保证 `verify-lyrics / verify-ocr / verify-perf / verify-diary-import` 能直接 import 它们做离线对拍。
 
 第 1、2、3、5、7、8 条都有自动检查（见第五节）；**第 2 条的「领域 vs 版面」和第 4 条是判断题**，
 没有检查，靠你自己拿捏。
@@ -105,7 +105,7 @@ npm run new:page -- <页面id> "中文导航标题" --primary  # 进主导航
 
 ```bash
 cd frontend
-npm run verify:all      # 12 项结构检查 + 歌词 / 绩效 / OCR 三个离线自检
+npm run verify:all      # 12 项结构检查 + 歌词 / 绩效 / OCR / 日记导入四个离线自检
 npm run test:render     # 路由表里每条路由的 SSR 渲染 + 7 个组件状态分支
 npm run build           # 生产构建
 ```

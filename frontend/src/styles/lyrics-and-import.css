@@ -194,3 +194,64 @@
 .import-row-eq i:nth-child(3){height:70%}
 .import-row-eq i:nth-child(4){height:88%}
 
+/* ===== 日记导入确认弹窗（一个 txt 里装几十篇，按日期拆开逐篇核对） ==========
+   选择器带 .import-card 是为了压过 base.css / editorial-2026.css 里的
+   `.modal-card input`、`.modal-card label`——它们多一个元素选择器，不加前缀会赢。 */
+.import-card{width:min(760px,100%)}
+.import-card .import-list{gap:12px}
+
+.import-bulk{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:13px 15px;margin:4px 0 12px;border:1px solid var(--line);border-radius:16px;
+  background:color-mix(in srgb,var(--accent) 7%,transparent);
+}
+.import-bulk-copy{display:grid;gap:3px;min-width:0}
+.import-bulk-copy strong{font-family:var(--serif);font-size:13px;font-weight:600}
+.import-bulk-copy small{font-size:10px;line-height:1.6;color:var(--muted)}
+.import-bulk-actions{display:flex;gap:6px;flex-wrap:wrap}
+.import-bulk-actions button{
+  padding:7px 13px;border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  background:color-mix(in srgb,var(--panel-raised) 70%,transparent);color:var(--muted);font-size:10.5px;
+  transition:color .3s ease,border-color .3s ease,background-color .3s ease,transform .3s ease;
+}
+.import-bulk-actions button:hover{color:var(--accent);border-color:var(--accent);transform:translateY(-1px)}
+.import-bulk-actions button.active{color:#fff;border-color:transparent;background:linear-gradient(140deg,#b48bf5,#7a52d8)}
+
+.import-hint{font-size:10.5px;line-height:1.8;margin:0 0 12px}
+.import-hint b{color:var(--accent);font-variant-numeric:tabular-nums}
+
+.import-item{
+  border:1px solid var(--line);border-radius:16px;padding:13px 15px;
+  background:color-mix(in srgb,var(--panel) 70%,transparent);
+}
+.import-item-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.import-item-index{
+  flex:none;width:20px;height:20px;border-radius:7px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);
+  font-size:10px;font-variant-numeric:tabular-nums;
+}
+.import-card .import-item-title{
+  flex:1;min-width:0;padding:6px 9px;font-family:var(--serif);font-size:13px;font-weight:600;
+}
+.import-item-drop{
+  flex:none;width:24px;height:24px;border:0;border-radius:8px;cursor:pointer;
+  background:transparent;color:var(--muted);font-size:15px;line-height:1;
+  transition:color .3s ease,background-color .3s ease;
+}
+.import-item-drop:hover{color:#c96a80;background:color-mix(in srgb,#c96a80 12%,transparent)}
+
+.import-item-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.import-card .import-item-date{display:flex;align-items:center;gap:7px;margin:0;font-size:10px}
+.import-card .import-item-date input{width:auto;padding:5px 8px;font-size:10.5px}
+.import-item-meta small{font-size:9.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.import-card .import-visibility{
+  padding:5px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  background:transparent;color:var(--muted);font-size:10.5px;
+  transition:color .3s ease,border-color .3s ease,background-color .3s ease;
+}
+.import-card .import-visibility:hover{border-color:var(--accent);color:var(--accent)}
+.import-card .import-visibility.is-public{
+  color:#fff;border-color:transparent;background:linear-gradient(140deg,#b48bf5,#7a52d8);
+}
+.import-card .import-item textarea{font-size:11.5px;padding:10px 11px}
+

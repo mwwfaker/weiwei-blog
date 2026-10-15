@@ -33,6 +33,10 @@
 `.txt` 和 `.docx`（用 mammoth 读）。流程是**先解析成草稿让人核对，确认后才写库**
 （`diaries.parseImportFiles()` → `DiaryImportDialog` → `diaries.confirmImport()`）。
 
+一个文件里装很多篇（「整合日记」，按日期头隔开）会被拆成一篇篇，逐篇可改可删；
+弹窗顶端还有「统一发布权限」，一次把全部草稿设成公开或仅自己
+（`diaries.applyImportVisibility()`），也可以用每篇自己的按钮单独改。
+
 入库用 `Promise.allSettled` 而不是 `Promise.all`：一篇失败不能让服务器已经接受的那几篇
 跟着一起"消失"，否则重试弹窗会插进重复内容。被拒的那几篇会留在列表里等重试。
 
