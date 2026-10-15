@@ -140,6 +140,94 @@ export function importProblem(kind, fileName, extra = {}) {
   }
 }
 
+/** 段落/标题文本 → 行数组（去掉空行）。目录常常整段装在一个块里。 */
+function blockLines(block) {
+  return String(block?.text || '').split('\n').map((line) => line.trim()).filter(Boolean)
+}
+
+/** 「目录」的几种写法：中英文、中间可能有空格或冒号。 */
+function isTocHeading(text) {
+  const flat = String(text || '').replace(/[\s\u3000:：.。·]/g, '').toLowerCase()
+  return flat === '目录' || flat === '目次' || flat === 'contents' || flat === 'tableofcontents'
+}
+
+/**
+ * 一行像不像目录条目。
+ *
+ * 判据是**页码收尾**：`第一章 绪论 …… 1`、`1.1 背景 ------- 12`、`绪论  3`。
+ * `lenient` 放宽到「短行 + 末尾一个数字」，只在已经确认是目录（上面就是「目录」标题）
+ * 之后才用——否则正文里「2026 年 3 月 5 日」这种也会被当成目录条目。
+ */
+export function looksLikeTocEntry(text, lenient = false) {
+  const line = String(text || '').trim()
+  if (!line || line.length > 100) return false
+  // 引导符（点线 / 破折号 / 下划线 / 省略号）后面跟页码
+  if (/[.·…⋯\-—_~]{2,}\s*\d{1,4}$/.test(line)) return true
+  // 空白引导：至少要两个空白字符，避免「正文里有 3 个人」这种被误判
+  if (/\s{2,}\d{1,4}$/.test(line)) return true
+  if (!lenient) return false
+  // 放宽档：短行，末尾一个数字，且不是句子（句子会有句号/问号/叹号）
+  if (/[。！？!?；;，,]$/.test(line)) return false
+  return /^.{1,60}\s*\d{1,4}$/.test(line)
+}
+
+/**
+ * 去掉目录。
+ *
+ * 为什么必须做：Word 的目录在导出的 HTML 里只是**普通的段落列表**（mammoth 不认识 TOC 字段），
+ * 所以它会照着「最浅那一级标题」的规则被切进去——轻则多出一篇叫「目录」的文章，
+ * 重则整份文档的正文都被算进目录那篇里。用户看到的就是文章列表里躺着一份目录。
+ *
+ * 两种识别路径：
+ *   1. 有「目录 / Contents」标题 → 从它开始往下吃条目（**必须先吃到一条真条目**才允许
+ *      继续吃没有页码的短行，否则一篇正文恰好以「目录」为小标题时会被吃掉两段）；
+ *   2. 没有标题，但**连续三块**都长得像目录条目 → 也当目录丢掉。
+ */
+export function stripTableOfContents(blocks) {
+  const list = Array.isArray(blocks) ? blocks : []
+  const out = []
+  for (let i = 0; i < list.length; i += 1) {
+    const block = list[i]
+    if (block?.type === 'heading' && isTocHeading(block.text)) {
+      let j = i + 1
+      let entries = 0
+      let gaps = 0
+      while (j < list.length) {
+        const next = list[j]
+        const lines = blockLines(next)
+        const allEntries = lines.length > 0 && lines.every((line) => looksLikeTocEntry(line, true))
+        if (allEntries) { entries += lines.length; gaps = 0; j += 1; continue }
+        // 个别条目没有页码（只有小节名）。只在「已经吃到过真条目」之后才容忍，
+        // 而且最多容忍两行。**必须再排除句子**——否则「正文从这里开始。」这种
+        // 短段落会被当成没页码的条目吃掉（第一版就是这样，对拍脚本抓到的）。
+        const line = String(next?.text || '').trim()
+        const proseLike = /[。！？!?；;，,]$/.test(line)
+        if (entries > 0 && gaps < 2 && next?.type !== 'heading' && !proseLike && line.length <= 40) {
+          gaps += 1
+          j += 1
+          continue
+        }
+        break
+      }
+      if (entries > 0) { i = j - 1; continue }
+      // 「目录」标题后面不像目录（比如它其实是正文的小标题）→ 只丢掉标题本身
+      continue
+    }
+    // 没有「目录」标题的情况：连续三块都是目录条目，就整体丢掉
+    let run = 0
+    let k = i
+    while (k < list.length) {
+      const lines = blockLines(list[k])
+      if (!lines.length || !lines.every((line) => looksLikeTocEntry(line))) break
+      run += lines.length
+      k += 1
+    }
+    if (run >= 3) { i = k - 1; continue }
+    out.push(block)
+  }
+  return out
+}
+
 /** 一段摘要取多长。文章列表里的一行，太长会撑坏卡片。 */
 const EXCERPT_LENGTH = 86
 
@@ -208,13 +296,13 @@ export function makeExcerpt(content, max = EXCERPT_LENGTH) {
  * 正文为空的段落直接丢掉——那种多半是目录里的一行标题，不是文章。
  */
 export function splitArticleBlocks(input, fallbackTitle = '') {
-  const blocks = (Array.isArray(input) ? input : [])
+  const blocks = stripTableOfContents((Array.isArray(input) ? input : [])
     .map((block) => ({
       type: block?.type === 'heading' ? 'heading' : 'paragraph',
       level: Number(block?.level) || 1,
       text: normalizeText(block?.text ?? '').replace(/\n{2,}/g, '\n'),
     }))
-    .filter((block) => block.text.trim())
+    .filter((block) => block.text.trim()))
   if (!blocks.length) return []
 
   const level = shallowestHeadingLevel(blocks)

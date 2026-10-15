@@ -1,4 +1,4 @@
-﻿// 文章导入拆分器的对拍：「块 → 文章草稿」的规则钉在这里。
+// 文章导入拆分器的对拍：「块 → 文章草稿」的规则钉在这里。
 // 运行：cd frontend && npm run verify:article
 //
 // 为什么需要它：拆错了在浏览器里只表现成「少了几篇 / 多了一篇很长的」，
@@ -10,6 +10,7 @@ import {
   detectDocumentFormat,
   importProblem,
   looksLikeProtectedStub,
+  looksLikeTocEntry,
   makeExcerpt,
   normalizeText,
   sniffProtectedStub,
@@ -193,6 +194,73 @@ check('被占用：办法是关掉 Word/WPS', busy.steps[0].includes('关掉'), 
 const broken = importProblem('unreadable', 'a.docx', { message: '磁盘损坏' })
 check('其它读失败：回显原始信息', broken.message.includes('磁盘损坏'), broken.message)
 check('任何情况都不会返回空步骤', [stub, legacy, rtf, unknown, busy, broken].every((p) => p.steps.length > 0))
+
+console.log('\n[14] 目录要剔掉，不能变成一篇文章')
+// 典型形态：h1「目录」+ 一堆带点线页码的条目
+const withToc = [
+  { type: 'heading', level: 1, text: '目录' },
+  { type: 'paragraph', text: '第一章 绪论 …………………… 1' },
+  { type: 'paragraph', text: '第二章 方法 …………………… 12' },
+  { type: 'paragraph', text: '第三章 结论 …………………… 25' },
+  { type: 'heading', level: 1, text: '第一章 绪论' },
+  { type: 'paragraph', text: '这里是正文，讲的是研究背景和问题。' },
+  { type: 'heading', level: 1, text: '第二章 方法' },
+  { type: 'paragraph', text: '这里是第二章的正文。' },
+]
+const tocSplit = splitArticleBlocks(withToc, '论文')
+check('目录不会变成一篇', !tocSplit.some((a) => a.title.includes('目录')), JSON.stringify(tocSplit.map((a) => a.title)))
+check('正文照常拆成 2 篇', tocSplit.length === 2, `got ${tocSplit.length}`)
+check('第一篇标题是正文标题而不是目录条目', tocSplit[0].title === '第一章 绪论', tocSplit[0].title)
+check('目录条目没混进正文', !tocSplit.some((a) => a.content.includes('…………')), JSON.stringify(tocSplit.map((a) => a.content.slice(0, 24))))
+
+// 目录整段装在一个块里（Word 用 Shift+Enter 断行时就是这样）
+const tocInOneBlock = [
+  { type: 'heading', level: 1, text: '目 录' },
+  { type: 'paragraph', text: '第一节 缘起 ……… 1\n第二节 经过 ……… 4\n第三节 结果 ……… 9' },
+  { type: 'paragraph', text: '正文从这里开始。' },
+]
+const oneBlock = splitArticleBlocks(tocInOneBlock, '随笔')
+check('整段装的目录也被剔掉', oneBlock.length === 1 && oneBlock[0].content === '正文从这里开始。',
+  JSON.stringify(oneBlock.map((a) => a.content)))
+
+// 没有「目录」标题，但连续三条都像目录条目
+const tocNoHeading = [
+  { type: 'paragraph', text: '上篇 ………… 1' },
+  { type: 'paragraph', text: '中篇 ………… 20' },
+  { type: 'paragraph', text: '下篇 ………… 40' },
+  { type: 'paragraph', text: '这是正文的第一段。' },
+]
+const noHeading = splitArticleBlocks(tocNoHeading, '文集')
+check('没有标题也能认出目录', noHeading.length === 1 && noHeading[0].content === '这是正文的第一段。',
+  JSON.stringify(noHeading.map((a) => a.content)))
+
+console.log('\n[15] 但别把正文误当成目录')
+const tocAsSubhead = [
+  { type: 'heading', level: 1, text: '目录' },
+  { type: 'paragraph', text: '这一段是在讲我为什么喜欢整理目录，跟页码没关系。' },
+  { type: 'paragraph', text: '第二段继续讲，内容也挺长的，不该被当成目录条目丢掉。' },
+  { type: 'paragraph', text: '第三段收尾。' },
+]
+const subhead = splitArticleBlocks(tocAsSubhead, '随笔')
+// 断言要小心：正文里本来就可能出现「目录」两个字，所以只检查标题没变成目录、
+// 并且正文是从第一段开始的（不能把「内容里含目录二字」当成失败）
+check('「目录」当小标题时不会被当成目录标题',
+  subhead.length === 1 && subhead[0].title === '随笔' && subhead[0].content.startsWith('这一段'),
+  `${subhead[0]?.title} / ${subhead[0]?.content.slice(0, 20)}`)
+check('正文三段都保住了', subhead[0].content.split('\n\n').length === 3, String(subhead[0].content.split('\n\n').length))
+const proseWithNumbers = [
+  { type: 'heading', level: 1, text: '一次旅行' },
+  { type: 'paragraph', text: '我们一共去了 3 个人，住了 2 个晚上。' },
+  { type: 'paragraph', text: '第二天早上 7 点就起来了。' },
+]
+const prose = splitArticleBlocks(proseWithNumbers, '游记')
+check('正文里的数字不被误判成页码', prose.length === 1 && prose[0].content.includes('3 个人'),
+  JSON.stringify(prose.map((a) => a.content)))
+check('looksLikeTocEntry：点线页码算目录', looksLikeTocEntry('第一章 绪论 …… 1') === true)
+check('looksLikeTocEntry：普通句子不算', looksLikeTocEntry('我们一共去了 3 个人') === false)
+check('looksLikeTocEntry：严格档不接受单空格页码', looksLikeTocEntry('绪论 1') === false)
+check('looksLikeTocEntry：放宽档接受（只在已确认目录后用）', looksLikeTocEntry('绪论 1', true) === true)
+check('looksLikeTocEntry：句子即使短也不算', looksLikeTocEntry('今天很好。', true) === false)
 
 // ---------------------------------------------------------------------------
 console.log(`\n${pass} 项通过${failures.length ? `，${failures.length} 项失败` : ''}`)

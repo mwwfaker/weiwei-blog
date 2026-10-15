@@ -252,8 +252,18 @@ export const useArticlesStore = defineStore('articles', () => {
     if (typeof DOMParser === 'undefined') return []
     const doc = new DOMParser().parseFromString(String(html || ''), 'text/html')
     const blocks = []
+    /**
+     * 取文本时**保留换行**：
+     *   · `<br>` 要变成 \n——Word 里用 Shift+Enter 断行很常见，丢掉它目录会被挤成一行；
+     *   · 空白只压空格和制表符，**不能把 \n 也压掉**（`\s+` 会），否则上一条白做。
+     */
+    const textOf = (element) => {
+      const clone = element.cloneNode(true)
+      for (const br of clone.querySelectorAll('br')) br.replaceWith('\n')
+      return clone.textContent
+    }
     const push = (text, headingLevel) => {
-      const clean = String(text || '').replace(/\s+/g, ' ').trim()
+      const clean = String(text || '').replace(/[^\S\n]+/g, ' ').replace(/\n{2,}/g, '\n').trim()
       if (!clean) return
       if (headingLevel) blocks.push({ type: 'heading', level: headingLevel, text: clean })
       else blocks.push({ type: 'paragraph', text: clean })
@@ -261,19 +271,19 @@ export const useArticlesStore = defineStore('articles', () => {
     for (const element of doc.body.children) {
       const tag = element.tagName
       const heading = /^H([1-6])$/.exec(tag)
-      if (heading) { push(element.textContent, Number(heading[1])); continue }
+      if (heading) { push(textOf(element), Number(heading[1])); continue }
       if (tag === 'UL' || tag === 'OL') {
-        for (const item of element.children) push(item.textContent)
+        for (const item of element.children) push(textOf(item))
         continue
       }
       if (tag === 'TABLE') {
         for (const row of element.querySelectorAll('tr')) {
-          const cells = [...row.children].map((cell) => cell.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean)
+          const cells = [...row.children].map((cell) => textOf(cell).replace(/\s+/g, ' ').trim()).filter(Boolean)
           if (cells.length) push(cells.join('　'))
         }
         continue
       }
-      push(element.textContent)
+      push(textOf(element))
     }
     return blocks
   }
