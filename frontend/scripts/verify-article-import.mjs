@@ -275,7 +275,7 @@ const asParagraph = splitArticleBlocks(tocAsParagraph, '随笔')
 check('「目录」只是普通段落时也能认出', asParagraph.length === 1 && asParagraph[0].title === '第一章 缘起',
   JSON.stringify(asParagraph.map((a) => a.title)))
 
-// 情况二：目录条目完全没有页码
+// 情况二：目录条目完全没有页码 —— 这时**必须**靠「后面那个标题和目录第一行是同一句」来确认
 const tocNoPages = [
   { type: 'paragraph', text: '目录' },
   { type: 'paragraph', text: '第一部分 童年' },
@@ -285,11 +285,58 @@ const tocNoPages = [
   { type: 'paragraph', text: '我出生在一个小城。' },
 ]
 const noPages = splitArticleBlocks(tocNoPages, '自传')
-check('无页码的目录也能剔掉', !noPages.some((a) => a.title.includes('目录') || a.title.includes('第二部分')),
+check('无页码的目录也能剔掉（标题与目录首行一致）', !noPages.some((a) => a.title.includes('目录') || a.title.includes('第二部分')),
   JSON.stringify(noPages.map((a) => a.title)))
 check('正文照常', noPages.length === 1 && noPages[0].title === '第一部分 童年', JSON.stringify(noPages.map((a) => a.title)))
 
-// 但「一串短行」不能单独成立——后面不是标题就不敢吃
+console.log('\n[16b] 收紧「删过头」：正文里的标题一个字都不能少')
+// 一串短行后面虽然跟着标题，但标题和首行不是同一句 → 那多半是正文小标题，不能吃。
+// 前面要先放一个标题，否则这几行会落进「标题之前那一段」被另一条规则收走（上次就栽在这）。
+const bodySubheads = [
+  { type: 'heading', level: 1, text: '序' },
+  { type: 'paragraph', text: '目录' },
+  { type: 'paragraph', text: '起因' },
+  { type: 'paragraph', text: '经过' },
+  { type: 'paragraph', text: '结果' },
+  { type: 'heading', level: 1, text: '正文' },
+  { type: 'paragraph', text: '这一段才是真正的正文内容。' },
+]
+const subheads = splitArticleBlocks(bodySubheads, '随笔')
+check('标题与目录首行不一致时不吃（保住正文小标题）',
+  subheads[0]?.content.includes('起因') && subheads[0]?.content.includes('经过') && subheads[0]?.content.includes('结果'),
+  JSON.stringify(subheads.map((a) => a.content.slice(0, 20))))
+// 文档中段的「目录」是内容，不是目录
+const midDocToc = [
+  { type: 'heading', level: 1, text: '第一章' },
+  { type: 'paragraph', text: '第一章的正文内容，写得长一些，好让它不像是目录条目。' },
+  { type: 'paragraph', text: '再补一段，让偏移量超过开头那 12 块。' },
+  { type: 'paragraph', text: '继续补。' },
+  { type: 'paragraph', text: '继续补第二段。' },
+  { type: 'paragraph', text: '继续补第三段。' },
+  { type: 'paragraph', text: '继续补第四段。' },
+  { type: 'paragraph', text: '继续补第五段。' },
+  { type: 'paragraph', text: '继续补第六段。' },
+  { type: 'paragraph', text: '继续补第七段。' },
+  { type: 'paragraph', text: '继续补第八段。' },
+  { type: 'paragraph', text: '继续补第九段。' },
+  { type: 'paragraph', text: '继续补第十段。' },
+  { type: 'paragraph', text: '继续补第十一段。' },
+  { type: 'paragraph', text: '继续补第十二段。' },
+  { type: 'paragraph', text: '继续补第十三段。' },
+  { type: 'heading', level: 1, text: '第二章' },
+  { type: 'paragraph', text: '目录' },
+  { type: 'paragraph', text: '甲' },
+  { type: 'paragraph', text: '乙' },
+  { type: 'paragraph', text: '丙' },
+  { type: 'heading', level: 1, text: '第三章' },
+  { type: 'paragraph', text: '第三章正文。' },
+]
+const mid = splitArticleBlocks(midDocToc, '随笔')
+check('正文中段的「目录」不当成目录处理',
+  mid.some((a) => a.content.includes('甲')) && mid.some((a) => a.content.includes('乙')) && mid.some((a) => a.content.includes('丙')),
+  JSON.stringify(mid.map((a) => a.content.slice(0, 16))))
+
+// 但「后面不是标题」时同样不吃
 const looseNotToc = [
   { type: 'paragraph', text: '目录' },
   { type: 'paragraph', text: '第一条备忘' },

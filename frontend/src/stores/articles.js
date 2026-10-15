@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { request, uploadMedia } from '@/services/api'
-import { importProblem, splitArticleBlocks, blocksFromText, DEFAULT_IMPORT_TAGS, detectDocumentFormat, sniffProtectedStub } from '@/services/articleImport'
+import { importProblem, splitArticleBlocks, stripTableOfContents, blocksFromText, DEFAULT_IMPORT_TAGS, detectDocumentFormat, sniffProtectedStub } from '@/services/articleImport'
 import { useImportAlert } from '@/composables/useImportAlert'
 import { useBulkImport } from '@/composables/useBulkImport'
 import mammoth from 'mammoth/mammoth.browser'
@@ -77,6 +77,13 @@ export const useArticlesStore = defineStore('articles', () => {
   /** 统一分类 / 统一标签：一次写进所有草稿，之后可以逐条改。 */
   const importCategory = ref('日常片段')
   const importTags = ref([...DEFAULT_IMPORT_TAGS])
+  /**
+   * 解析时自动做了什么的说明（目前只有「剔掉了几段目录」）。
+   *
+   * 为什么要说出来：剔除是**静默**的——如果判断错了，用户只看到「正文少了东西」，
+   * 却不知道是导入器干的。把动作报出来，怀疑时就有一句话可以对。
+   */
+  const importNote = ref('')
 
   const categoryNames = computed(() => [...new Set(articles.value.map((article) => article.category))])
   const tagNames = computed(() => [...new Set(articles.value.flatMap((article) => article.tags || []))])
@@ -320,6 +327,7 @@ export const useArticlesStore = defineStore('articles', () => {
   async function parseImportFiles(files) {
     if (!requireLogin('导入文章')) return 0
     const drafts = []
+    let strippedToc = 0
     for (const file of files) {
       try {
         const extension = file.name.toLowerCase().split('.').pop()
@@ -339,6 +347,8 @@ export const useArticlesStore = defineStore('articles', () => {
         } else if (extension === 'txt' || extension === 'md' || extension === 'markdown') {
           blocks = blocksFromText(await file.text())
         } else { notify(`已跳过不支持的文件：${file.name}`); continue }
+        // 剔除是静默的，所以先把「少了几段」算出来，报给用户看（判断错了至少有个线索）
+        strippedToc += Math.max(0, blocks.length - stripTableOfContents(blocks).length)
         for (const article of splitArticleBlocks(blocks, fallbackTitle)) {
           drafts.push({
             ...article,
@@ -354,6 +364,7 @@ export const useArticlesStore = defineStore('articles', () => {
       } catch (error) { raise(importProblem('unreadable', file.name, error)) }
     }
     if (!drafts.length) { notify('没有读到内容。请选择 DOCX、TXT 或 Markdown 文件'); return 0 }
+    importNote.value = strippedToc > 0 ? `已自动剔除目录 ${strippedToc} 段` : ''
     bulkImport.setReview(drafts)
     return drafts.length
   }
@@ -372,7 +383,7 @@ export const useArticlesStore = defineStore('articles', () => {
 
   return {
     articles, categoryFilter, tagFilter, search, selectedArticle, articleDialog, articleDraft,
-    importReview, importDialog, importVisibility, importCategory, importTags, importing, importSaved,
+    importReview, importDialog, importVisibility, importCategory, importTags, importNote, importing, importSaved,
     categoryNames, tagNames, visibleArticles,
     articlePayload, mapArticle, articleImage, emptyDraft,
     refresh, open, create, edit, save, remove, chooseCover, chooseImportCover,

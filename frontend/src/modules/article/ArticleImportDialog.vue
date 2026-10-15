@@ -81,6 +81,7 @@ function onCoverPicked(event) {
     <p class="import-hint">
       共 {{ total }} 篇，其中 <b>{{ publicCount }}</b> 篇会公开。标题按文档里最浅那一级标题切分，
       正文可在这里直接改；确认后才会保存。
+      <b v-if="articles.importNote">（{{ articles.importNote }}——如果发现正文少了东西，告诉我。）</b>
     </p>
 
     <div class="import-list">

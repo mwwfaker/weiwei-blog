@@ -194,27 +194,48 @@ function looseRun(list, start) {
 }
 
 /**
+ * 目录只可能出现在**文档开头**。
+ *
+ * 这是防「删过头」最重要的一条：正文中段出现「目录」二字（或一串短行），
+ * 那多半是正文内容，不是目录。上一版没有这条限制，用户实测「一些标题也没有了」——
+ * 宁可留下一份没删掉的目录，也不能吃掉正文。
+ */
+const TOC_MAX_START_BLOCK = 12
+
+/** 比较两行文本时去掉空白与标点：目录条目和正文标题常差一个全角空格或冒号。 */
+function sameLine(a, b) {
+  // 连字符要转义：夹在「，」和「—」之间会被当成字符区间（Range out of order）
+  const flat = (value) => String(value || '').replace(/[\s\u3000:：.。·、,，—\-]+/g, '').toLowerCase()
+  const left = flat(a)
+  const right = flat(b)
+  if (!left || !right) return false
+  return left === right || left.startsWith(right) || right.startsWith(left)
+}
+
+/**
  * 去掉目录。
  *
  * 为什么必须做：Word 的目录在导出的 HTML 里只是**普通的段落列表**（mammoth 不认识 TOC 字段），
  * 所以它会照着「最浅那一级标题」的规则被切进去——轻则多出一篇叫「目录」的文章，
  * 重则整份文档的正文都被算进目录那篇里。
  *
- * 三种识别路径（用户实测「目录还在」之后补了后两种）：
- *   1. 「目录 / Contents」**不一定带标题样式**——所以这里只看文本是不是恰好等于那几个词，
- *      不要求 `type === 'heading'`（很多人是直接敲一行「目录」当普通段落的）；
- *   2. 从它往下吃**带页码**的条目（`第一章 绪论 …… 1`）；
- *   3. 一条带页码的都没有时，看是否存在**一串短行、且后面紧跟标题或到底**——那就是无页码目录。
- *      这条必须两个条件同时成立才敢吃，否则正文会被误伤。
- *   另外：没有「目录」标题、但连续三块都是带页码的条目，也整体丢掉。
+ * 四条约束，每一条都是为了「宁可留着，也别吃正文」：
+ *   1. **只在文档开头找**（前 `TOC_MAX_START_BLOCK` 块以内）。正文中段的「目录」是内容，不是目录。
+ *   2. 「目录 / Contents」**只看文本、不要求标题样式**——很多人是直接敲一行当普通段落的。
+ *   3. 优先认**带页码**的条目（`第一章 绪论 …… 1`）。
+ *   4. 一条带页码的都没有时（每行只是小节名），必须同时满足：
+ *      是一串短行、后面紧跟标题、**而且那个标题和这串的第一行是同一句**
+ *      ——目录后面接的就是正文第一节，标题必然重复。少了最后这条就会吃掉正文小标题，
+ *      上一版就是这么错的。
  */
 export function stripTableOfContents(blocks) {
   const list = Array.isArray(blocks) ? blocks : []
   const out = []
   for (let i = 0; i < list.length; i += 1) {
     const block = list[i]
-    // 只按文本判断，不要求标题样式（见上面第 1 条）
-    if (isTocHeading(block?.text)) {
+    const atOpening = i < TOC_MAX_START_BLOCK
+    // 只按文本判断，不要求标题样式（见上面第 2 条）
+    if (atOpening && isTocHeading(block?.text)) {
       let j = i + 1
       let entries = 0
       let gaps = 0
@@ -236,14 +257,18 @@ export function stripTableOfContents(blocks) {
         break
       }
       if (entries > 0) { i = j - 1; continue }
-      // 一条带页码的都没有 → 试「一串短行 + 后面紧跟标题（或到底）」这种无页码目录
+      // 没有页码的目录：一串短行 + 后面紧跟标题 + **标题与这串的第一行是同一句**
       const run = looseRun(list, i + 1)
       const after = list[i + 1 + run.blocks]
-      if (run.lines >= 3 && (!after || after.type === 'heading')) { i = i + run.blocks; continue }
+      const firstLine = blockLines(list[i + 1])[0]
+      if (run.lines >= 3 && after?.type === 'heading' && sameLine(after.text, firstLine)) {
+        i = i + run.blocks
+        continue
+      }
       // 都不像目录：只丢掉「目录」这个标题本身，正文一个字不动
       continue
     }
-    // 没有「目录」标题的情况：连续三块都是目录条目，就整体丢掉
+    // 没有「目录」标题的情况：文档开头连续三块都是带页码的条目，就整体丢掉
     let run = 0
     let k = i
     while (k < list.length) {
@@ -252,7 +277,7 @@ export function stripTableOfContents(blocks) {
       run += lines.length
       k += 1
     }
-    if (run >= 3) { i = k - 1; continue }
+    if (run >= 3 && atOpening) { i = k - 1; continue }
     out.push(block)
   }
   return out
