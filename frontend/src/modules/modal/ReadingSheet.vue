@@ -1,17 +1,26 @@
 <script setup>
-import { computed } from 'vue'
-// 阅读类弹窗的共用外壳：**表头与底部操作固定，只有正文滚动**。
+// 阅读类「对话框」的共用外壳：**表头与底部操作固定，只有正文滚动**，
+// 并且自带入场 / 退场动效——这就是那份「对话框模板」，别的弹窗要用同一套直接套它。
 //
-// 原来日记和文章各自用 ModalShell 的 bare 模式，卡片是「整张一起滚」的
-// （见 base.css 的 `.modal-card{max-height:...;overflow:auto}`）——
-// 日记读到一半，日期和标题就滚出屏幕了，文章更是一直要滚回去才能关。
+// 动效（动效时长写在 JS 里，通过 CSS 变量下发给样式，避免两边各写一个数字对不上）：
+//   · 进场：桌面从右侧滑入到中央，手机从下往上滑入（带一点点过冲，滑得「有手感」）
+//   · 退场：卡片模糊、发白、上浮并消散，同时铺一层尘埃粒子——点关闭、点叉、点空白页
+//     走的是同一条路径（都进 requestClose）。
+//   · `prefers-reduced-motion` 或 `motion=false` 时不做动效，直接关。
 //
-// 所以阅读的版面单独抽成这样一层：head 固定、scroll 滚动、foot 固定。
-// 日记与文章共用一个外壳，以后要调阅读体验（字号、行距、滚动行为）只改这里
-// 和 styles/polish-and-light-theme.css 最后那一节，不会再出现「改了一处漏一处」。
+// 关键点：**退场动画必须由这个组件自己播完再 emit('close')**。
+// 外层一般是 `v-if`，所以如果一上来就 emit，父组件立刻把它从 DOM 摘掉，
+// 动画根本没有机会开始——这正是原来文章阅读弹窗要靠外层 <Transition> 的原因。
 //
-// 和 ModalShell 的分工：ModalShell 管普通表单弹窗（标题行 + 关闭 + 整卡滚动）；
-// 这里管阅读（页眉自己排、正文独立滚动）。两边的关闭按钮都复用 `.modal-close`。
+// 版面（head / 正文 / actions 三个插槽）与外观各归各，日记和文章各有自己的样式节。
+import { computed, ref } from 'vue'
+import DustBurst from './DustBurst.vue'
+
+/** 进场时长（毫秒）。只用于样式里的动画，不需要 JS 等待。 */
+const ENTER_MS = 560
+/** 退场时长（毫秒）。必须和 CSS 里的 var(--dust-ms) 一致，JS 要等它跑完再交差。 */
+const DUST_MS = 920
+
 const props = defineProps({
   cardClass: { type: [String, Array, Object], default: '' },
   backdropClass: { type: [String, Array, Object], default: '' },
@@ -22,18 +31,48 @@ const props = defineProps({
    * 各写一遍迟早会出现一处算了空白、一处没算。
    */
   countText: { type: String, default: '' },
+  /** 关掉入场 / 化灰动效（系统开了「减少动态效果」时自动关）。 */
+  motion: { type: Boolean, default: true },
 })
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const charCount = computed(() => String(props.countText || '').replace(/\s/g, '').length)
+
+const card = ref(null)
+const closing = ref(false)
+const dustRect = ref(null)
+
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * 三条关闭路径（叉、点空白、调用方主动关）都走这里。
+ * 动画跑完才 emit，父组件那时才把组件摘掉。
+ */
+function requestClose() {
+  if (closing.value) return
+  if (!props.motion || reducedMotion()) { emit('close'); return }
+  closing.value = true
+  const rect = card.value?.getBoundingClientRect?.()
+  if (rect && rect.width && rect.height) {
+    dustRect.value = { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+  }
+  globalThis.setTimeout(() => emit('close'), DUST_MS)
+}
+
+defineExpose({ requestClose })
 </script>
 
 <template>
-  <div class="modal-backdrop reading-backdrop" :class="backdropClass" @click.self="$emit('close')">
-    <article class="modal-card reading-sheet" :class="cardClass">
+  <div
+    class="modal-backdrop reading-backdrop"
+    :class="[backdropClass, { 'is-dusting': closing }]"
+    :style="{ '--enter-ms': ENTER_MS + 'ms', '--dust-ms': DUST_MS + 'ms' }"
+    @click.self="requestClose"
+  >
+    <article ref="card" class="modal-card reading-sheet" :class="[cardClass, { 'is-dusting': closing }]">
       <header class="reading-head">
         <slot name="head" />
-        <button class="modal-close reading-close" :aria-label="closeLabel" @click="$emit('close')">×</button>
+        <button class="modal-close reading-close" :aria-label="closeLabel" @click="requestClose">×</button>
       </header>
       <div class="reading-scroll">
         <slot />
@@ -43,5 +82,6 @@ const charCount = computed(() => String(props.countText || '').replace(/\s/g, ''
         <span v-if="charCount" class="reading-count">共 {{ charCount }} 字</span>
       </footer>
     </article>
+    <DustBurst v-if="closing && dustRect" :rect="dustRect" />
   </div>
 </template>

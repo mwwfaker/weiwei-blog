@@ -127,15 +127,15 @@ onUnmounted(() => disposeToast())
       @export="diaries.exportOne"
     />
 
-    <Transition name="reader">
-      <ArticleReaderDialog
-        v-if="articles.selectedArticle"
-        :article="articles.selectedArticle"
-        @close="articles.selectedArticle = null"
-        @edit="articles.edit"
-        @remove="articles.remove"
-      />
-    </Transition>
+    <!-- 阅读弹窗自己播入场/退场动画（见 ReadingSheet）：外层再包 <Transition> 会打架，
+         而且它会在组件被摘掉时才播 leave，等于把化灰效果盖掉。 -->
+    <ArticleReaderDialog
+      v-if="articles.selectedArticle"
+      :article="articles.selectedArticle"
+      @close="articles.selectedArticle = null"
+      @edit="articles.edit"
+      @remove="articles.remove"
+    />
 
     <Transition name="reader">
       <GalleryViewer

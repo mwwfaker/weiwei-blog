@@ -210,8 +210,7 @@
    永远在屏幕上，滚动条只属于正文。 */
 .reading-sheet{display:flex;flex-direction:column;overflow:hidden;max-height:min(92vh,900px)}
 .reading-backdrop{align-items:center;padding:18px}
-.reading-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
-.reading-scroll{
+.reading-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.reading-scroll{
   flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
   overscroll-behavior:contain;scrollbar-width:thin;
 }
@@ -222,6 +221,61 @@
 .reading-count{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.02em;white-space:nowrap}
 /* 关闭按钮原来绝对定位在卡片右上角；现在它是页眉这一行里的最后一个格子。 */
 .reading-close{position:static;flex:none;margin-top:2px}
+
+/* ---- 入场：桌面从右滑入中央，手机从下往上滑入 -------------------------------
+   cubic-bezier 的第二段带一点点过冲（y 收在 1.02）：滑到位时会「压一下再回弹」，
+   这就是「滑动感」的来源；纯 ease-out 会滑得很平，像被拖进来而不是甩进来。 */
+@keyframes sheetGlide{
+  from{opacity:0;transform:translate3d(min(94vw,1180px),0,0) scale(.965)}
+  62%{opacity:1}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes sheetRise{
+  from{opacity:0;transform:translate3d(0,100%,0) scale(.985)}
+  62%{opacity:1}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes backdropIn{from{opacity:0}to{opacity:1}}
+.reading-backdrop{animation:backdropIn calc(var(--enter-ms,560ms) * .75) ease both}
+.reading-sheet{animation:sheetRise var(--enter-ms,560ms) cubic-bezier(.16,.86,.28,1.02) both}
+@media(min-width:761px){
+  .reading-sheet{animation-name:sheetGlide;animation-duration:calc(var(--enter-ms,560ms) * 1.12)}
+}
+
+/* ---- 退场：化作尘埃 ----------------------------------------------------------
+   卡片自己模糊、发白、上浮并淡出；粒子层铺在卡片原来的位置上往上飘。
+   时长由 JS 通过 --dust-ms 下发，两边不会对不上——JS 必须等它跑完才 emit close。 */
+@keyframes sheetDust{
+  0%{opacity:1;filter:blur(0) saturate(1) brightness(1);transform:translate3d(0,0,0)}
+  35%{opacity:.9;filter:blur(1.1px) saturate(.82) brightness(1.08)}
+  100%{opacity:0;filter:blur(11px) saturate(.28) brightness(1.3);transform:translate3d(0,-24px,0) scale(.985)}
+}
+@keyframes backdropOut{0%,38%{opacity:1}100%{opacity:0}}
+.reading-sheet.is-dusting{
+  animation:sheetDust var(--dust-ms,920ms) cubic-bezier(.42,0,.72,1) forwards;
+  pointer-events:none;will-change:opacity,filter,transform;
+}
+.reading-backdrop.is-dusting{animation:backdropOut var(--dust-ms,920ms) ease forwards;pointer-events:none}
+
+.dust-burst{position:fixed;inset:0;z-index:1;pointer-events:none}
+.dust-bit{
+  position:fixed;border-radius:50%;opacity:0;
+  background:color-mix(in srgb,var(--muted) 72%,transparent);
+  box-shadow:0 0 6px color-mix(in srgb,var(--accent) 40%,transparent);
+  animation-name:dustBit;animation-timing-function:cubic-bezier(.28,.06,.7,1);
+  animation-fill-mode:forwards;will-change:transform,opacity;
+}
+@keyframes dustBit{
+  0%{opacity:0;transform:translate3d(0,0,0) scale(.55) rotate(0deg)}
+  14%{opacity:.92}
+  100%{opacity:0;transform:translate3d(var(--dx,0),var(--dy,-60px),0) scale(.12) rotate(var(--rot,0deg))}
+}
+
+/* 系统开了「减少动态效果」就只剩淡入淡出，粒子层直接不画 */
+@media(prefers-reduced-motion:reduce){
+  .reading-sheet,.reading-backdrop{animation:none}
+  .dust-burst{display:none}
+}
 
 /* ---- 日记阅读 ---------------------------------------------------------------- */
 .diary-reading{width:min(720px,100%);padding:0}
