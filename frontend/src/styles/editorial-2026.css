@@ -118,6 +118,17 @@ html,body,#app{min-width:320px;min-height:100%;scroll-behavior:smooth}body{backg
 .move-option input{accent-color:var(--accent)}
 .move-option-child{margin-left:18px;font-size:12px}
 
+/* 上传对话框：上面一批统一设置，下面一张张核对名称与描述 */
+.upload-card{width:min(720px,100%)}
+.upload-setup{display:grid;gap:11px;padding-bottom:15px;margin-bottom:15px;border-bottom:1px solid var(--line)}
+.upload-list{list-style:none;margin:0;padding:0;display:grid;gap:10px;max-height:46vh;overflow-y:auto}
+.upload-item{display:grid;grid-template-columns:88px 1fr auto;gap:11px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:14px}
+.upload-thumb{width:88px;height:66px;object-fit:cover;border-radius:10px;background:var(--panel-raised)}
+.upload-fields{display:grid;gap:7px;min-width:0}
+.upload-remove{align-self:start;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;padding:2px 7px;border-radius:8px;cursor:pointer}
+.upload-remove:hover:not(:disabled){background:var(--glow);color:#ee7888}
+.upload-remove:disabled{opacity:.4;cursor:default}
+
 /* 打开一盒之后的头部：返回、标题、描述、张数、编辑相册 */
 .album-back{border:0;background:transparent;color:var(--muted);font-size:12px;padding:6px 0;cursor:pointer}
 .album-back:hover{color:var(--accent)}

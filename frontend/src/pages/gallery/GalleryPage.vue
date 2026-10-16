@@ -34,9 +34,10 @@ function openPicker() {
 }
 
 function onPicked(event) {
-  const file = event.target.files?.[0]
+  const files = [...(event.target.files || [])]
   event.target.value = ''
-  if (file) media.addPhoto(file)
+  // 一次可以选多张：先进上传对话框填名称/描述/去处，再统一传。
+  if (files.length) media.openUploadDialog(files)
 }
 </script>
 
@@ -49,7 +50,7 @@ function onPicked(event) {
       subtitle="被光照亮的瞬间，我都悄悄收好了。"
     >
       <button class="button-primary" @click="openPicker">⇧ &nbsp;添加照片</button>
-      <input ref="picker" type="file" accept="image/*" hidden @change="onPicked" />
+      <input ref="picker" type="file" accept="image/*" multiple hidden @change="onPicked" />
     </InnerPageHeader>
 
     <!-- 首页：盒子在前，散落在外的照片在后 -->

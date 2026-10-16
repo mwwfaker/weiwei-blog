@@ -62,6 +62,11 @@ export const useMediaStore = defineStore('media', () => {
   const photoMover = ref(null)
   const moveDraft = ref({ albumId: null })
 
+  /** 上传：选好的照片先排在这里，填完名称/描述、选好去处再传。 */
+  const uploadDialog = ref(null)
+  const uploadDraft = ref({ albumId: null, description: '', visibility: 'PRIVATE' })
+  const uploadProgress = ref({ done: 0, total: 0, running: false })
+
   /** 相册的备选框：登录后是自己的相册，访客看到的是公开照片所在的相册。 */
   const albumList = computed(() => (auth.isLoggedIn ? albums.value : publicAlbums.value))
   const albumById = computed(() => new Map(albumList.value.map((album) => [album.id, album])))
@@ -293,9 +298,77 @@ export const useMediaStore = defineStore('media', () => {
     notify(`${moved} 张已移到${where}${failed ? `，${failed} 张没成功` : ''}`)
   }
 
-  /** 上传的照片落到当前正开着的那本相册；停在首页 / 全部 / 未分类时就不归相册。 */
+  /** 上传的照片落到当前正开着的那本相册；停在首页时就不归相册（散落在外面）。 */
   function targetAlbum() {
     return currentAlbum.value
+  }
+
+  /* ---------------------------------------------------------------- 上传（多张 + 先填信息） */
+
+  /**
+   * 打开上传对话框。选好的照片先在这里排队，可以一张张写名称/描述，
+   * 也可以在上面写一条**统一描述**（下面留空的就用它），再选放进哪一本。
+   */
+  function openUploadDialog(files) {
+    const list = [...(files || [])].filter((file) => file && String(file.type || '').startsWith('image/'))
+    if (!list.length) return notify('这些文件里没有图片')
+    const album = targetAlbum()
+    uploadDraft.value = { albumId: album ? album.id : null, description: '', visibility: 'PRIVATE' }
+    uploadProgress.value = { done: 0, total: list.length, running: false }
+    uploadDialog.value = {
+      entries: list.map((file, index) => ({
+        key: `up-${Date.now()}-${index}`,
+        file,
+        // 本机预览用 object URL：照片还没上传，只能靠它显示缩略图。
+        preview: URL.createObjectURL(file),
+        caption: file.name.replace(/\.[^.]+$/, ''),
+        description: '',
+      })),
+    }
+  }
+
+  function closeUploadDialog() {
+    // object URL 不释放就会一直占着内存（一次选二十张手机照片很可观）
+    for (const entry of uploadDialog.value?.entries || []) URL.revokeObjectURL(entry.preview)
+    uploadDialog.value = null
+    uploadProgress.value = { done: 0, total: 0, running: false }
+  }
+
+  /** 挑出来的照片之间去掉重名，避免同一张被选两次时看起来像是丢了一张。 */
+  function removeUploadEntry(key) {
+    const entries = uploadDialog.value?.entries || []
+    const entry = entries.find((item) => item.key === key)
+    if (!entry) return
+    URL.revokeObjectURL(entry.preview)
+    uploadDialog.value = { entries: entries.filter((item) => item.key !== key) }
+    uploadProgress.value = { ...uploadProgress.value, total: uploadDialog.value.entries.length }
+    if (!uploadDialog.value.entries.length) closeUploadDialog()
+  }
+
+  /** 一张一张传：并发的几十条上传在免费额度上更容易被限流，进度也说不清。 */
+  async function runUpload() {
+    const entries = uploadDialog.value?.entries || []
+    if (!entries.length || uploadProgress.value.running) return
+    if (!requireLogin('上传照片')) return
+    const albumId = uploadDraft.value.albumId
+    const album = albumId ? albumById.value.get(String(albumId)) : null
+    uploadProgress.value = { done: 0, total: entries.length, running: true }
+    let done = 0
+    for (const entry of entries) {
+      const saved = await addPhoto(entry.file, {
+        title: entry.caption,
+        description: entry.description.trim() || uploadDraft.value.description,
+        albumId,
+        visibility: uploadDraft.value.visibility,
+      })
+      if (saved) done += 1
+      uploadProgress.value = { done: uploadProgress.value.done + 1, total: entries.length, running: true }
+    }
+    const where = album ? `「${album.name}」` : '外面（还没放进盒子）'
+    notify(`${done} 张已上传到${where}${done < entries.length ? `，${entries.length - done} 张没成功` : ''}`)
+    // 失败的条目留在列表里，方便重试；全成功才关窗。
+    if (done === entries.length) closeUploadDialog()
+    else uploadProgress.value = { done: 0, total: entries.length, running: false }
   }
 
   function openAlbumEditor(album) {
@@ -361,7 +434,7 @@ export const useMediaStore = defineStore('media', () => {
     const children = childrenOf(album.id)
     const photos = albumTotal(album)
     const extra = children.length ? `它下面的 ${children.length} 个子相册会一起删掉，` : ''
-    if (!window.confirm(`确定删除相册「${album.name}」吗？${extra}里面的 ${photos} 张照片不会被删除，会回到「未分类」。`)) return
+    if (!window.confirm(`确定删除相册「${album.name}」吗？${extra}里面的 ${photos} 张照片不会被删除，会散落到外面。`)) return
     try {
       await request(`/api/photo-albums/${album.id}`, { token: auth.token, method: 'DELETE' })
     } catch (error) { return notify(`相册没删掉：${error.message}`) }
@@ -376,19 +449,25 @@ export const useMediaStore = defineStore('media', () => {
     }
     if (removed.has(openAlbum.value)) openAlbum.value = 'all'
     albumEditor.value = null
-    notify('相册已删除，照片回到未分类')
+    notify('相册已删除，照片散落到外面')
   }
 
-  async function addPhoto(file) {
-    if (!requireLogin('上传照片')) return
-    if (!file) return
-    const album = targetAlbum()
+  /**
+   * 上传一张照片（带名称 / 描述 / 去处）。由上传对话框逐张调用，成功返回那条记录。
+   * 这里**不报成功的提示**：批量上传时每张弹一句会刷屏，由调用方汇总一句。
+   */
+  async function addPhoto(file, draft = {}) {
+    if (!requireLogin('上传照片')) return null
+    if (!file) return null
+    const albumId = draft.albumId == null ? null : String(draft.albumId)
+    const album = albumId ? albumById.value.get(albumId) : null
     const item = {
-      id: Date.now(),
-      caption: file.name.replace(/\.[^.]+$/, ''),
-      description: '',
+      // 批量上传时 Date.now() 会撞（同一毫秒里连着建），所以掺一个随机数当临时 id
+      id: `local-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      caption: (draft.title || '').trim() || file.name.replace(/\.[^.]+$/, ''),
+      description: (draft.description || '').trim(),
       date: new Date().toISOString().slice(0, 7).replace('-', ' / '),
-      image: '', visibility: 'PRIVATE', key: '',
+      image: '', visibility: draft.visibility || 'PRIVATE', key: '',
       albumId: album ? album.id : null,
       albumName: album ? album.name : '日常',
     }
@@ -400,17 +479,20 @@ export const useMediaStore = defineStore('media', () => {
         body: JSON.stringify({
           kind: 'IMAGE',
           title: item.caption,
-          description: '',
+          description: item.description,
           objectKey: uploaded.key,
           contentType: uploaded.contentType,
-          visibility: 'PRIVATE',
+          visibility: item.visibility,
           albumId: album ? album.id : null,
         }),
       })
       Object.assign(item, mapMedia(saved), { mine: true })
-    } catch (error) { return notify(`图片未保存：${error.message}`) }
+    } catch (error) {
+      notify(`「${item.caption}」没上传成功：${error.message}`)
+      return null
+    }
     galleryItems.value.unshift(item)
-    notify(album ? `照片已收进「${album.name}」` : '照片已上传到对象存储')
+    return item
   }
 
   function openEditor(item) {
@@ -493,6 +575,8 @@ export const useMediaStore = defineStore('media', () => {
     allPhotoCount, looseCount, visibleGallery, ownTracks,
     selecting, selectedPhotoIds, photoMover, moveDraft,
     isSelected, toggleSelecting, togglePhotoSelection, openPhotoMover, savePhotoMove,
+    uploadDialog, uploadDraft, uploadProgress,
+    openUploadDialog, closeUploadDialog, removeUploadEntry, runUpload,
     mapMedia, isStoredMedia, mediaImage, refresh, refreshAlbums, openBox,
     createAlbum, renameAlbum, removeAlbum, openAlbumEditor, saveAlbumEditor,
     addPhoto, openEditor, saveEdit, changeVisibility, remove,
