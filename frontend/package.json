@@ -20,11 +20,13 @@
     "test": "npm run verify:all && npm run test:render"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "@supabase/supabase-js": "^2.78.0",
     "@vueuse/core": "^14.4.0",
     "mammoth": "^1.9.1",
     "pinia": "^4.0.3",
     "tesseract.js": "^7.0.0",
+    "three": "^0.186.1",
     "vue": "3.5.43",
     "vue-router": "^4.6.4",
     "xlsx": "^0.18.5"

@@ -1,8 +1,8 @@
 <script setup>
-// 相册页：**盒子的首页** + 打开某个盒子看照片。
+// 相册页：**首页 = 一盒一盒相册 + 散落在外的照片**；点开某盒 = 子盒子 + 这本相册自己的照片。
 //
-// 版面分两层是有意的：首页看的是相册本身（一盒一盒摆着），点开某个盒子才看里面的照片。
-// 这样「建一本相册」和「往里放照片」是两件看得见的事，而不是一排筛选胶囊。
+// 刻意没有「未分类」这个盒子：没归进盒子的照片就散落在首页上正常展示。
+// 多一个「未分类」盒子等于凭空多一层收纳，而它装的其实是「我还没想好放哪」的东西。
 import { computed, ref } from 'vue'
 import AlbumBoxes from '@/modules/media/AlbumBoxes.vue'
 import GalleryGrid from '@/modules/media/GalleryGrid.vue'
@@ -17,13 +17,11 @@ const auth = useAuthStore()
 const picker = ref(null)
 
 const atHome = computed(() => media.openAlbum === 'all')
-/** 虚拟盒子（全部照片 / 未分类）没有相册记录，标题只能写死。 */
-const title = computed(() => media.currentAlbum?.name
-  || (media.openAlbum === 'photos' ? '全部照片' : '未分类'))
+const title = computed(() => media.currentAlbum?.name || '')
 const description = computed(() => media.currentAlbum?.description || '')
 const canEdit = computed(() => Boolean(media.currentAlbum?.mine))
 
-/** 首页在「一张照片都没有、也一本相册都没有」时才显示空状态：有盒子就该让盒子摆出来。 */
+/** 一张照片都没有、也一本相册都没有时才显示空状态：有盒子就该让盒子摆出来。 */
 const homeIsEmpty = computed(() => !media.galleryItems.length && !media.rootAlbums.length)
 /** 一级相册自己的照片为空、但下面有子相册：这时该说的话和「一张都没有」不一样。 */
 const emptyText = computed(() => (media.currentChildren.length
@@ -40,7 +38,6 @@ function onPicked(event) {
   event.target.value = ''
   if (file) media.addPhoto(file)
 }
-
 </script>
 
 <template>
@@ -55,10 +52,10 @@ function onPicked(event) {
       <input ref="picker" type="file" accept="image/*" hidden @change="onPicked" />
     </InnerPageHeader>
 
-    <!-- 首页：摆的是一盒一盒相册 -->
+    <!-- 首页：盒子在前，散落在外的照片在后 -->
     <template v-if="atHome">
       <div class="album-home-bar">
-        <span>{{ media.allPhotoCount }} 张照片 · {{ media.rootAlbums.length }} 本相册</span>
+        <span>{{ media.rootAlbums.length }} 本相册 · {{ media.loosePhotos.length }} 张散落在外面</span>
         <button v-if="auth.isLoggedIn" class="album-manage" @click="media.albumManager = true">管理相册</button>
       </div>
 
@@ -71,7 +68,20 @@ function onPicked(event) {
         @action="openPicker"
       />
 
-      <AlbumBoxes v-else :albums="media.rootAlbums" show-pseudo />
+      <template v-else>
+        <AlbumBoxes v-if="media.rootAlbums.length" :albums="media.rootAlbums" />
+        <p v-else class="album-home-hint">
+          还没有相册。上面「管理相册」里建一本（比如「旅行」），就能把照片一盒一盒收好了。
+        </p>
+
+        <template v-if="media.loosePhotos.length">
+          <h3 class="album-section-title">
+            散落在外的照片
+            <small>{{ media.loosePhotos.length }} 张 · 还没放进盒子</small>
+          </h3>
+          <GalleryGrid @preview="media.galleryPreview = $event" />
+        </template>
+      </template>
     </template>
 
     <!-- 打开了一盒：先看子盒子，再看这本相册自己的照片 -->

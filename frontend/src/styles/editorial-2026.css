@@ -66,12 +66,57 @@ html,body,#app{min-width:320px;min-height:100%;scroll-behavior:smooth}body{backg
   grid-column:1/-1;display:grid;place-items:center;font-size:26px;color:color-mix(in srgb,var(--muted) 55%,transparent);
   border:1px dashed color-mix(in srgb,var(--line) 85%,transparent);border-radius:10px;margin:8px;
 }
+/* 徽标：让「盒子」和「照片」在任何版面里都能一眼分开（首页两种是挨着摆的）。 */
+.album-box-badge{
+  position:absolute;top:8px;left:8px;padding:2px 8px;border-radius:999px;
+  background:color-mix(in srgb,var(--ink) 62%,transparent);color:var(--paper);
+  font-size:10px;letter-spacing:.06em;backdrop-filter:blur(6px);
+}
+/* 相册内部的子相册：虚线 + 淡底，和它下面那片照片明确分开（两者挨得最近，最容易混）。 */
+.album-boxes.is-compact .album-box{
+  border-style:dashed;
+  border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+  background:color-mix(in srgb,var(--accent) 7%,var(--panel));
+}
+.album-boxes.is-compact .album-box-cover{height:110px}
+.album-boxes.is-compact .album-box-badge{background:color-mix(in srgb,var(--accent) 78%,transparent)}
 .album-box-name{padding:0 15px;font-size:14px;font-weight:600;color:var(--ink)}
 .album-box-meta{padding:0 15px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
 .album-box-desc{
   padding:2px 15px 0;font-style:normal;color:var(--muted);font-size:11px;line-height:1.6;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
+
+/* 版面上的小节标题（散落在外的照片）与「一本相册都还没有」时的提示 */
+.album-section-title{margin:30px 0 2px;font-size:15px;font-weight:600;color:var(--ink);display:flex;align-items:baseline;gap:10px}
+.album-section-title small{font-weight:400;font-size:11px;color:var(--muted)}
+.album-home-hint{margin:10px 0 0;padding:16px 18px;border:1px dashed var(--line);border-radius:16px;color:var(--muted);font-size:13px;line-height:1.8}
+
+/* 照片区外面的那层壳：多选工具条 + 网格 */
+.gallery-block{display:block}
+.gallery-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:12px 0 0;min-height:28px}
+.gallery-toolbar-count{color:var(--accent);font-size:12px;font-variant-numeric:tabular-nums}
+.gallery-tool-action{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 12px;font-size:11px;cursor:pointer;transition:color .2s,border-color .2s}
+.gallery-tool-action:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.gallery-tool-action:disabled{opacity:.45;cursor:default}
+/* 多选时盖在照片上的那个圈 */
+.gallery-pick{
+  position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,.85);background:rgba(10,10,18,.42);color:#fff;
+  display:grid;place-items:center;font-size:13px;line-height:1;backdrop-filter:blur(4px);
+}
+.gallery-grid figure.is-selected{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent)}
+.gallery-grid figure.is-selected .gallery-pick{background:var(--accent);border-color:var(--accent)}
+/* .gallery-photo 要能定位那个圈 */
+.gallery-photo{position:relative}
+
+/* 「移到相册」弹窗里的目标列表 */
+.move-hint{color:var(--muted);font-size:12px;margin:0 0 10px}
+.move-list{display:grid;gap:6px;max-height:46vh;overflow-y:auto}
+.move-option{display:flex;align-items:center;gap:9px;margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;font-size:13px;color:var(--ink);cursor:pointer}
+.move-option.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.move-option input{accent-color:var(--accent)}
+.move-option-child{margin-left:18px;font-size:12px}
 
 /* 打开一盒之后的头部：返回、标题、描述、张数、编辑相册 */
 .album-back{border:0;background:transparent;color:var(--muted);font-size:12px;padding:6px 0;cursor:pointer}

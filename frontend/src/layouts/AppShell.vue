@@ -21,6 +21,7 @@ import DiaryReaderDialog from '@/modules/diary/DiaryReaderDialog.vue'
 import GalleryViewer from '@/modules/media/GalleryViewer.vue'
 import AlbumManagerDialog from '@/modules/media/AlbumManagerDialog.vue'
 import AlbumEditorDialog from '@/modules/media/AlbumEditorDialog.vue'
+import PhotoMoveDialog from '@/modules/media/PhotoMoveDialog.vue'
 import MediaEditorDialog from '@/modules/media/MediaEditorDialog.vue'
 import AudioEngine from '@/modules/music/AudioEngine.vue'
 import MusicDock from '@/modules/music/MusicDock.vue'
@@ -153,6 +154,7 @@ onUnmounted(() => disposeToast())
     <MediaEditorDialog v-if="media.mediaEditor" @close="media.mediaEditor = null" />
     <AlbumManagerDialog v-if="media.albumManager" @close="media.albumManager = false" />
     <AlbumEditorDialog v-if="media.albumEditor" @close="media.albumEditor = null" />
+    <PhotoMoveDialog v-if="media.photoMover" @close="media.photoMover = null" />
     <MusicEditorDialog v-if="music.musicEditor" @close="music.musicEditor = null" />
     <DiaryImportDialog v-if="diaries.importDialog" @close="diaries.importDialog = false" />
     <ArticleImportDialog v-if="articles.importDialog" @close="articles.importDialog = false" />

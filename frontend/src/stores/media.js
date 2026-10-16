@@ -44,16 +44,23 @@ export const useMediaStore = defineStore('media', () => {
   const albumEditDraft = ref({ name: '', description: '' })
 
   /**
-   * 当前打开的「盒子」：
-   *   `'all'`    盒子首页（看的是相册本身，不是照片）
-   *   `'photos'` 全部照片（虚拟盒子，平面列出所有照片）
-   *   `'none'`   未分类（虚拟盒子）
-   *   `<id>`     某一本相册
+   * 当前打开的地方：
+   *   `'all'`  首页 —— 先摆一盒一盒相册，下面是**没进盒子的那些照片**（散落在外）
+   *   `<id>`   某一本相册
+   *
+   * 刻意**没有「未分类」这个盒子**：没归进盒子的照片就散落在外面正常展示。
+   * 多一个「未分类」盒子等于凭空多出一层收纳，而它装的其实是「我还没想好放哪」的东西。
    */
   const openAlbum = ref('all')
   const galleryPreview = ref(null)
   const mediaEditor = ref(null)
   const mediaDraft = ref({ title: '', description: '', albumId: null, visibility: 'PRIVATE' })
+
+  /** 多选与「移到相册」：ids 是字符串，和别处的相册 id 口径一致。 */
+  const selecting = ref(false)
+  const selectedPhotoIds = ref([])
+  const photoMover = ref(null)
+  const moveDraft = ref({ albumId: null })
 
   /** 相册的备选框：登录后是自己的相册，访客看到的是公开照片所在的相册。 */
   const albumList = computed(() => (auth.isLoggedIn ? albums.value : publicAlbums.value))
@@ -81,7 +88,8 @@ export const useMediaStore = defineStore('media', () => {
    * 混在一起会让人分不清「这张到底在哪一层」。
    */
   const albumPhotos = (albumId) => galleryItems.value.filter((item) => item.albumId === String(albumId))
-  const unclassifiedPhotos = () => galleryItems.value.filter((item) => !item.albumId)
+  /** 没进任何盒子的照片：它们就散落在首页上，不是「未分类」这种盒子。 */
+  const loosePhotos = computed(() => galleryItems.value.filter((item) => !item.albumId))
 
   /** 每本相册直辖照片的预览（封面上最多拼 4 张，所以每本只留 8 张就够）。 */
   const previewByAlbum = computed(() => {
@@ -101,12 +109,10 @@ export const useMediaStore = defineStore('media', () => {
    * 一级相册连子相册的照片一起算——只拍子相册的那本相册不该是个空盒子。
    */
   function albumPreview(album, limit = 4) {
-    if (!album) return galleryItems.value.slice(0, limit) // 「全部照片」这个虚拟盒子
     const pool = [...(previewByAlbum.value.get(album.id) || [])]
     for (const child of childrenOf(album.id)) pool.push(...(previewByAlbum.value.get(child.id) || []))
     return pool.slice(0, limit)
   }
-  const unclassifiedPreview = (limit = 4) => (previewByAlbum.value.get('') || []).slice(0, limit)
 
   /** 盒子上显示的数字：一级相册含子相册，否则「旅行」显示 0 张、点进去却有照片。 */
   function albumTotal(album) {
@@ -115,14 +121,16 @@ export const useMediaStore = defineStore('media', () => {
     return total
   }
   const allPhotoCount = computed(() => galleryItems.value.length)
-  const unclassifiedCount = computed(() => (previewByAlbum.value.get('') || []).length)
+  const looseCount = computed(() => (previewByAlbum.value.get('') || []).length)
 
-  /** 打开某个盒子时网格里要显示的照片。首页不显示照片（首页看的是相册本身）。 */
+  /**
+   * 当前要显示的照片。
+   * 首页给的是**没进盒子的那些**（散落在外面）；打开某本相册就是它直辖的照片。
+   */
   const visibleGallery = computed(() => {
     const key = openAlbum.value
-    if (key === 'all') return []
-    if (key === 'photos') return galleryItems.value
-    if (key === 'none') return unclassifiedPhotos()
+    if (key === 'all') return loosePhotos.value
+    if (!albumById.value.has(key)) return []
     return albumPhotos(key)
   })
 
@@ -214,15 +222,75 @@ export const useMediaStore = defineStore('media', () => {
     catch { publicAlbums.value = [] }
     // 打开着的那本相册可能已经不存在了（换了账号、在另一台设备上删过）。
     // 停在一本不存在的相册上会看到空盒子，看起来像照片丢了。
-    if (openAlbum.value !== 'all' && openAlbum.value !== 'none' && openAlbum.value !== 'photos'
-      && !albumById.value.has(openAlbum.value)) {
-      openAlbum.value = 'all'
-    }
+    if (openAlbum.value !== 'all' && !albumById.value.has(openAlbum.value)) openAlbum.value = 'all'
   }
 
-  /** 打开一个盒子（`'all'` 回首页 / `'photos'` / `'none'` / 相册 id）。 */
+  /** 打开一本相册；`'all'` 回首页。 */
   function openBox(key) {
     openAlbum.value = key == null ? 'all' : String(key)
+  }
+
+  /* ---------------------------------------------------------------- 多选与移动 */
+
+  const isSelected = (id) => selectedPhotoIds.value.includes(String(id))
+
+  function toggleSelecting(force) {
+    selecting.value = force == null ? !selecting.value : Boolean(force)
+    if (!selecting.value) selectedPhotoIds.value = []
+  }
+
+  function togglePhotoSelection(id) {
+    const key = String(id)
+    selectedPhotoIds.value = isSelected(key)
+      ? selectedPhotoIds.value.filter((item) => item !== key)
+      : [...selectedPhotoIds.value, key]
+  }
+
+  /** 打开「移到相册」窗口。不传 ids 就用当前勾选的那批。 */
+  function openPhotoMover(ids) {
+    const list = (ids ?? selectedPhotoIds.value).map(String)
+    if (!list.length) return
+    const first = galleryItems.value.find((item) => String(item.id) === list[0])
+    const current = first?.albumId ?? null
+    // 默认选中「它们现在在哪」，这样打开就能看出当前归属；要改才动一下。
+    moveDraft.value = { albumId: current }
+    photoMover.value = { ids: list }
+  }
+
+  /**
+   * 把选中的照片移到目标相册（`albumId` 为 null = 移出盒子、散落在外面）。
+   * 一张一张 PUT：批量并发几十条请求在免费额度上更容易被限流，而且失败时也不好说清是哪张。
+   */
+  async function savePhotoMove() {
+    const ids = photoMover.value?.ids || []
+    if (!ids.length) return
+    if (!requireLogin('移动照片')) return
+    const albumId = moveDraft.value.albumId == null ? null : String(moveDraft.value.albumId)
+    const album = albumId ? albumById.value.get(albumId) : null
+    let moved = 0
+    let failed = 0
+    for (const id of ids) {
+      const item = galleryItems.value.find((photo) => String(photo.id) === id)
+      if (!item || !item.mine) { failed += 1; continue }
+      if (isStoredMedia(item)) {
+        try {
+          const saved = await request(`/api/media/${item.id}`, {
+            token: auth.token, method: 'PUT', body: JSON.stringify({ albumId }),
+          })
+          Object.assign(item, mapMedia(saved))
+          moved += 1
+        } catch { failed += 1 }
+      } else {
+        // 本机草稿（示例照片、未登录时加的）：接口没答上来，就地改。
+        item.albumId = album ? album.id : null
+        item.albumName = album ? album.name : '日常'
+        moved += 1
+      }
+    }
+    photoMover.value = null
+    toggleSelecting(false)
+    const where = album ? `「${album.name}」` : '盒子外面'
+    notify(`${moved} 张已移到${where}${failed ? `，${failed} 张没成功` : ''}`)
   }
 
   /** 上传的照片落到当前正开着的那本相册；停在首页 / 全部 / 未分类时就不归相册。 */
@@ -421,8 +489,10 @@ export const useMediaStore = defineStore('media', () => {
     galleryItems, publicTracks, ownMedia, galleryPreview, mediaEditor, mediaDraft,
     albums, publicAlbums, albumManager, albumDraft, albumEditor, albumEditDraft,
     openAlbum, currentAlbum, currentChildren, rootAlbums, childrenOf,
-    albumPhotos, unclassifiedPhotos, albumPreview, unclassifiedPreview, albumTotal, directCount,
-    allPhotoCount, unclassifiedCount, visibleGallery, ownTracks,
+    albumPhotos, loosePhotos, albumPreview, albumTotal, directCount,
+    allPhotoCount, looseCount, visibleGallery, ownTracks,
+    selecting, selectedPhotoIds, photoMover, moveDraft,
+    isSelected, toggleSelecting, togglePhotoSelection, openPhotoMover, savePhotoMove,
     mapMedia, isStoredMedia, mediaImage, refresh, refreshAlbums, openBox,
     createAlbum, renameAlbum, removeAlbum, openAlbumEditor, saveAlbumEditor,
     addPhoto, openEditor, saveEdit, changeVisibility, remove,
