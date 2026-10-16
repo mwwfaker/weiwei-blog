@@ -46,11 +46,17 @@ onMounted(async () => {
       .on('tileerror', () => { failed.value = true })
       .addTo(map)
 
-    const route = []
+    const route = points.value.map((photo) => [photo.latitude, photo.longitude])
+    // 先画线、再铺点：反过来的话线会压在点上面，点标记的点击会被线拦掉。
+    // 线本身也不参与交互（interactive: false），它只是"走过哪里"的示意。
+    if (route.length > 1) {
+      L.polyline(route, {
+        color: '#7779a6', weight: 2, opacity: 0.55, dashArray: '5 7', interactive: false,
+      }).addTo(map)
+    }
+
     for (const photo of points.value) {
-      const latlng = [photo.latitude, photo.longitude]
-      route.push(latlng)
-      const marker = L.circleMarker(latlng, {
+      const marker = L.circleMarker([photo.latitude, photo.longitude], {
         radius: 7, weight: 2, color: '#f3f1ff', fillColor: '#7779a6', fillOpacity: 0.95,
       }).addTo(map)
       const thumb = photo.thumb || photo.image
@@ -59,10 +65,12 @@ onMounted(async () => {
         `<figure class="map-pop"><img src="${escapeHtml(thumb)}" alt="" /><figcaption><strong>${escapeHtml(photo.caption)}</strong><span>${escapeHtml(when)}</span></figcaption></figure>`,
         { closeButton: false, minWidth: 168 },
       )
-      marker.on('click', () => { media.galleryPreview = photo })
-    }
-    if (route.length > 1) {
-      L.polyline(route, { color: '#7779a6', weight: 2, opacity: 0.55, dashArray: '5 7' }).addTo(map)
+      // 点标记只开气泡；**看图要再点气泡里的缩略图**。
+      // 早先是点标记直接开全屏看图 —— 气泡刚冒出来就被大图盖住，等于白做。
+      marker.on('popupopen', (event) => {
+        const image = event.popup.getElement()?.querySelector('.map-pop img')
+        image?.addEventListener('click', () => { media.galleryPreview = photo })
+      })
     }
     map.fitBounds(L.latLngBounds(route).pad(0.25), { maxZoom: 12 })
     status.value = 'ready'

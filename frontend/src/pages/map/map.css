@@ -34,7 +34,7 @@
 
 /* 气泡里的缩略图与说明 */
 .map-pop{margin:0;display:grid;gap:7px;width:152px}
-.map-pop img{width:100%;height:96px;object-fit:cover;border-radius:10px;display:block}
+.map-pop img{width:100%;height:96px;object-fit:cover;border-radius:10px;display:block;cursor:zoom-in}
 .map-pop figcaption{display:grid;gap:2px}
 .map-pop strong{font-size:12px;font-weight:600;color:#e9e6f2}
 .map-pop span{font-size:10px;color:#a9a4bb}
