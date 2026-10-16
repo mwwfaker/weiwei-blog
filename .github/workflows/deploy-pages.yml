@@ -45,6 +45,13 @@ jobs:
           # 可选：中文歌词源的中转地址（Supabase Edge Function，见 supabase/functions/lyrics）。
           # 不设置就只用 LRCLIB 自动匹配 + 手动粘贴，功能正常。
           VITE_LYRICS_PROXY: ${{ vars.VITE_LYRICS_PROXY }}
+          # 可选：立体浏览的深度模型放在哪。不设置就从 HuggingFace 取（国内慢）。
+          # 模型放在自己项目的公开桶 weiwei-assets/models/ 下时，两条都要给：
+          #   VITE_DEPTH_MODEL_HOST=https://<项目>.supabase.co/storage/v1/object/public/weiwei-assets/models
+          #   VITE_DEPTH_MODEL_PATH_TEMPLATE={model}/{file}
+          # 只换镜像站（目录形状与 HuggingFace 相同）时，第二条留空即可。
+          VITE_DEPTH_MODEL_HOST: ${{ vars.VITE_DEPTH_MODEL_HOST }}
+          VITE_DEPTH_MODEL_PATH_TEMPLATE: ${{ vars.VITE_DEPTH_MODEL_PATH_TEMPLATE }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
