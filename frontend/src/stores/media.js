@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { request, uploadMedia } from '@/services/api'
+import { makeThumbnail, readPhotoMeta } from '@/services/photoUpload'
 import { notify } from '@/app/useToast'
 import { requireLogin } from '@/app/useGuard'
 import { demoPhotos } from '@/data/seed'
@@ -128,6 +129,32 @@ export const useMediaStore = defineStore('media', () => {
   const allPhotoCount = computed(() => galleryItems.value.length)
   const looseCount = computed(() => (previewByAlbum.value.get('') || []).length)
 
+  /** 有拍摄地点的照片：地图上的足迹用它们。没有 GPS 的照片不进这个列表，这不是错误。 */
+  const geoPhotos = computed(() => galleryItems.value.filter((item) => item.latitude != null && item.longitude != null))
+
+  /**
+   * 「X 年前的今天」：按拍摄时间的**月日**匹配今天（年份要早于今年）。
+   * 刻意不查数据库：照片本来就已经全在内存里（公开的 + 自己的），客户端一算就有。
+   */
+  const onThisDay = computed(() => {
+    const now = new Date()
+    const monthDay = `${now.getMonth() + 1}-${now.getDate()}`
+    const hits = galleryItems.value
+      .filter((item) => {
+        if (!item.takenAt) return false
+        const taken = new Date(item.takenAt)
+        return taken.getFullYear() < now.getFullYear()
+          && `${taken.getMonth() + 1}-${taken.getDate()}` === monthDay
+      })
+      .sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt))
+    if (!hits.length) return null
+    return {
+      photo: hits[0],
+      years: now.getFullYear() - new Date(hits[0].takenAt).getFullYear(),
+      count: hits.length,
+    }
+  })
+
   /**
    * 当前要显示的照片。
    * 首页给的是**没进盒子的那些**（散落在外面）；打开某本相册就是它直辖的照片。
@@ -142,6 +169,9 @@ export const useMediaStore = defineStore('media', () => {
   const ownTracks = computed(() => (ownMedia.value || []).filter((item) => item.kind === 'MUSIC' || item.kind === 'MUSIC_URL'))
 
   function mapMedia(media) {
+    // 界面上显示的日期优先用**拍摄时间**：用 created_at（上传时间）会让「X 年前的今天」
+    // 变成「你哪天传的」，也会让相册里的时间排序莫名其妙。
+    const when = media.takenAt || media.createdAt
     return {
       id: media.id,
       caption: media.title,
@@ -149,9 +179,14 @@ export const useMediaStore = defineStore('media', () => {
       albumId: media.albumId == null ? null : String(media.albumId),
       albumName: media.albumName || '日常',
       description: media.description || '',
-      date: media.createdAt ? media.createdAt.slice(0, 7).replace('-', ' / ') : new Date().toISOString().slice(0, 7).replace('-', ' / '),
+      date: when ? when.slice(0, 7).replace('-', ' / ') : new Date().toISOString().slice(0, 7).replace('-', ' / '),
+      takenAt: media.takenAt || null,
+      latitude: media.latitude ?? null,
+      longitude: media.longitude ?? null,
       image: media.url,
       src: media.url,
+      // 网格与盒子封面用缩略图；没有就回退原图（老照片就是这样，不影响显示）
+      thumb: media.thumbUrl || media.url,
       key: media.objectKey,
       visibility: media.visibility,
       kind: media.kind,
@@ -323,7 +358,25 @@ export const useMediaStore = defineStore('media', () => {
         preview: URL.createObjectURL(file),
         caption: file.name.replace(/\.[^.]+$/, ''),
         description: '',
+        // 下面三项都在本机读/算，不花流量：拍摄时间与地点来自 EXIF，缩略图由 canvas 生成
+        takenAt: null,
+        latitude: null,
+        longitude: null,
+        thumb: null,
       })),
+    }
+    // 每张几十毫秒，并行做；结果直接写进条目，界面上会显示拍到的日期
+    for (const entry of uploadDialog.value.entries) {
+      readPhotoMeta(entry.file).then((meta) => {
+        if (!uploadDialog.value?.entries.includes(entry)) return
+        entry.takenAt = meta.takenAt
+        entry.latitude = meta.latitude
+        entry.longitude = meta.longitude
+      }).catch(() => {})
+      makeThumbnail(entry.file).then((blob) => {
+        if (!uploadDialog.value?.entries.includes(entry)) return
+        entry.thumb = blob
+      }).catch(() => {})
     }
   }
 
@@ -360,6 +413,11 @@ export const useMediaStore = defineStore('media', () => {
         description: entry.description.trim() || uploadDraft.value.description,
         albumId,
         visibility: uploadDraft.value.visibility,
+        // 这三项在打开对话框时就本机读/算好了（见 openUploadDialog）
+        thumb: entry.thumb,
+        takenAt: entry.takenAt,
+        latitude: entry.latitude,
+        longitude: entry.longitude,
       })
       if (saved) done += 1
       uploadProgress.value = { done: uploadProgress.value.done + 1, total: entries.length, running: true }
@@ -473,6 +531,12 @@ export const useMediaStore = defineStore('media', () => {
     }
     try {
       const uploaded = await uploadMedia(file, auth.token)
+      // 缩略图单独传一份。它失败**不算失败**：mediaView 会自动回退到原图，
+      // 照片该显示还是显示，只是网格慢一点。
+      let thumbKey = null
+      if (draft.thumb) {
+        try { thumbKey = (await uploadMedia(draft.thumb, auth.token)).key } catch { thumbKey = null }
+      }
       const saved = await request('/api/media', {
         token: auth.token,
         method: 'POST',
@@ -481,9 +545,13 @@ export const useMediaStore = defineStore('media', () => {
           title: item.caption,
           description: item.description,
           objectKey: uploaded.key,
+          thumbKey,
           contentType: uploaded.contentType,
           visibility: item.visibility,
           albumId: album ? album.id : null,
+          takenAt: draft.takenAt || null,
+          latitude: draft.latitude ?? null,
+          longitude: draft.longitude ?? null,
         }),
       })
       Object.assign(item, mapMedia(saved), { mine: true })
@@ -572,7 +640,7 @@ export const useMediaStore = defineStore('media', () => {
     albums, publicAlbums, albumManager, albumDraft, albumEditor, albumEditDraft,
     openAlbum, currentAlbum, currentChildren, rootAlbums, childrenOf,
     albumPhotos, loosePhotos, albumPreview, albumTotal, directCount,
-    allPhotoCount, looseCount, visibleGallery, ownTracks,
+    allPhotoCount, looseCount, visibleGallery, ownTracks, onThisDay, geoPhotos,
     selecting, selectedPhotoIds, photoMover, moveDraft,
     isSelected, toggleSelecting, togglePhotoSelection, openPhotoMover, savePhotoMove,
     uploadDialog, uploadDraft, uploadProgress,

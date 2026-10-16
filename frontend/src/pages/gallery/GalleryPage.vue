@@ -80,6 +80,19 @@ function onPicked(event) {
       />
 
       <template v-else>
+        <!-- 回忆：只在"今天"正好有往年照片时出现，所以它一出现就是个惊喜 -->
+        <div v-if="media.onThisDay" class="memory-card">
+          <button class="memory-photo" @click="media.galleryPreview = media.onThisDay.photo">
+            <img :src="media.onThisDay.photo.thumb || media.onThisDay.photo.image" :alt="media.onThisDay.photo.caption" />
+          </button>
+          <div class="memory-copy">
+            <span class="memory-kicker">{{ media.onThisDay.years }} 年前的今天</span>
+            <strong>{{ media.onThisDay.photo.caption }}</strong>
+            <p v-if="media.onThisDay.photo.description">{{ media.onThisDay.photo.description }}</p>
+            <small v-if="media.onThisDay.count > 1">这一天还有 {{ media.onThisDay.count - 1 }} 张</small>
+          </div>
+        </div>
+
         <AlbumBoxes v-if="media.rootAlbums.length" :albums="media.rootAlbums" />
         <p v-else class="album-home-hint">
           还没有相册。上面「管理相册」里建一本（比如「旅行」），就能把照片一盒一盒收好了。

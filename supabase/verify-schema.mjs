@@ -67,6 +67,8 @@ const TABLES = [
 const COLUMN_SETS = [
   { table: 'media_assets', columns: ['album_id', 'description'], why: '照片的所属相册与描述' },
   { table: 'media_assets', columns: ['lyrics', 'lyrics_source'], why: '歌词原文与来源' },
+  { table: 'media_assets', columns: ['thumb_key', 'taken_at'], why: '缩略图与拍摄时间' },
+  { table: 'media_assets', columns: ['latitude', 'longitude'], why: '拍摄地点（地图足迹）' },
   { table: 'photo_albums', columns: ['description'], why: '相册盒子自己的描述' },
 ]
 

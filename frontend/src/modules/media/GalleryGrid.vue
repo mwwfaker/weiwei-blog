@@ -26,7 +26,8 @@ defineEmits(['preview'])
     <div class="gallery-grid album-grid">
       <figure v-for="photo in media.visibleGallery" :key="photo.id" :class="{ 'is-selected': media.isSelected(photo.id) }">
         <button class="gallery-photo" @click="media.selecting && auth.isLoggedIn ? media.togglePhotoSelection(photo.id) : $emit('preview', photo)">
-          <img :src="photo.image" :alt="photo.caption" />
+          <!-- 网格里用缩略图（~30KB）；没有缩略图的老照片回退到原图 -->
+          <img :src="photo.thumb || photo.image" :alt="photo.caption" loading="lazy" />
           <span v-if="media.selecting && auth.isLoggedIn" class="gallery-pick">{{ media.isSelected(photo.id) ? '✓' : '' }}</span>
         </button>
         <figcaption>

@@ -55,6 +55,9 @@ const { closing, dustRect, dustCount, requestClose, DUST_HOLD_MS, DUST_MS } = us
       <PhotoDepthViewer :photo="props.photo" @close="depthMode = false" />
     </div>
     <img v-else ref="frame" :src="props.photo.image" :alt="props.photo.caption" />
+    <p v-if="props.photo.takenAt" class="viewer-taken">
+      摄于 {{ new Date(props.photo.takenAt).toLocaleString('zh-CN', { hour12: false }) }}
+    </p>
 
     <div class="viewer-caption">
       <strong>{{ props.photo.caption }}</strong>

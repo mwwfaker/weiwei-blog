@@ -164,8 +164,20 @@ alter table public.media_assets add column if not exists album_id bigint
   references public.photo_albums(id) on delete set null;
 -- 照片描述：和 title（名称）分开——名称是「这张是什么」，描述是「当时发生了什么」。
 alter table public.media_assets add column if not exists description text not null default '';
+-- 缩略图的对象键。网格里加载原图太慢（一张手机照片 3–5 MB，二十张就是上百 MB），
+-- 上传时顺手生成一张 ~30 KB 的小图。为空时前端回退到原图，所以老照片不会被这张新表搞坏。
+alter table public.media_assets add column if not exists thumb_key text;
+-- 拍摄时间（EXIF DateTimeOriginal）。原来界面上显示的日期是从 created_at 推的，也就是**上传时间**——
+-- 「X 年前的今天」这类功能必须用真实拍摄时间，否则回忆出来的是"你哪天传的"。
+alter table public.media_assets add column if not exists taken_at timestamptz;
+-- 拍摄地点（EXIF GPS），用来在地图上连足迹。没有 GPS 的照片留空，不是错误。
+alter table public.media_assets add column if not exists latitude double precision;
+alter table public.media_assets add column if not exists longitude double precision;
 
 create index if not exists idx_media_album on public.media_assets (album_id);
+-- 「同一天拍的」要按月日查，没法走普通索引，但按 owner + 拍摄时间排序要能走
+create index if not exists idx_media_taken on public.media_assets (owner_id, taken_at desc);
+create index if not exists idx_media_geo on public.media_assets (owner_id) where latitude is not null;
 
 -- 把老数据里「照片上的相册名」升级成真正的相册，并把照片挂上去。
 -- 只在相册表还是空的时候做这一次：不设这个前提的话，以后每次重跑 schema.sql
@@ -411,6 +423,23 @@ create policy weiwei_media_delete on storage.objects for delete to authenticated
     and (storage.foldername(name))[1] = 'users'
     and (storage.foldername(name))[2] = auth.uid()::text
   );
+
+-- ---------------------------------------------------------------- 公开资源桶（模型文件）
+-- 立体浏览要拉一份 ~26 MB 的深度模型。默认从 HuggingFace 取，国内很慢；
+-- 放进自己的项目里，访客就从同一处拿。
+-- 这个桶是**公开读**的：只放模型这种本来就人人可下的东西。
+-- 照片与音乐仍然在私有桶 weiwei-media 里走签名链接，两者不要混。
+insert into storage.buckets (id, name, public)
+values ('weiwei-assets', 'weiwei-assets', true)
+on conflict (id) do update set public = true;
+
+-- 写只允许登录用户，而且只能在 models/ 前缀下（免得有人拿公开桶当免费网盘）。
+drop policy if exists weiwei_assets_models_write on storage.objects;
+create policy weiwei_assets_models_write on storage.objects for insert to authenticated
+  with check (bucket_id = 'weiwei-assets' and name like 'models/%');
+drop policy if exists weiwei_assets_models_update on storage.objects;
+create policy weiwei_assets_models_update on storage.objects for update to authenticated
+  using (bucket_id = 'weiwei-assets' and name like 'models/%');
 
 -- ================================================================ 自检
 -- 执行完可以把下面这句单独跑一下，确认 8 张表都开了 RLS：

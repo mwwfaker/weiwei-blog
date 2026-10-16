@@ -130,9 +130,15 @@ const articleView = (row) => ({
   ownerId: row.owner_id, createdAt: row.created_at, updatedAt: row.updated_at,
 })
 
-const mediaView = (row, url) => ({
+const mediaView = (row, url, thumbUrl) => ({
   id: row.id, kind: row.kind, title: row.title, objectKey: row.object_key, contentType: row.content_type,
   visibility: row.visibility, url: url || row.object_key, albumName: row.album_name,
+  // 缩略图是给网格用的（~30KB）；没有就回退到原图，所以老照片照样显示
+  thumbUrl: thumbUrl || url || row.object_key,
+  // 拍摄时间/地点来自 EXIF，可能为空 —— 空不是错误，是"这张没有这个信息"
+  takenAt: row.taken_at || null,
+  latitude: row.latitude ?? null,
+  longitude: row.longitude ?? null,
   // album_id 可为空（没归相册）。转成字符串：相册 id 在 URL 与 <select> 里都会以字符串出现，
   // 两边类型不一致的话，`'12' === 12` 这种比较会让筛选静默地少一批照片。
   albumId: row.album_id == null ? null : String(row.album_id),
@@ -182,7 +188,13 @@ const entryView = (row) => ({
 // MUSIC_URL 是外部直链，原样返回；其余都在私有桶里，需要短期签名链接。
 
 async function signMediaRows(rows) {
-  const paths = rows.filter((row) => row.kind !== 'MUSIC_URL').map((row) => row.object_key)
+  // 一次把原图与缩略图都签了：分两次请求会多一个来回，而这个函数在每次读媒体库时都会跑。
+  const paths = []
+  for (const row of rows) {
+    if (row.kind === 'MUSIC_URL') continue
+    if (row.object_key) paths.push(row.object_key)
+    if (row.thumb_key) paths.push(row.thumb_key)
+  }
   const signed = new Map()
   if (paths.length) {
     const { data } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrls(paths, LINK_TTL)
@@ -190,7 +202,7 @@ async function signMediaRows(rows) {
       if (item?.path && item?.signedUrl) signed.set(item.path, item.signedUrl)
     }
   }
-  return rows.map((row) => mediaView(row, signed.get(row.object_key) || ''))
+  return rows.map((row) => mediaView(row, signed.get(row.object_key) || '', signed.get(row.thumb_key) || ''))
 }
 
 // ---------------------------------------------------------------- 账号
@@ -430,6 +442,11 @@ const routes = [
       album_id: album.id,
       description: String(body.description || ''),
       object_key: String(body.objectKey || ''),
+      thumb_key: body.thumbKey ? String(body.thumbKey) : null,
+      // 拍摄时间/地点由调用方从 EXIF 读好后传进来（浏览器里读，不用把整张图传上来）
+      taken_at: body.takenAt || null,
+      latitude: body.latitude ?? null,
+      longitude: body.longitude ?? null,
       content_type: String(body.contentType || ''),
       visibility: body.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE',
     }
@@ -464,11 +481,12 @@ const routes = [
 
   ['DELETE', /^\/api\/media\/([^/]+)$/, async ({ params }) => {
     const user = await requireUser()
-    const row = unwrap(await supabase.from('media_assets').select('object_key')
+    const row = unwrap(await supabase.from('media_assets').select('object_key, thumb_key')
       .eq('id', params[0]).eq('owner_id', user.id).maybeSingle(), { notFoundMessage: '媒体不存在' })
-    if (row?.object_key && !String(row.object_key).startsWith('http')) {
+    const orphans = [row?.object_key, row?.thumb_key].filter((key) => key && !String(key).startsWith('http'))
+    if (orphans.length) {
       // 对象删不掉不算失败：记录没了，页面就不该再显示它。
-      await supabase.storage.from(MEDIA_BUCKET).remove([row.object_key])
+      await supabase.storage.from(MEDIA_BUCKET).remove(orphans)
     }
     unwrap(await supabase.from('media_assets').delete().eq('id', params[0]).eq('owner_id', user.id))
     return undefined
@@ -519,6 +537,10 @@ const routes = [
     }
     // 描述允许改成空串（就是「清掉描述」），所以判的是 key 在不在，不是值非空。
     if ('description' in body) patch.description = String(body.description || '').trim()
+    // 同理：拍摄时间/地点可以被清掉（照片本来就没有 EXIF，或用户手动抹掉）
+    if ('takenAt' in body) patch.taken_at = body.takenAt || null
+    if ('latitude' in body) patch.latitude = body.latitude ?? null
+    if ('longitude' in body) patch.longitude = body.longitude ?? null
     const saved = unwrap(await supabase.from('photo_albums').update(patch)
       .eq('id', album.id).eq('owner_id', user.id).select().single())
     // 照片上的 album_name 是显示用的副本，改名后必须跟着走，否则照片上还挂着旧名字。

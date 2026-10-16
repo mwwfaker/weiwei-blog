@@ -37,7 +37,7 @@ const background = (url) => ({ backgroundImage: `url("${url}")` })
   <div class="album-boxes" :class="{ 'is-compact': compact }">
     <button v-for="box in boxes" :key="box.key" class="album-box" @click="media.openBox(box.key)">
       <span class="album-box-cover" :class="`has-${box.panes.length}`">
-        <span v-for="photo in box.panes" :key="photo.id" class="album-box-pane" :style="background(photo.image)"></span>
+        <span v-for="photo in box.panes" :key="photo.id" class="album-box-pane" :style="background(photo.thumb || photo.image)"></span>
         <!-- 空盒子也有一套默认样式：它只是还没装东西，不是不存在 -->
         <span v-if="!box.panes.length" class="album-box-blank">▧</span>
         <!-- 徽标：让「盒子」和「照片」在任何版面里都能一眼分开 -->

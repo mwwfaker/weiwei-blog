@@ -132,6 +132,31 @@ html,body,#app{min-width:320px;min-height:100%;scroll-behavior:smooth}body{backg
 .upload-remove{align-self:start;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;padding:2px 7px;border-radius:8px;cursor:pointer}
 .upload-remove:hover:not(:disabled){background:var(--glow);color:#ee7888}
 .upload-remove:disabled{opacity:.4;cursor:default}
+.upload-meta{color:var(--muted);font-size:11px;line-height:1.6}
+
+/* ---- 回忆：「X 年前的今天」 --------------------------------------------------
+   只在"今天"正好有往年照片时才渲染，所以它一出现就该像个惊喜：大图 + 一句话。 */
+.memory-card{
+  display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:20px;align-items:center;margin:22px 0 6px;
+  padding:16px;border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));border-radius:20px;
+  background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent 62%);
+}
+.memory-photo{border:0;padding:0;background:transparent;cursor:zoom-in;border-radius:14px;overflow:hidden;display:block}
+.memory-photo img{display:block;width:100%;height:172px;object-fit:cover;border-radius:14px;transition:transform .6s cubic-bezier(.22,.9,.24,1)}
+.memory-photo:hover img{transform:scale(1.04)}
+.memory-copy{display:grid;gap:7px;min-width:0}
+.memory-kicker{font-size:11px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+.memory-copy strong{font-family:var(--serif);font-size:21px;font-weight:500;color:var(--ink)}
+.memory-copy p{margin:0;color:var(--muted);font-size:13px;line-height:1.8;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.memory-copy small{color:var(--muted);font-size:11px}
+
+/* 看图里那行拍摄时间（在深色背板上，浅色小字） */
+.viewer-taken{position:absolute;top:26px;left:0;right:0;text-align:center;color:#8f8a9f;font-size:11px;pointer-events:none}
+
+@media(max-width:620px){
+  .memory-card{grid-template-columns:1fr;gap:14px}
+  .memory-photo img{height:150px}
+}
 
 /* ---- 立体浏览：把照片按深度摊成点云 ---------------------------------------------
    点云那块（three.js + 深度模型）是点进来才加载的，这里是它落地后的版面。 */

@@ -25,12 +25,16 @@ import ortMjsUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
 
 const MODEL = 'onnx-community/depth-anything-v2-small'
 /**
- * 模型从哪取。默认 HuggingFace；国内网络或想自托管时，用构建变量换掉：
+ * 模型从哪取。默认 HuggingFace；国内网络或自托管时，用构建变量换掉：
  *   VITE_DEPTH_MODEL_HOST=https://hf-mirror.com
- *   VITE_DEPTH_MODEL_HOST=https://<项目>.supabase.co/storage/v1/object/public/weiwei-assets
- * （两种都要保持 `<host>/<model>/resolve/main/<文件>` 这种目录形状）
+ *   VITE_DEPTH_MODEL_HOST=https://<项目>.supabase.co/storage/v1/object/public/weiwei-assets/models
+ *     VITE_DEPTH_MODEL_PATH_TEMPLATE={model}/{file}
+ *
+ * 目录形状各家不同：HuggingFace 是 `<model>/resolve/main/<file>`，对象存储一般就是
+ * `<model>/<file>`。所以路径模板也做成可配的 —— 写死一种，换源时就得改代码。
  */
 const MODEL_HOST = String(import.meta.env?.VITE_DEPTH_MODEL_HOST || '').trim()
+const MODEL_PATH_TEMPLATE = String(import.meta.env?.VITE_DEPTH_MODEL_PATH_TEMPLATE || '').trim() || '{model}/resolve/main/'
 
 /** 模型按后端各缓存一份：第二张照片就不用再等下载了。 */
 const pipelines = new Map()
@@ -70,7 +74,7 @@ function getPipeline(backend, onProgress) {
       }
       if (MODEL_HOST) {
         env.remoteHost = MODEL_HOST
-        env.remotePathTemplate = '{model}/resolve/main/'
+        env.remotePathTemplate = MODEL_PATH_TEMPLATE
       }
       return pipeline('depth-estimation', MODEL, {
         device: backend.device,

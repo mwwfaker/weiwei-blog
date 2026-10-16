@@ -69,6 +69,12 @@ const done = computed(() => media.uploadProgress.done)
             :disabled="running"
             placeholder="这张的描述（留空就用上面的统一描述）"
           ></textarea>
+          <!-- 拍摄时间/地点是上传前在本机从 EXIF 读的；读不到就显示"没有"，不是错误 -->
+          <small class="upload-meta">
+            <template v-if="entry.takenAt">摄于 {{ new Date(entry.takenAt).toLocaleString('zh-CN', { hour12: false }) }}</template>
+            <template v-else>没有拍摄时间（截图或平台抹掉了元数据）</template>
+            <template v-if="entry.latitude != null"> · 有定位</template>
+          </small>
         </div>
         <button class="upload-remove" :disabled="running" aria-label="不传这张" @click="media.removeUploadEntry(entry.key)">×</button>
       </li>

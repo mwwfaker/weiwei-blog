@@ -9,6 +9,7 @@ import DiaryPage from '@/pages/diary/DiaryPage.vue'
 import FriendsPage from '@/pages/friends/FriendsPage.vue'
 import GalleryPage from '@/pages/gallery/GalleryPage.vue'
 import HomePage from '@/pages/home/HomePage.vue'
+import MapPage from '@/pages/map/MapPage.vue'
 import MessagesPage from '@/pages/messages/MessagesPage.vue'
 import MusicPage from '@/pages/music/MusicPage.vue'
 import TagsPage from '@/pages/tags/TagsPage.vue'
@@ -51,6 +52,7 @@ export const pageComponents = {
   admin: AdminPage,
   perf: PerfPage,
   account: AccountPage,
+  map: MapPage,
 }
 
 /** 未知 id 落到「关于我」——和之前 v-else 的行为一致。 */
