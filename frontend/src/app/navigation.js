@@ -21,7 +21,6 @@ export const secondaryNavigation = [
   { id: 'archives', label: '时光归档', icon: '◷' },
   { id: 'messages', label: '留言板', icon: '✉' },
   { id: 'friends', label: '朋友们', icon: '↔' },
-  { id: 'map', label: '足迹', icon: '·' },
 ]
 
 // 两组导航拼成的完整表。只在本文件里给 pageLabel 用，不对外导出——

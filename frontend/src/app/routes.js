@@ -23,6 +23,5 @@ export const routes = [
   { path: '/admin', name: 'admin', component: NoopView },
   { path: '/perf', name: 'perf', component: NoopView },
   { path: '/account', name: 'account', component: NoopView },
-  { path: '/map', name: 'map', component: NoopView },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

@@ -129,9 +129,6 @@ export const useMediaStore = defineStore('media', () => {
   const allPhotoCount = computed(() => galleryItems.value.length)
   const looseCount = computed(() => (previewByAlbum.value.get('') || []).length)
 
-  /** 有拍摄地点的照片：地图上的足迹用它们。没有 GPS 的照片不进这个列表，这不是错误。 */
-  const geoPhotos = computed(() => galleryItems.value.filter((item) => item.latitude != null && item.longitude != null))
-
   /**
    * 「X 年前的今天」：按拍摄时间的**月日**匹配今天（年份要早于今年）。
    * 刻意不查数据库：照片本来就已经全在内存里（公开的 + 自己的），客户端一算就有。
@@ -640,7 +637,7 @@ export const useMediaStore = defineStore('media', () => {
     albums, publicAlbums, albumManager, albumDraft, albumEditor, albumEditDraft,
     openAlbum, currentAlbum, currentChildren, rootAlbums, childrenOf,
     albumPhotos, loosePhotos, albumPreview, albumTotal, directCount,
-    allPhotoCount, looseCount, visibleGallery, ownTracks, onThisDay, geoPhotos,
+    allPhotoCount, looseCount, visibleGallery, ownTracks, onThisDay,
     selecting, selectedPhotoIds, photoMover, moveDraft,
     isSelected, toggleSelecting, togglePhotoSelection, openPhotoMover, savePhotoMove,
     uploadDialog, uploadDraft, uploadProgress,

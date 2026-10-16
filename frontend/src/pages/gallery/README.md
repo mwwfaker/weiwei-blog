@@ -15,6 +15,7 @@
 | `PhotoDepthViewer.vue` | `modules/media/` | 立体浏览：照片 → 可拖动的点云（在看图里就地切换） |
 | `PhotoInfoPanel.vue` | `modules/media/` | 拍摄参数（EXIF）+ 主色 |
 | `PhotoSlideshow.vue` | `modules/media/` | 电影感播放（页面内挂载，不是外壳） |
+| `PhotoPlayDialog.vue` | `modules/media/` | 照片工坊：马赛克拼图、字符画 |
 | `PhotoMoveDialog.vue` | `modules/media/` | 「移到相册」：一张或一批（外壳挂载） |
 | `AlbumEditorDialog.vue` | `modules/media/` | 编辑一本相册的名字与描述（外壳挂载） |
 | `AlbumManagerDialog.vue` | `modules/media/` | 新建、改名、删除相册与子相册（外壳挂载） |
@@ -62,10 +63,6 @@
 
 上传时在本机生成一张 640px 的 WebP（约 30 KB）另存一份，网格与相册封面用它；
 **全屏看图仍然用原图**。没有缩略图的老照片会自动回退到原图，所以这张新表不会让老数据变坏。
-
-## 足迹
-
-有 GPS 的照片去 `/map` 看（见 `pages/map/README.md`）。
 
 ## 上传流程
 

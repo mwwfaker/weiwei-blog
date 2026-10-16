@@ -12,6 +12,7 @@ import { useDustClose } from '@/composables/useDustClose'
 import DustBurst from '@/modules/modal/DustBurst.vue'
 import PhotoDepthViewer from '@/modules/media/PhotoDepthViewer.vue'
 import PhotoInfoPanel from '@/modules/media/PhotoInfoPanel.vue'
+import PhotoPlayDialog from '@/modules/media/PhotoPlayDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useMediaStore } from '@/stores/media'
 
@@ -23,6 +24,7 @@ const auth = useAuthStore()
 
 const depthMode = ref(false)
 const infoOpen = ref(false)
+const playing = ref(false)
 
 // 量的是「照片本身」而不是整块背板：尘埃要从照片上剥落下来，不是从整个屏幕上。
 // 立体模式时量的是点云那块舞台 —— 两种模式下位置基本重合。
@@ -49,7 +51,9 @@ const { closing, dustRect, dustCount, requestClose, DUST_HOLD_MS, DUST_MS } = us
     <button class="viewer-info-toggle" :class="{ active: infoOpen }" @click="infoOpen = !infoOpen">
       {{ infoOpen ? '收起信息' : 'ⓘ 照片信息' }}
     </button>
+    <button class="viewer-play" @click="playing = true">✧ 玩一下</button>
     <PhotoInfoPanel v-if="infoOpen" :photo="props.photo" />
+    <PhotoPlayDialog v-if="playing" :photo="props.photo" @close="playing = false" />
 
     <div v-if="depthMode" ref="depthStage" class="depth-stage">
       <PhotoDepthViewer :photo="props.photo" @close="depthMode = false" />
