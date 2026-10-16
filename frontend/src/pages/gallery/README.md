@@ -12,6 +12,9 @@
 | `GalleryViewer.vue` | `modules/media/` | 全屏看图（外壳挂载，关闭时化作尘埃） |
 | `MediaEditorDialog.vue` | `modules/media/` | 照片信息编辑：名称 / 描述 / 所属相册 / 可见范围（外壳挂载） |
 | `PhotoUploadDialog.vue` | `modules/media/` | 一次选多张：先写名称/描述、挑去处与可见范围，再逐张上传（外壳挂载） |
+| `PhotoDepthViewer.vue` | `modules/media/` | 立体浏览：照片 → 可拖动的点云（在看图里就地切换） |
+| `PhotoInfoPanel.vue` | `modules/media/` | 拍摄参数（EXIF）+ 主色 |
+| `PhotoSlideshow.vue` | `modules/media/` | 电影感播放（页面内挂载，不是外壳） |
 | `PhotoMoveDialog.vue` | `modules/media/` | 「移到相册」：一张或一批（外壳挂载） |
 | `AlbumEditorDialog.vue` | `modules/media/` | 编辑一本相册的名字与描述（外壳挂载） |
 | `AlbumManagerDialog.vue` | `modules/media/` | 新建、改名、删除相册与子相册（外壳挂载） |
@@ -83,6 +86,21 @@
 - 访客只看到「装着公开照片」的相册，而且不能编辑。一级相册自己没有公开照片时，
   它的子相册会被当成一级显示——否则那本子相册会整个消失。
 - 名字与描述一起在「编辑相册」里改（`AlbumEditorDialog`）。描述允许留空。
+
+## 全屏看图里还有两件事
+
+- **ⓘ 照片信息**：拍摄参数（EXIF，只取图片前 256 KB）+ 这张照片的主色（点色块复制色值）。
+  两者都可能没有 —— 截图、微信/微博保存的图、Unsplash 之类都会抹掉元数据，这时显示一句「没有」。
+- **✦ 立体浏览**：把照片按深度摊成点云、可拖动换视角。它是**浮雕/视差级的 2.5D**，
+  不是能走进去的真实 3D；模型 18–26 MB，首次点要下（之后缓存）。细节见
+  `modules/media/README.md` 的「立体浏览」一节（那里记着两个必须记住的坑）。
+
+## 电影感播放
+
+首页的「▶ 电影感播放」放**全部照片**（当站点放映），相册里的「▶ 播放」放这一盒的。
+每张停留 5 秒、淡入 1.4 秒；空格暂停、← → 翻页、Esc 退出。
+
+首页刻意放"全部"而不是只放散落的那几张 —— 只放散落的，几张就播完了，不像放映。
 
 ## 全屏看图的关闭
 

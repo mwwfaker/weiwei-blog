@@ -13,6 +13,18 @@ store 把需要的数据当参数传进来。
 | `diaryImport.js` | 「整合日记」纯文本按日期头拆成一堆日记草稿（`splitDiaryText`）。纯函数，无 DOM、无 store。 |
 | `articleImport.js` | 文章导入：块 → 文章草稿（按文档里最浅那一级标题切分）+ Word 脏字符清理（`splitArticleBlocks` / `blocksFromText` / `normalizeText`）。纯函数。 |
 | `storage.js` | 可安全失败的 localStorage 读写（数据损坏或超配额都不会白屏）。 |
+| `exif.js` | 读照片的拍摄信息（相机/参数/时间/GPS）。**只取图片前 256 KB**（EXIF 在头部，不必为了一行参数再下一整张）。 |
+| `palette.js` | 从照片抽主色：画到 96×96 → 量化计数 → 挑差异最大的几个。零依赖。 |
+
+## 这两个新文件是**浏览器专属**的（和上面那批不一样）
+
+`exif.js` 用 `fetch`（Node 里也有），`palette.js` 用 `document.createElement('canvas')` ——
+**它们进不了对拍脚本**，别把它们加进 `verify-*.mjs`。
+上面「为什么公式要单独放」那一节说的是另一批文件（`perf` / `lyrics` / `diary` / `articleImport`），
+那条底线只管那几个，不要因为这里的例外就放松它们。
+
+两者都**不当成错误处理失败**：社交平台会抹掉 EXIF、跨域图片可能读不了像素（画布"被污染"），
+这时返回空数组，由调用方显示一句「没有可读的信息」。这是常态，不是异常。
 
 ## 为什么公式要单独放
 

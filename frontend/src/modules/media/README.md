@@ -10,6 +10,46 @@
 | `PhotoUploadDialog.vue` | 一次选多张：传之前先写名称/描述、挑去处与可见范围。 |
 | `AlbumManagerDialog.vue` | 相册管理：新建一级相册 / 子相册、改名、删除。 |
 | `AlbumEditorDialog.vue` | 编辑一本相册的名字与描述。 |
+| `PhotoDepthViewer.vue` | 立体浏览：把照片按深度摊成点云，可拖动换视角。 |
+| `PhotoInfoPanel.vue` | 照片信息：拍摄参数（EXIF）+ 这张的主色。 |
+| `PhotoSlideshow.vue` | 电影感播放：缓慢推近 + 淡入淡出，键盘翻页。 |
+| `depth.js` | 浏览器端深度估计（Depth Anything V2 small）。**不是组件**，被上面那个查看器调用。 |
+
+## 立体浏览：说清楚它是什么
+
+点「✦ 立体浏览」→ 用 Depth Anything V2 small 在**访客自己的电脑上**算出深度图 →
+把照片摊成一团点云（三万来个点，每个点按深度前后错开），可以拖动换视角、滚轮缩放。
+
+- **它是"浮雕/视差级"的 2.5D，不是能走进去的真实 3D 场景。** 后者需要生成式流水线
+  （比如 image-blaster 那种：Claude 技能 + World Labs/FAL 付费 API），做不到"点一下就有"。
+- **零服务器成本、照片不出本机**：模型跑在浏览器里（WASM 或 WebGPU）。代价是首次要下
+  18–26 MB 模型（之后走浏览器缓存，**第二张照片是秒开**）。
+- three.js 与模型都是**点进去才动态加载**的，平时翻相册不会多下一字节。
+
+### 两个必须记住的坑（都实测踩过）
+
+1. **必须关掉 onnxruntime-web 的多线程**（`numThreads = 1` + `proxy = false`）。
+   线程版要 `SharedArrayBuffer`，站点没发 COOP/COEP 响应头时推理会**永远不返回、也不报错**，
+   看起来像"模型太大跑不动"，实际是无声死锁。
+2. **不能只看 `navigator.gpu` 是否存在来决定用不用 WebGPU。** 无头浏览器、老驱动、
+   关了硬件加速的机器上它照样存在，但适配器拿不到；而一旦让 onnxruntime 去试 WebGPU 并失败，
+   **整个运行时会留在坏状态**，之后连 WASM 都报 `no available backend found`（回退都救不回来）。
+   所以先 `navigator.gpu.requestAdapter()` 探一次，拿不到就直接走 WASM。
+
+模型默认从 HuggingFace 取。国内网络或想自托管时用构建变量换源（保持目录形状）：
+
+```
+VITE_DEPTH_MODEL_HOST=https://hf-mirror.com
+VITE_DEPTH_MODEL_HOST=https://<项目>.supabase.co/storage/v1/object/public/weiwei-assets
+```
+
+## 照片信息与电影感播放
+
+- `PhotoInfoPanel`：EXIF **只取图片前 256 KB**（EXIF 在头部，为一行参数下一整张不值当）；
+  配色板把图画到 96×96 数一遍。两者失败都正常（社交平台会抹掉 EXIF、跨域图读不了像素），
+  这时显示一句「没有可读的拍摄信息」，不报错。色块点一下复制十六进制。
+- `PhotoSlideshow`：每张停留 5 秒、淡入 1.4 秒，推近动画 6 秒 —— **推近比停留略长**，
+  切换时它还在走，不会有"停下来再切"的顿感。空格暂停、← → 翻页、Esc 退出。
 
 ## 上传：先填信息，再上传
 

@@ -6,6 +6,7 @@
 import { computed, ref } from 'vue'
 import AlbumBoxes from '@/modules/media/AlbumBoxes.vue'
 import GalleryGrid from '@/modules/media/GalleryGrid.vue'
+import PhotoSlideshow from '@/modules/media/PhotoSlideshow.vue'
 import EmptyState from '@/modules/page/EmptyState.vue'
 import InnerPageHeader from '@/modules/page/InnerPageHeader.vue'
 import { requireLogin } from '@/app/useGuard'
@@ -20,6 +21,12 @@ const atHome = computed(() => media.openAlbum === 'all')
 const title = computed(() => media.currentAlbum?.name || '')
 const description = computed(() => media.currentAlbum?.description || '')
 const canEdit = computed(() => Boolean(media.currentAlbum?.mine))
+/**
+ * 电影感播放放哪些照片：首页放**全部**（当站点放映），盒子里放这一盒的。
+ * 首页如果只放"散落在外的"，那几张播完就没了，不像放映。
+ */
+const slideshowPhotos = computed(() => (atHome.value ? media.galleryItems : media.visibleGallery))
+const slideshow = ref(null) // null = 没在播；数字 = 从第几张开始
 
 /** 一张照片都没有、也一本相册都没有时才显示空状态：有盒子就该让盒子摆出来。 */
 const homeIsEmpty = computed(() => !media.galleryItems.length && !media.rootAlbums.length)
@@ -57,7 +64,10 @@ function onPicked(event) {
     <template v-if="atHome">
       <div class="album-home-bar">
         <span>{{ media.rootAlbums.length }} 本相册 · {{ media.loosePhotos.length }} 张散落在外面</span>
-        <button v-if="auth.isLoggedIn" class="album-manage" @click="media.albumManager = true">管理相册</button>
+        <div class="album-home-tools">
+          <button v-if="slideshowPhotos.length" class="album-manage" @click="slideshow = 0">▶ 电影感播放</button>
+          <button v-if="auth.isLoggedIn" class="album-manage" @click="media.albumManager = true">管理相册</button>
+        </div>
       </div>
 
       <EmptyState
@@ -96,6 +106,7 @@ function onPicked(event) {
         </div>
         <div class="album-detail-tools">
           <span class="album-detail-meta">{{ media.visibleGallery.length }} 张照片</span>
+          <button v-if="media.visibleGallery.length" class="album-detail-edit" @click="slideshow = 0">▶ 播放</button>
           <button v-if="canEdit" class="album-detail-edit" @click="media.openAlbumEditor(media.currentAlbum)">编辑相册</button>
         </div>
       </header>
@@ -113,5 +124,12 @@ function onPicked(event) {
 
       <GalleryGrid v-else @preview="media.galleryPreview = $event" />
     </template>
+
+    <PhotoSlideshow
+      v-if="slideshow !== null && slideshowPhotos.length"
+      :photos="slideshowPhotos"
+      :start="slideshow"
+      @close="slideshow = null"
+    />
   </section>
 </template>

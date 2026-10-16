@@ -5,6 +5,68 @@ README 只保留「现在是什么样」。新的一条加在最上面。
 
 ---
 
+## 2026 · 立体浏览（照片 → 可拖动的点云）+ 照片信息 + 电影感播放
+
+用户点头做这两块：**A 立体浏览**、**C 一批零模型小功能**。
+
+### 先说清楚那两个项目为什么用不上
+
+- [image-blaster](https://github.com/neilsonnn/image-blaster)：Claude 技能 + **付费 API 流水线**
+  （World Labs Marble 生成可探索环境、FAL/Hunyuan-3D 生成网格、ElevenLabs 配音效），产出
+  `.glb` + `.spz` + `.mp3`。README 里就写着要你自己准备 key。
+- [img2threejs](https://github.com/img2threejs/img2threejs)：**Python 工具链**，让 AI 看着参考图
+  **生成 Three.js 代码**（reconstruction-by-code）。
+
+两个都是**生成期**工具，不是能嵌进页面的运行时库 —— 做不成"查看照片时点一下"。
+它们的产物（`.glb` / `.spz` / 生成的代码）可以离线做好再挂进站点，但每张都要付费 API + 几分钟。
+真正能在浏览器里当场把照片变 3D 的是 [depth-explore](https://github.com/dj24/depth-explore) 那条路。
+
+### A 立体浏览（已做，并真机验证）
+
+点「✦ 立体浏览」→ 浏览器里用 Depth Anything V2 small 算深度 → 三万来个点的点云，可拖动/缩放。
+**它是浮雕/视差级的 2.5D，不是能走进去的真实 3D** —— 这句话写进了 README，免得被宣传片误导。
+
+实测（真实浏览器 + 真模型，点开一张山谷/花店照片）：
+
+```
+模型（WASM 量化版 26MB）下载 + 建 pipeline ≈ 18s → 推理 ≈ 17s → 就绪（合计 29–31s）
+拖动后画面变化 = true（视角真的会动）
+```
+
+**两个坑，都踩了并写进文档**：
+
+1. 不关 onnxruntime-web 的多线程时，推理**永远不返回也不报错**（线程版要 SharedArrayBuffer，
+   站点没有 COOP/COEP 头）。症状像"模型跑不动"，其实是无声死锁。
+2. **不能只看 `navigator.gpu` 存在就选 WebGPU。** 第一次实现里我做了 WebGPU→WASM 回退，
+   结果回退也失败：onnxruntime 试过 WebGPU 并失败后**整个运行时留在坏状态**，
+   连 WASM 都报 `no available backend found`。改成先 `requestAdapter()` 探一次，
+   拿不到就直接走 WASM，问题消失。（这正是无头 Chromium 的情形。）
+
+three.js 与模型都是**点进去才动态加载**（dynamic import），平时翻相册不会多下一字节；
+模型默认从 HuggingFace 取，可用 `VITE_DEPTH_MODEL_HOST` 换成镜像或自托管。
+
+### C 三个小功能
+
+- **照片信息面板**：EXIF **只取图片前 256 KB**（EXIF 在 JPEG 头部，为了一行参数下一整张不值当），
+  显示相机/镜头/参数/焦距/时间/尺寸/GPS（有位置就给一个 OpenStreetMap 链接）；
+  另有**配色板**（画到 96×96 量化计数，挑差异最大的 5 个色，点一下复制色值）。
+  两者失败都正常（社交平台抹 EXIF、跨域图读不了像素），显示一句「没有可读的拍摄信息」，不报错。
+- **电影感播放**：每张停留 5 秒、淡入 1.4 秒，**推近动画 6 秒**（比停留略长，切换时它还在走，
+  不会"停下来再切"）；空格暂停、← → 翻页、Esc 退出。首页放全部照片，相册里放这一盒的。
+- 新增 `services/exif.js`、`services/palette.js`（**浏览器专属，不进对拍脚本** —— README 已注明）。
+
+### 顺手修的一个真 bug
+
+看图右上角那几个控制按钮**被图片拦掉了点击**：新加的「照片信息」按钮在 `top:70px`，
+落在图片范围内，而静态图片的绘制顺序和预期不一样（实测 `elementFromPoint` 命中图片）。
+给 `.viewer-close / .viewer-delete / .viewer-depth / .viewer-info-toggle` 显式加了 `z-index: 2`。
+
+验证：`verify:all`、`test:render`（16 路由 + 7 分支 + 关闭探针）、`build` 全绿；
+Playwright 真机看过立体浏览（点云 + 拖动）、信息面板（5 个色块 + 尺寸）、
+电影感播放（1/4 → 方向键 → 2/4）。
+
+---
+
 ## 2026 · 一次选多张上传 + 上传前先填信息的上传对话框
 
 用户提的两点：**一次能传多张**、**传之前能写描述、能直接放进某个子相册**。
