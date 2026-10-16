@@ -35,12 +35,12 @@ const media = useMediaStore()
       <li v-for="album in media.rootAlbums" :key="album.id">
         <div class="album-row">
           <input :value="album.name" maxlength="80" aria-label="相册名" @change="media.renameAlbum(album, $event.target.value)" />
-          <small>{{ media.albumCounts[album.id] || 0 }} 张</small>
+          <small>{{ media.albumTotal(album) }} 张</small>
           <button class="danger-text" @click="media.removeAlbum(album)">删除</button>
         </div>
         <div v-for="child in media.childrenOf(album.id)" :key="child.id" class="album-row album-row-child">
           <input :value="child.name" maxlength="80" aria-label="子相册名" @change="media.renameAlbum(child, $event.target.value)" />
-          <small>{{ media.albumCounts[child.id] || 0 }} 张</small>
+          <small>{{ media.albumTotal(child) }} 张</small>
           <button class="danger-text" @click="media.removeAlbum(child)">删除</button>
         </div>
       </li>

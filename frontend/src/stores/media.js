@@ -39,9 +39,18 @@ export const useMediaStore = defineStore('media', () => {
   const publicAlbums = ref([])
   const albumManager = ref(false)
   const albumDraft = ref({ name: '', parentId: null })
+  /** 正在编辑名字/描述的那本相册；null = 没开编辑窗。 */
+  const albumEditor = ref(null)
+  const albumEditDraft = ref({ name: '', description: '' })
 
-  /** 当前筛选：`'all'` / `'none'`（未分类）/ 相册 id。 */
-  const selectedAlbum = ref('all')
+  /**
+   * 当前打开的「盒子」：
+   *   `'all'`    盒子首页（看的是相册本身，不是照片）
+   *   `'photos'` 全部照片（虚拟盒子，平面列出所有照片）
+   *   `'none'`   未分类（虚拟盒子）
+   *   `<id>`     某一本相册
+   */
+  const openAlbum = ref('all')
   const galleryPreview = ref(null)
   const mediaEditor = ref(null)
   const mediaDraft = ref({ title: '', description: '', albumId: null, visibility: 'PRIVATE' })
@@ -52,52 +61,69 @@ export const useMediaStore = defineStore('media', () => {
   /**
    * 子相册的父相册不在列表里时，把它当一级看。
    * 访客那条路会真的出现这种情况：一级相册自己没有公开照片时读不到（RLS），
-   * 而它的子相册里有一张——不这么处理的话这本子相册会从相册条上整个消失。
+   * 而它的子相册里有一张——不这么处理的话这本子相册会从盒子列表里整个消失。
    */
   const isChild = (album) => album.parentId != null && albumById.value.has(album.parentId)
   const rootAlbums = computed(() => albumList.value.filter((album) => !isChild(album)))
   const childrenOf = (id) => albumList.value.filter((album) => isChild(album) && album.parentId === String(id))
 
-  /** 当前选中的相册属于哪本一级相册（用于决定第二排显示谁）。 */
-  const activeRootId = computed(() => {
-    const album = albumById.value.get(selectedAlbum.value)
-    if (!album) return null
-    return isChild(album) ? album.parentId : album.id
+  /** 当前打开的那本相册（首页 / 虚拟盒子时为 null）。 */
+  const currentAlbum = computed(() => albumById.value.get(openAlbum.value) || null)
+  /** 打开一本一级相册时，它下面的子相册——这些会以「小一号的盒子」出现在里面。 */
+  const currentChildren = computed(() => {
+    const album = currentAlbum.value
+    return album && !isChild(album) ? childrenOf(album.id) : []
   })
-  const activeChildren = computed(() => (activeRootId.value ? childrenOf(activeRootId.value) : []))
 
   /**
-   * 选中相册时要放行的相册 id 集合。
-   * 选一级相册时把子相册的照片一起放进来——「整个相册」的语义就是这些全都算。
+   * 相册里**直辖**的照片（不含子相册的）。
+   * 盒子里的照片和子盒子是分开摆的：照片是真的在这本相册里，子相册的照片在子盒子里，
+   * 混在一起会让人分不清「这张到底在哪一层」。
    */
-  function scopeIds(key) {
-    const album = albumById.value.get(key)
-    if (!album) return new Set()
-    const ids = new Set([album.id])
-    if (!isChild(album)) for (const child of childrenOf(album.id)) ids.add(child.id)
-    return ids
-  }
+  const albumPhotos = (albumId) => galleryItems.value.filter((item) => item.albumId === String(albumId))
+  const unclassifiedPhotos = () => galleryItems.value.filter((item) => !item.albumId)
 
-  const visibleGallery = computed(() => {
-    const key = selectedAlbum.value
-    if (key === 'all') return galleryItems.value
-    if (key === 'none') return galleryItems.value.filter((item) => !item.albumId)
-    const ids = scopeIds(key)
-    return galleryItems.value.filter((item) => item.albumId && ids.has(item.albumId))
-  })
-
-  /** 相册条上的数字。一级相册的数字含它的子相册，否则「旅行」显示 0 张、点进去却有照片。 */
-  const albumCounts = computed(() => {
-    const counts = { all: galleryItems.value.length, none: 0 }
-    for (const album of albumList.value) counts[album.id] = 0
+  /** 每本相册直辖照片的预览（封面上最多拼 4 张，所以每本只留 8 张就够）。 */
+  const previewByAlbum = computed(() => {
+    const map = new Map()
     for (const item of galleryItems.value) {
-      if (!item.albumId) { counts.none += 1; continue }
-      if (counts[item.albumId] != null) counts[item.albumId] += 1
+      const key = item.albumId || ''
+      if (!map.has(key)) map.set(key, [])
+      const list = map.get(key)
+      if (list.length < 8) list.push(item)
     }
-    for (const album of rootAlbums.value) {
-      for (const child of childrenOf(album.id)) counts[album.id] += counts[child.id] || 0
-    }
-    return counts
+    return map
+  })
+  const directCount = (albumId) => (previewByAlbum.value.get(String(albumId)) || []).length
+
+  /**
+   * 盒子封面用哪几张照片。
+   * 一级相册连子相册的照片一起算——只拍子相册的那本相册不该是个空盒子。
+   */
+  function albumPreview(album, limit = 4) {
+    if (!album) return galleryItems.value.slice(0, limit) // 「全部照片」这个虚拟盒子
+    const pool = [...(previewByAlbum.value.get(album.id) || [])]
+    for (const child of childrenOf(album.id)) pool.push(...(previewByAlbum.value.get(child.id) || []))
+    return pool.slice(0, limit)
+  }
+  const unclassifiedPreview = (limit = 4) => (previewByAlbum.value.get('') || []).slice(0, limit)
+
+  /** 盒子上显示的数字：一级相册含子相册，否则「旅行」显示 0 张、点进去却有照片。 */
+  function albumTotal(album) {
+    let total = directCount(album.id)
+    for (const child of childrenOf(album.id)) total += directCount(child.id)
+    return total
+  }
+  const allPhotoCount = computed(() => galleryItems.value.length)
+  const unclassifiedCount = computed(() => (previewByAlbum.value.get('') || []).length)
+
+  /** 打开某个盒子时网格里要显示的照片。首页不显示照片（首页看的是相册本身）。 */
+  const visibleGallery = computed(() => {
+    const key = openAlbum.value
+    if (key === 'all') return []
+    if (key === 'photos') return galleryItems.value
+    if (key === 'none') return unclassifiedPhotos()
+    return albumPhotos(key)
   })
 
   const ownTracks = computed(() => (ownMedia.value || []).filter((item) => item.kind === 'MUSIC' || item.kind === 'MUSIC_URL'))
@@ -178,27 +204,57 @@ export const useMediaStore = defineStore('media', () => {
    */
   async function refreshAlbums() {
     if (auth.isLoggedIn) {
-      try { albums.value = await request('/api/photo-albums', { token: auth.token }) }
+      // mine 标记和照片上那套一致：访客看到的公开相册不能编辑。
+      try { albums.value = (await request('/api/photo-albums', { token: auth.token })).map((album) => ({ ...album, mine: true })) }
       catch (error) { notify(`相册同步失败：${error.message}`) }
     } else {
       albums.value = []
     }
-    try { publicAlbums.value = await request('/api/public/photo-albums') }
+    try { publicAlbums.value = (await request('/api/public/photo-albums')).map((album) => ({ ...album, mine: false })) }
     catch { publicAlbums.value = [] }
-    // 选中的相册可能已经不存在了（换了账号、换了一台设备删过）。留在一个空筛选上会
-    // 显示「0 张照片」，看起来像照片丢了。
-    if (selectedAlbum.value !== 'all' && selectedAlbum.value !== 'none' && !albumById.value.has(selectedAlbum.value)) {
-      selectedAlbum.value = 'all'
+    // 打开着的那本相册可能已经不存在了（换了账号、在另一台设备上删过）。
+    // 停在一本不存在的相册上会看到空盒子，看起来像照片丢了。
+    if (openAlbum.value !== 'all' && openAlbum.value !== 'none' && openAlbum.value !== 'photos'
+      && !albumById.value.has(openAlbum.value)) {
+      openAlbum.value = 'all'
     }
   }
 
-  function selectAlbum(key) {
-    selectedAlbum.value = key == null ? 'all' : String(key)
+  /** 打开一个盒子（`'all'` 回首页 / `'photos'` / `'none'` / 相册 id）。 */
+  function openBox(key) {
+    openAlbum.value = key == null ? 'all' : String(key)
   }
 
-  /** 上传的照片落到当前正在看的那个相册；看的是「全部 / 未分类」时就不归相册。 */
+  /** 上传的照片落到当前正开着的那本相册；停在首页 / 全部 / 未分类时就不归相册。 */
   function targetAlbum() {
-    return albumById.value.get(selectedAlbum.value) || null
+    return currentAlbum.value
+  }
+
+  function openAlbumEditor(album) {
+    albumEditDraft.value = { name: album.name, description: album.description || '' }
+    albumEditor.value = album
+  }
+
+  /** 保存相册的名字与描述。描述允许清空（传空串）。 */
+  async function saveAlbumEditor() {
+    const album = albumEditor.value
+    if (!album) return
+    if (!requireLogin('修改相册')) return
+    const name = albumEditDraft.value.name.trim()
+    if (!name) return notify('相册名不能为空')
+    if (!album.mine) return notify('这不是你自己的相册，只能查看')
+    try {
+      const saved = await request(`/api/photo-albums/${album.id}`, {
+        token: auth.token,
+        method: 'PUT',
+        body: JSON.stringify({ name, description: albumEditDraft.value.description }),
+      })
+      Object.assign(album, saved)
+      // 照片上的相册名是显示用的副本，本地这些也要跟着改，否则网格里还挂着旧名字。
+      for (const item of galleryItems.value) if (item.albumId === album.id) item.albumName = saved.name
+    } catch (error) { return notify(`相册没保存：${error.message}`) }
+    albumEditor.value = null
+    notify('相册信息已保存')
   }
 
   async function createAlbum(parentId = null) {
@@ -211,7 +267,7 @@ export const useMediaStore = defineStore('media', () => {
         method: 'POST',
         body: JSON.stringify({ name, parentId: parentId == null ? null : String(parentId) }),
       })
-      albums.value.push(created)
+      albums.value.push({ ...created, mine: true })
       albumDraft.value.name = ''
       notify(parentId == null ? `相册「${created.name}」建好了` : `子相册「${created.name}」建好了`)
     } catch (error) { notify(`相册没建成：${error.message}`) }
@@ -235,7 +291,7 @@ export const useMediaStore = defineStore('media', () => {
   async function removeAlbum(album) {
     if (!requireLogin('删除相册')) return
     const children = childrenOf(album.id)
-    const photos = albumCounts.value[album.id] || 0
+    const photos = albumTotal(album)
     const extra = children.length ? `它下面的 ${children.length} 个子相册会一起删掉，` : ''
     if (!window.confirm(`确定删除相册「${album.name}」吗？${extra}里面的 ${photos} 张照片不会被删除，会回到「未分类」。`)) return
     try {
@@ -250,7 +306,8 @@ export const useMediaStore = defineStore('media', () => {
         item.albumName = '日常'
       }
     }
-    if (removed.has(selectedAlbum.value)) selectedAlbum.value = 'all'
+    if (removed.has(openAlbum.value)) openAlbum.value = 'all'
+    albumEditor.value = null
     notify('相册已删除，照片回到未分类')
   }
 
@@ -361,11 +418,13 @@ export const useMediaStore = defineStore('media', () => {
   }
 
   return {
-    galleryItems, publicTracks, ownMedia, selectedAlbum, galleryPreview, mediaEditor, mediaDraft,
-    albums, publicAlbums, albumManager, albumDraft,
-    visibleGallery, ownTracks, rootAlbums, childrenOf, albumCounts, activeRootId, activeChildren,
-    mapMedia, isStoredMedia, mediaImage, refresh, refreshAlbums, selectAlbum,
-    createAlbum, renameAlbum, removeAlbum,
+    galleryItems, publicTracks, ownMedia, galleryPreview, mediaEditor, mediaDraft,
+    albums, publicAlbums, albumManager, albumDraft, albumEditor, albumEditDraft,
+    openAlbum, currentAlbum, currentChildren, rootAlbums, childrenOf,
+    albumPhotos, unclassifiedPhotos, albumPreview, unclassifiedPreview, albumTotal, directCount,
+    allPhotoCount, unclassifiedCount, visibleGallery, ownTracks,
+    mapMedia, isStoredMedia, mediaImage, refresh, refreshAlbums, openBox,
+    createAlbum, renameAlbum, removeAlbum, openAlbumEditor, saveAlbumEditor,
     addPhoto, openEditor, saveEdit, changeVisibility, remove,
   }
 })

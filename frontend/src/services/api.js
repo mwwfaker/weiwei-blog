@@ -144,6 +144,7 @@ const mediaView = (row, url) => ({
 const albumView = (row) => ({
   id: String(row.id), name: row.name,
   parentId: row.parent_id == null ? null : String(row.parent_id),
+  description: row.description || '',
 })
 
 /**
@@ -153,7 +154,7 @@ const albumView = (row) => ({
  * 所以凡是改动归属的地方，两列必须一起写——只写 album_id 会让照片挂着旧名字。
  */
 async function loadOwnAlbum(userId, albumId) {
-  const row = unwrap(await supabase.from('photo_albums').select('id, name')
+  const row = unwrap(await supabase.from('photo_albums').select('id, name, description')
     .eq('id', albumId).eq('owner_id', userId).maybeSingle(), { notFoundMessage: '相册不存在' })
   if (!row) throw fail('相册不存在', 404)
   return row
@@ -490,7 +491,12 @@ const routes = [
     if (parentId !== null) await loadOwnAlbum(user.id, parentId)
     // 同层重名交给数据库的部分唯一索引挡（PGRST 会回 23505，前端显示「这条记录已存在」）。
     const saved = unwrap(await supabase.from('photo_albums')
-      .insert({ owner_id: user.id, parent_id: parentId, name }).select().single())
+      .insert({
+        owner_id: user.id,
+        parent_id: parentId,
+        name,
+        description: String(body.description || '').trim(),
+      }).select().single())
     return albumView(saved)
   }],
 
@@ -511,6 +517,8 @@ const routes = [
       }
       patch.parent_id = parentId
     }
+    // 描述允许改成空串（就是「清掉描述」），所以判的是 key 在不在，不是值非空。
+    if ('description' in body) patch.description = String(body.description || '').trim()
     const saved = unwrap(await supabase.from('photo_albums').update(patch)
       .eq('id', album.id).eq('owner_id', user.id).select().single())
     // 照片上的 album_name 是显示用的副本，改名后必须跟着走，否则照片上还挂着旧名字。

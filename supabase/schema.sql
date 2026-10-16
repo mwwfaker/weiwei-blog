@@ -107,10 +107,14 @@ create table if not exists public.photo_albums (
   owner_id uuid not null references auth.users(id) on delete cascade,
   parent_id bigint references public.photo_albums(id) on delete cascade,
   name text not null default '',
+  -- 相册盒子自己的描述：这一盒装的是什么、什么时候拍的。和「照片的描述」是两回事。
+  description text not null default '',
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- 已经建过表的项目：这一句把新字段补上（列已存在时是空操作）。
+alter table public.photo_albums add column if not exists description text not null default '';
 create index if not exists idx_photo_albums_owner on public.photo_albums (owner_id, parent_id, sort_order, id);
 -- 同一层里不许重名。两条**部分唯一索引**而不是一条表达式索引：parent_id 可空，
 -- 空值在唯一索引里互不相等，直接建 (owner_id, parent_id, name) 等于对一级相册完全不设限。

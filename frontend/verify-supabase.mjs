@@ -122,8 +122,11 @@ try {
     !e13 && orphanPhoto?.album_id === null, e13?.message || `album_id=${orphanPhoto?.album_id}`)
 
   console.log('\n=== 5. 本人能读到自己的全部内容 ===')
-  const { data: ownDiaries } = await clientA.from('diary_entries').select('id, visibility')
-  check('本人可读自己全部日记', (ownDiaries || []).length === 2, `读到 ${ownDiaries?.length} 条`)
+  // 只数**自己的**行。库里可能有站长的真实内容（这个脚本会跑在真库上），
+  // 用"总数恰好等于 2"来断言的话，会随着真实内容的多少而假失败。
+  const { data: ownDiaries } = await clientA.from('diary_entries').select('id, visibility, owner_id')
+  const mineCount = (ownDiaries || []).filter((row) => row.owner_id === userA.id).length
+  check('本人可读自己全部日记', mineCount === 2, `自己的 ${mineCount} 条 / 总共可见 ${ownDiaries?.length} 条`)
 
   console.log('\n=== 6. 匿名访客只能读公开内容 ===')
   const { data: anonDiaries } = await anon.from('diary_entries').select('id, visibility')
@@ -175,8 +178,9 @@ try {
   await clientA.from('blog_articles').delete().eq('owner_id', userA.id)
   await clientA.from('media_assets').delete().eq('owner_id', userA.id)
   await clientA.from('photo_albums').delete().eq('owner_id', userA.id)
-  const { data: left } = await clientA.from('diary_entries').select('id')
-  check('测试数据已清理', (left || []).length === 0, `剩余 ${left?.length} 条`)
+  // 同样只看自己的行：库里留着站长自己的内容，全局计数永远不会是 0。
+  const { data: left } = await clientA.from('diary_entries').select('id, owner_id').eq('owner_id', userA.id)
+  check('测试数据已清理', (left || []).length === 0, `自己的剩余 ${left?.length} 条`)
 } catch (error) {
   console.error('\n中断：', error.message)
   fail++

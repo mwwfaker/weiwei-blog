@@ -67,6 +67,7 @@ const TABLES = [
 const COLUMN_SETS = [
   { table: 'media_assets', columns: ['album_id', 'description'], why: '照片的所属相册与描述' },
   { table: 'media_assets', columns: ['lyrics', 'lyrics_source'], why: '歌词原文与来源' },
+  { table: 'photo_albums', columns: ['description'], why: '相册盒子自己的描述' },
 ]
 
 async function probe(path) {
