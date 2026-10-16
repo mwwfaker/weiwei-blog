@@ -41,7 +41,7 @@ function onPicked(event) {
       v-if="!media.galleryItems.length"
       icon="▧"
       title="这里还没有照片"
-      text="上传照片后，可以建立相册、预览大图，并按需公开或删除。"
+      text="上传照片后，可以建相册与子相册把它们分开收好，给每张写下描述，并按需公开或删除。"
       action-label="上传本地照片"
       @action="openPicker"
     />

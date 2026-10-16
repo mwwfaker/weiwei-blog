@@ -19,6 +19,7 @@ import DiaryImportDialog from '@/modules/diary/DiaryImportDialog.vue'
 import ImportProblemDialog from '@/modules/modal/ImportProblemDialog.vue'
 import DiaryReaderDialog from '@/modules/diary/DiaryReaderDialog.vue'
 import GalleryViewer from '@/modules/media/GalleryViewer.vue'
+import AlbumManagerDialog from '@/modules/media/AlbumManagerDialog.vue'
 import MediaEditorDialog from '@/modules/media/MediaEditorDialog.vue'
 import AudioEngine from '@/modules/music/AudioEngine.vue'
 import MusicDock from '@/modules/music/MusicDock.vue'
@@ -139,15 +140,17 @@ onUnmounted(() => disposeToast())
       @remove="articles.remove"
     />
 
-    <Transition name="reader">
-      <GalleryViewer
-        v-if="media.galleryPreview"
-        :photo="media.galleryPreview"
-        @close="media.galleryPreview = null"
-      />
-    </Transition>
+    <!-- 全屏看图自己播入场/退场（退场是「化作尘埃」的粒子层），所以这里不包 <Transition>：
+         外层一包，v-if 会在动画开始前就把组件摘掉，粒子一个都来不及飞。
+         它内部用的是和阅读弹窗同一份退场时序。 -->
+    <GalleryViewer
+      v-if="media.galleryPreview"
+      :photo="media.galleryPreview"
+      @close="media.galleryPreview = null"
+    />
 
     <MediaEditorDialog v-if="media.mediaEditor" @close="media.mediaEditor = null" />
+    <AlbumManagerDialog v-if="media.albumManager" @close="media.albumManager = false" />
     <MusicEditorDialog v-if="music.musicEditor" @close="music.musicEditor = null" />
     <DiaryImportDialog v-if="diaries.importDialog" @close="diaries.importDialog = false" />
     <ArticleImportDialog v-if="articles.importDialog" @close="articles.importDialog = false" />

@@ -23,7 +23,7 @@ globalThis.history = { pushState() {}, replaceState() {}, state: null, go() {}, 
 globalThis.addEventListener = () => {}
 globalThis.removeEventListener = () => {}
 
-const { render, renderLyrics, renderDock, routePaths } = await import('./dist-ssr/entry.js')
+const { render, renderLyrics, renderDock, probeDustClose, routePaths } = await import('./dist-ssr/entry.js')
 
 // 路径来自真实路由表（见 entry.js 的 routePaths），新加页面会自动被覆盖。
 const routes = routePaths
@@ -134,8 +134,31 @@ for (const item of cases) {
   }
 }
 
+// ---------------------------------------------------------------- 关闭动效（不是渲染）
+// 「化作尘埃」只在用户点关闭时才跑，整页渲染和组件渲染都碰不到它。这里真的调一次。
+//
+// 为什么值得单独一条：它抛错时的症状是「点了关闭没反应」，页面上什么都不显示，
+// 只有控制台里一行 TypeError。上线过一次——`useDustClose` 里 import 进来的 `motion`
+// 被同名的参数遮住了，日记和全屏看图两条关闭路径一起废掉。
+try {
+  const report = await probeDustClose()
+  const problems = []
+  if (report.error) problems.push(`requestClose 抛错：${report.error}`)
+  if (!report.closing) problems.push('没有进入消散状态（动效不会播）')
+  if (report.closedImmediately) problems.push('没等动效播完就通知关闭了')
+  if (!report.dustRect || report.dustRect.width !== 800 || report.dustRect.left !== 12) {
+    problems.push(`粒子没有按目标元素的真实位置铺开：${JSON.stringify(report.dustRect)}`)
+  }
+  if (report.count < 200) problems.push(`粒子太少（${report.count}），会看不出是「尘埃」`)
+  if (problems.length) throw new Error(problems.join('；'))
+  console.log(`PASS  dust close  ${report.count} 颗粒子，${report.ms}ms 后关闭`)
+} catch (error) {
+  failures += 1
+  console.log(`FAIL  dust close  ${error.message}`)
+}
+
 console.log(failures === 0
-  ? `\nAll ${routes.length} routes + ${cases.length} component branches rendered without errors.`
-  : `\n${failures} of ${routes.length + cases.length} checks failed.`)
+  ? `\nAll ${routes.length} routes + ${cases.length} component branches + 1 close-animation probe passed.`
+  : `\n${failures} of ${routes.length + cases.length + 1} checks failed.`)
 // 显式退出：SSR 之后还挂着 supabase 之类的句柄，不主动退的话脚本会在打印完结果后一直不结束。
 process.exit(failures ? 1 : 0)

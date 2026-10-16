@@ -37,6 +37,10 @@
 三条关闭路径都进同一个 `requestClose()`，行为一致——**其中没有哪一条是「直接关掉、不动画」的**。
 （`@click.self` 保证只有点在卡片外的空白处才算，点卡片里面不会误关。）
 
+**这套时序本身是共用件**：`composables/useDustClose.js`（时长常量、量位置、兜底、等粒子飞完再
+`emit('close')`）。全屏看图 `modules/media/GalleryViewer.vue` 复用的就是它，粒子铺在图片位置上。
+要改动效请改那一份，**不要复制数字**——两边写得不一致时，症状是「粒子还在飞，组件已经被摘掉」。
+
 ### `ImportProblemDialog.vue`：文件打不开时的提示窗
 
 导入 Word / 文本时如果文件读不出来，弹的是这个窗，不是 toast。理由是这些失败
@@ -120,12 +124,11 @@
 阅读类弹窗（自己的页眉排版）：
 
 ```vue
-<Transition name="reader">
-  <ModalShell bare as="article" card-class="diary-reading" @close="...">
-    <div class="reading-toolbar">...</div>
-    ...
-  </ModalShell>
-</Transition>
+<ReadingSheet card-class="diary-reading" :count-text="entry.content" @close="...">
+  <template #head>...</template>
+  ...
+</ReadingSheet>
 ```
 
-**过渡动画由调用方包**：`<Transition>` 要求只有一个子节点，把外壳包在里面最省事。
+**过渡动画由外壳自己播**，所以调用方**不要**再包 `<Transition>`：外层一般是 `v-if`，
+一上来就 `emit('close')` 会让父组件在动画开始前把组件摘掉；两套动效也会打架。

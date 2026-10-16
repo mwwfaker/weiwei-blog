@@ -17,6 +17,7 @@ defineEmits(['preview'])
       <figcaption>
         <span>{{ photo.caption }}</span>
         <small>{{ photo.albumName || '日常' }} · {{ photo.date }}</small>
+        <em v-if="photo.description" class="gallery-desc">{{ photo.description }}</em>
       </figcaption>
       <div v-if="auth.isLoggedIn && photo.mine" class="gallery-actions">
         <button @click="media.openEditor(photo)">编辑</button>

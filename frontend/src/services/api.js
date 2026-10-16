@@ -19,6 +19,8 @@ const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || ''
 
 /** 对象存储桶名，和 supabase/schema.sql 里的存储策略对应。只在本文件里用。 */
 const MEDIA_BUCKET = 'weiwei-media'
+/** 没归到任何相册时照片上的相册名。前端的「未分类」分组就是 album_id 为空。 */
+const DEFAULT_ALBUM = '日常'
 /** 签名链接有效期（秒），和原来后端的 1 小时一致。 */
 const LINK_TTL = 3600
 const MAX_UPLOAD_BYTES = 30 * 1024 * 1024
@@ -85,6 +87,14 @@ function parseBody(body) {
 function unwrap(result, { notFoundMessage } = {}) {
   if (result.error) {
     const code = result.error.code || ''
+    const message = result.error.message || ''
+    // 表 / 列不存在（PGRST205 / 42703）：在这个仓库里只有一个原因——schema.sql 改过但还没执行。
+    // 原文是 "Could not find the table 'public.photo_albums' in the schema cache"，
+    // 对着它看不出该干什么（现象就只是「点了创建没反应，弹一句英文」），
+    // 所以换成一句能照着做的事，并把原文留在括号里方便排查。
+    if (code === 'PGRST205' || code === '42703' || /schema cache|does not exist/i.test(message)) {
+      throw fail(`数据库里还没有这张表 / 这一列，请先执行一次 supabase/schema.sql（原文：${message}）`, 409)
+    }
     if (code === 'PGRST116') throw fail(notFoundMessage || '记录不存在', 404)
     if (code === '23505') throw fail('这条记录已存在', 409)
     if (code === '42501' || /row-level security/i.test(result.error.message || '')) {
@@ -123,9 +133,38 @@ const articleView = (row) => ({
 const mediaView = (row, url) => ({
   id: row.id, kind: row.kind, title: row.title, objectKey: row.object_key, contentType: row.content_type,
   visibility: row.visibility, url: url || row.object_key, albumName: row.album_name,
+  // album_id 可为空（没归相册）。转成字符串：相册 id 在 URL 与 <select> 里都会以字符串出现，
+  // 两边类型不一致的话，`'12' === 12` 这种比较会让筛选静默地少一批照片。
+  albumId: row.album_id == null ? null : String(row.album_id),
+  description: row.description || '',
   lyrics: row.lyrics || '', lyricsSource: row.lyrics_source || '',
   ownerId: row.owner_id, createdAt: row.created_at,
 })
+
+const albumView = (row) => ({
+  id: String(row.id), name: row.name,
+  parentId: row.parent_id == null ? null : String(row.parent_id),
+})
+
+/**
+ * 相册是两级结构，照片上却同时存着 album_id（真正的归属）和 album_name（显示用的副本）。
+ * 这个副本是给公开照片墙用的：相册表对访客几乎不可见（见 schema.sql 的 RLS），
+ * 让访客为了显示一个名字去读别人的相册表不划算。
+ * 所以凡是改动归属的地方，两列必须一起写——只写 album_id 会让照片挂着旧名字。
+ */
+async function loadOwnAlbum(userId, albumId) {
+  const row = unwrap(await supabase.from('photo_albums').select('id, name')
+    .eq('id', albumId).eq('owner_id', userId).maybeSingle(), { notFoundMessage: '相册不存在' })
+  if (!row) throw fail('相册不存在', 404)
+  return row
+}
+
+/** 把传来的相册 id 换成 `{ id, name }`；null / 空串表示「不归任何相册」。 */
+async function albumLabel(userId, albumId, fallback = DEFAULT_ALBUM) {
+  if (albumId == null || albumId === '') return { id: null, name: fallback }
+  const row = await loadOwnAlbum(userId, albumId)
+  return { id: row.id, name: row.name }
+}
 
 const queueView = (row) => ({ id: row.client_id, name: row.name, kpi: row.kpi })
 const memberView = (row) => ({
@@ -377,11 +416,18 @@ const routes = [
 
   ['POST', /^\/api\/media$/, async ({ body }) => {
     const user = await requireUser()
+    // `albumId` 在 key 里就按相册走（null = 未分类）；没带这个 key 的老调用点（头像、
+    // 文章封面、音乐）继续只用 albumName，它们本来就不参与相册体系。
+    const album = 'albumId' in body
+      ? await albumLabel(user.id, body.albumId)
+      : { id: null, name: String(body.albumName || DEFAULT_ALBUM).trim() || DEFAULT_ALBUM }
     const row = {
       owner_id: user.id,
       kind: String(body.kind || 'IMAGE'),
       title: String(body.title || '').trim(),
-      album_name: String(body.albumName || '日常').trim() || '日常',
+      album_name: album.name,
+      album_id: album.id,
+      description: String(body.description || ''),
       object_key: String(body.objectKey || ''),
       content_type: String(body.contentType || ''),
       visibility: body.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE',
@@ -398,7 +444,15 @@ const routes = [
     const patch = { updated_at: nowIso() }
     if (body.visibility != null) patch.visibility = body.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE'
     if (body.title != null) patch.title = String(body.title).trim()
-    if (body.albumName != null) patch.album_name = String(body.albumName).trim() || '日常'
+    if (body.description != null) patch.description = String(body.description)
+    if (body.albumName != null) patch.album_name = String(body.albumName).trim() || DEFAULT_ALBUM
+    // 这里必须用 `in` 而不是 `!= null`：把照片移回「未分类」传的就是 null，
+    // 用 != null 判会把「移出相册」当成「没改相册」，照片留在原地不动。
+    if ('albumId' in body) {
+      const album = await albumLabel(user.id, body.albumId)
+      patch.album_id = album.id
+      patch.album_name = album.name
+    }
     if (body.lyrics != null) patch.lyrics = String(body.lyrics)
     if (body.lyricsSource != null) patch.lyrics_source = String(body.lyricsSource)
     const row = unwrap(await supabase.from('media_assets').update(patch)
@@ -416,6 +470,69 @@ const routes = [
       await supabase.storage.from(MEDIA_BUCKET).remove([row.object_key])
     }
     unwrap(await supabase.from('media_assets').delete().eq('id', params[0]).eq('owner_id', user.id))
+    return undefined
+  }],
+
+  // ---- 相册（两级：相册 → 子相册）----
+  ['GET', /^\/api\/photo-albums$/, async () => {
+    const user = await requireUser()
+    const rows = unwrap(await supabase.from('photo_albums').select('*')
+      .eq('owner_id', user.id).order('sort_order').order('id'))
+    return (rows || []).map(albumView)
+  }],
+
+  ['POST', /^\/api\/photo-albums$/, async ({ body }) => {
+    const user = await requireUser()
+    const name = String(body.name || '').trim()
+    if (!name) throw fail('相册名不能为空')
+    const parentId = body.parentId == null || body.parentId === '' ? null : body.parentId
+    // 借这个把「父相册是不是我的」校验掉；不校验的话能把子相册挂到别人的相册下面。
+    if (parentId !== null) await loadOwnAlbum(user.id, parentId)
+    // 同层重名交给数据库的部分唯一索引挡（PGRST 会回 23505，前端显示「这条记录已存在」）。
+    const saved = unwrap(await supabase.from('photo_albums')
+      .insert({ owner_id: user.id, parent_id: parentId, name }).select().single())
+    return albumView(saved)
+  }],
+
+  ['PUT', /^\/api\/photo-albums\/([^/]+)$/, async ({ params, body }) => {
+    const user = await requireUser()
+    const album = await loadOwnAlbum(user.id, params[0])
+    const patch = { updated_at: nowIso() }
+    if (body.name != null) {
+      const name = String(body.name).trim()
+      if (!name) throw fail('相册名不能为空')
+      patch.name = name
+    }
+    if ('parentId' in body) {
+      const parentId = body.parentId == null || body.parentId === '' ? null : body.parentId
+      if (parentId !== null) {
+        if (String(parentId) === String(album.id)) throw fail('相册不能成为自己的子相册')
+        await loadOwnAlbum(user.id, parentId)
+      }
+      patch.parent_id = parentId
+    }
+    const saved = unwrap(await supabase.from('photo_albums').update(patch)
+      .eq('id', album.id).eq('owner_id', user.id).select().single())
+    // 照片上的 album_name 是显示用的副本，改名后必须跟着走，否则照片上还挂着旧名字。
+    if (patch.name && patch.name !== album.name) {
+      unwrap(await supabase.from('media_assets').update({ album_name: patch.name })
+        .eq('album_id', album.id).eq('owner_id', user.id))
+    }
+    return albumView(saved)
+  }],
+
+  ['DELETE', /^\/api\/photo-albums\/([^/]+)$/, async ({ params }) => {
+    const user = await requireUser()
+    const album = await loadOwnAlbum(user.id, params[0])
+    const children = unwrap(await supabase.from('photo_albums').select('id')
+      .eq('parent_id', album.id).eq('owner_id', user.id))
+    const ids = [album.id, ...(children || []).map((row) => row.id)]
+    // 照片不跟着相册一起消失：先把它们解绑回「未分类」。只靠外键的 on delete set null
+    // 也能解绑，但照片上的 album_name 会留着已删相册的名字，看起来像挂在一个不存在的相册上。
+    unwrap(await supabase.from('media_assets').update({ album_id: null, album_name: DEFAULT_ALBUM })
+      .in('album_id', ids).eq('owner_id', user.id))
+    // 子相册靠外键级联一起删掉。
+    unwrap(await supabase.from('photo_albums').delete().eq('id', album.id).eq('owner_id', user.id))
     return undefined
   }],
 
@@ -442,6 +559,21 @@ const routes = [
     const rows = unwrap(await supabase.from('media_assets').select('*')
       .in('kind', ['MUSIC', 'MUSIC_URL']).eq('visibility', 'PUBLIC').order('created_at', { ascending: false }))
     return signMediaRows(rows || [])
+  }],
+
+  // 访客看到的相册：只返回「里面装着公开照片」的那些（RLS 也会再挡一次）。
+  // 一级相册自己没有公开照片时读不到，返回结果里就少了那层——前端把「父相册不在列表里」
+  // 的子相册当成一级来显示，照片不会因此漏掉。
+  ['GET', /^\/api\/public\/photo-albums$/, async () => {
+    const rows = unwrap(await supabase.from('media_assets').select('album_id')
+      .eq('kind', 'IMAGE').eq('visibility', 'PUBLIC').not('album_id', 'is', null))
+    const ids = new Set((rows || []).map((row) => String(row.album_id)))
+    if (!ids.size) return []
+    const albums = unwrap(await supabase.from('photo_albums').select('*').order('sort_order').order('id'))
+    for (const album of albums || []) {
+      if (album.parent_id != null && ids.has(String(album.id))) ids.add(String(album.parent_id))
+    }
+    return (albums || []).filter((album) => ids.has(String(album.id))).map(albumView)
   }],
 
   // ---- 绩效 ----

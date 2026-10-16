@@ -12,20 +12,13 @@
 // 外层一般是 `v-if`，所以如果一上来就 emit，父组件立刻把它从 DOM 摘掉，
 // 动画根本没有机会开始——这正是原来文章阅读弹窗要靠外层 <Transition> 的原因。
 //
+// 这套退场时序（时长常量、量位置、兜底、等粒子飞完）在 `composables/useDustClose.js`，
+// 全屏看图（`modules/media/GalleryViewer.vue`）复用的是同一份。
+//
 // 版面（head / 正文 / actions 三个插槽）与外观各归各，日记和文章各有自己的样式节。
 import { computed, ref } from 'vue'
+import { useDustClose } from '@/composables/useDustClose'
 import DustBurst from './DustBurst.vue'
-
-/** 进场时长（毫秒）。只用于样式里的动画，不需要 JS 等待。 */
-const ENTER_MS = 560
-/**
- * 退场前的静止时长（毫秒）。
- * 一上来就化灰会「看不见」——眼睛需要一拍才反应过来要发生什么，
- * 所以先定住不动、再开始消散。别调大：超过 ~250ms 就会被当成卡住了。
- */
-const DUST_HOLD_MS = 180
-/** 退场总时长（毫秒）。必须覆盖「静止 + 消散 + 最后一批粒子飞完」，JS 要等它跑完再交差。 */
-const DUST_MS = 1320
 
 const props = defineProps({
   cardClass: { type: [String, Array, Object], default: '' },
@@ -54,36 +47,15 @@ const charCount = computed(() => String(props.countText || '').replace(/\s/g, ''
 const fromClass = computed(() => (props.from === 'left' ? 'is-from-left' : 'is-from-right'))
 
 const card = ref(null)
-const closing = ref(false)
-const dustRect = ref(null)
-const dustCount = ref(420)
-
-const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-/** 窄屏粒子给少一些：几百个带发光阴影的圆点在小手机上不划算。 */
-const particleCount = () => (typeof matchMedia === 'function' && matchMedia('(min-width: 761px)').matches ? 420 : 240)
-
-/**
- * 三条关闭路径（叉、点空白、代码里主动关）都走这里。
- * 动画跑完才 emit，父组件那时才把组件摘掉。
- */
-function requestClose() {
-  if (closing.value) return
-  if (!props.motion || reducedMotion()) { emit('close'); return }
-  closing.value = true
-  dustCount.value = particleCount()
-
-  // 粒子层要有地方铺。正常情况用卡片的实际位置；万一量不到（ref 没就绪等），
-  // 退回一块屏幕中央的区域——**宁可铺得不准，也不能一声不响地什么都不显示**。
-  const rect = card.value?.getBoundingClientRect?.()
-  if (rect && rect.width > 1 && rect.height > 1) {
-    dustRect.value = { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
-  } else {
-    const vw = globalThis.innerWidth || 1024
-    const vh = globalThis.innerHeight || 768
-    dustRect.value = { left: vw * 0.16, top: vh * 0.12, width: vw * 0.68, height: vh * 0.62 }
-  }
-  globalThis.setTimeout(() => emit('close'), DUST_MS)
-}
+// 退场的时序与粒子层都在 useDustClose 里（全屏看图用的是同一套）。
+// 关键点：**动画跑完才 emit('close')** —— 外层一般是 `v-if`，一上来就 emit 的话
+// 父组件立刻把它从 DOM 摘掉，动画根本没有机会开始。
+const { closing, dustRect, dustCount, requestClose, ENTER_MS, DUST_HOLD_MS, DUST_MS } = useDustClose({
+  target: card,
+  motion: () => props.motion,
+  // 三条关闭路径（叉、点空白、调用方主动关）都走这里，行为一致。
+  onClose: () => emit('close'),
+})
 
 defineExpose({ requestClose })
 </script>

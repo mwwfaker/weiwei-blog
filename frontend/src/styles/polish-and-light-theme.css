@@ -292,7 +292,8 @@
 
 /* 系统开了「减少动态效果」就只剩淡入淡出，粒子层直接不画 */
 @media(prefers-reduced-motion:reduce){
-  .reading-sheet,.reading-backdrop{animation:none}
+  .reading-sheet,.reading-backdrop,.gallery-viewer{animation:none}
+  .gallery-viewer>img{animation:none}
   .dust-burst{display:none}
 }
 
@@ -363,4 +364,24 @@
   .article-reading .reading-scroll{padding:6px 20px 44px}
   .article-reading .article-body{font-size:17px;line-height:2.1}
   .article-reading h1{font-size:clamp(30px,9vw,44px)}
+}
+
+/* ---- 全屏看图关闭：同一套「先定住一拍，再化作尘埃」------------------------------
+   时序、时长、粒子数都由 composables/useDustClose.js 下发，和阅读弹窗是同一份；
+   这里只负责把「照片模糊上浮、背板与按钮跟着淡掉」画出来。
+   粒子铺在**图片原来的位置**上，所以尘埃是从照片上剥落的，不是从整块屏幕上。
+   keyframes 里的 14% 对应 DUST_HOLD_MS / DUST_MS（180 / 1320）——CSS 关键帧的选择器
+   不能写 var()，所以这两个数字要手动对齐，改一个记得改另一个。 */
+.gallery-viewer.is-dusting{animation:backdropOut var(--dust-ms,1320ms) ease forwards;pointer-events:none}
+.gallery-viewer.is-dusting>img{
+  animation:photoDust var(--dust-ms,1320ms) cubic-bezier(.4,0,.7,1) forwards;
+  will-change:opacity,filter,transform;
+}
+.gallery-viewer.is-dusting .viewer-caption,
+.gallery-viewer.is-dusting .viewer-close,
+.gallery-viewer.is-dusting .viewer-delete{animation:backdropOut var(--dust-ms,1320ms) ease forwards}
+@keyframes photoDust{
+  0%,14%{opacity:1;filter:blur(0) saturate(1) brightness(1.03);transform:translate3d(0,0,0)}
+  48%{opacity:.92;filter:blur(1.6px) saturate(.8) brightness(1.09)}
+  100%{opacity:0;filter:blur(14px) saturate(.24) brightness(1.28);transform:translate3d(0,-26px,0) scale(.982)}
 }

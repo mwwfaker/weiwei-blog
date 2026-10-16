@@ -9,6 +9,28 @@
 | | `useCountUp` | 数字从 0 滚到目标值。起始值就是真实值，SSR 和渲染测试不会显示错数字。 |
 | | `prefersReducedMotion` | 是否开启了「减少动态效果」。 |
 | `useBulkImport.js` | `useBulkImport` | 批量导入的共用状态机：草稿列表、统一设置、逐条微调、确认写库（allSettled + 进度 + 失败项留存）。日记导入和文章导入**共用这一个**。 |
+| `useDustClose.js` | `useDustClose` / `ENTER_MS` / `DUST_HOLD_MS` / `DUST_MS` | 关闭时的「先定住一拍，再化作尘埃」：量目标位置、铺粒子、等动画跑完再 `emit('close')`。阅读弹窗与全屏看图**共用这一个**。 |
+
+## 「化作尘埃」为什么连时序也一起抽出来
+
+粒子层（`modules/modal/DustBurst.vue`）本来就是复用件，但真正容易出错的是它外面那套时序：
+量出目标位置 → 先定住一拍（180ms）→ 等粒子飞完（1320ms）再通知调用方关闭。
+三个数字里只要有一个两边写得不一样，症状都是「粒子还在飞，组件已经被摘掉了」——
+而且只在自己那处看得见。所以时长常量、`prefers-reduced-motion` 的判断、
+量不到位置时的兜底全都收在 `useDustClose.js` 里，CSS 那边用 `--dust-ms` 接收，
+不另写一遍数字。
+
+### 踩过的坑：选项名把 import 的名字遮住了
+
+`useDustClose` 的选项里有一个 `motion`（是否播放动效），而它同时要 import
+`composables/motion.js` 那个聚合对象。**参数会遮蔽同名的模块级 import**，
+于是 `motion.prefersReducedMotion()` 实际是在布尔值上取方法 →
+`TypeError: motion.prefersReducedMotion is not a function`。
+
+症状特别隐蔽：**点关闭毫无反应，页面上什么都不显示**，只有控制台一行 TypeError；
+构建、12 项结构检查、SSR 渲染冒烟全是绿的，因为那一行只在用户点关闭时才执行。
+所以 import 改名为 `motionHelpers`，并且 `ssr-smoke` 里加了一条真的去调
+`requestClose()` 的探针（见 `ssr-smoke/README.md`）——**这类 bug 只能靠「真的点一下」抓**。
 
 ## 批量导入为什么抽出来
 

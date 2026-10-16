@@ -98,6 +98,94 @@ create unique index if not exists uk_media_object_key on public.media_assets (ob
 create index if not exists idx_media_owner_created on public.media_assets (owner_id, created_at desc);
 create index if not exists idx_media_public on public.media_assets (kind, visibility, created_at desc);
 
+-- ---------------------------------------------------------------- 相册（两级：相册 → 子相册）
+-- 照片上的 album_name 从「唯一真相」降级成**显示用的冗余副本**：真正的归属是 album_id。
+-- 这样做是因为公开照片墙要给访客显示相册名，而相册表对访客基本不可见（见下面的 RLS），
+-- 让访客为了一个名字去读别人的相册表不划算。
+create table if not exists public.photo_albums (
+  id bigint generated always as identity primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  parent_id bigint references public.photo_albums(id) on delete cascade,
+  name text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_photo_albums_owner on public.photo_albums (owner_id, parent_id, sort_order, id);
+-- 同一层里不许重名。两条**部分唯一索引**而不是一条表达式索引：parent_id 可空，
+-- 空值在唯一索引里互不相等，直接建 (owner_id, parent_id, name) 等于对一级相册完全不设限。
+create unique index if not exists uk_photo_albums_root_name on public.photo_albums (owner_id, name)
+  where parent_id is null;
+create unique index if not exists uk_photo_albums_child_name on public.photo_albums (owner_id, parent_id, name)
+  where parent_id is not null;
+
+-- 只允许两级。写在触发器里而不是靠前端自觉：前端可以被改坏，
+-- 而「三级相册」一旦存进去，页面上的面包屑、筛选、删除都会开始各算各的。
+create or replace function public.photo_albums_keep_two_levels()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  grandparent bigint;
+  parent_owner uuid;
+begin
+  if new.parent_id is null then return new; end if;
+  if new.id is not null and new.parent_id = new.id then
+    raise exception '相册不能成为自己的子相册';
+  end if;
+
+  select parent_id, owner_id into grandparent, parent_owner
+  from public.photo_albums where id = new.parent_id;
+  if not found then raise exception '父相册不存在'; end if;
+  if parent_owner <> new.owner_id then raise exception '父相册不属于你'; end if;
+  if grandparent is not null then
+    raise exception '相册只支持两级，子相册下面不能再建子相册';
+  end if;
+
+  -- 自己已经有子相册时不能再挂到别人下面，否则会凭空多出一级。
+  if new.id is not null and exists (select 1 from public.photo_albums where parent_id = new.id) then
+    raise exception '这个相册下面已经有子相册，不能再挂到别的相册下';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_photo_albums_two_levels on public.photo_albums;
+create trigger trg_photo_albums_two_levels before insert or update on public.photo_albums
+  for each row execute function public.photo_albums_keep_two_levels();
+
+-- 已经建过表的项目：这三句把新字段补上。列已存在时是空操作，可以放心重复执行。
+alter table public.media_assets add column if not exists album_id bigint
+  references public.photo_albums(id) on delete set null;
+-- 照片描述：和 title（名称）分开——名称是「这张是什么」，描述是「当时发生了什么」。
+alter table public.media_assets add column if not exists description text not null default '';
+
+create index if not exists idx_media_album on public.media_assets (album_id);
+
+-- 把老数据里「照片上的相册名」升级成真正的相册，并把照片挂上去。
+-- 只在相册表还是空的时候做这一次：不设这个前提的话，以后每次重跑 schema.sql
+-- 都会把那些故意留在「未分类」的照片（album_name='日常'、album_id 为空）塞进「日常」相册。
+do $$
+declare
+  has_albums boolean;
+begin
+  select exists (select 1 from public.photo_albums) into has_albums;
+  if has_albums then return; end if;
+
+  insert into public.photo_albums (owner_id, name)
+  select distinct m.owner_id, coalesce(nullif(btrim(m.album_name), ''), '日常')
+  from public.media_assets m
+  where m.kind = 'IMAGE' and m.album_id is null;
+
+  update public.media_assets m
+  set album_id = a.id, album_name = a.name
+  from public.photo_albums a
+  where m.album_id is null and m.kind = 'IMAGE'
+    and a.owner_id = m.owner_id and a.parent_id is null
+    and a.name = coalesce(nullif(btrim(m.album_name), ''), '日常');
+end $$;
+
 -- ---------------------------------------------------------------- 绩效工作区
 create table if not exists public.perf_queues (
   id bigint generated always as identity primary key,
@@ -142,6 +230,7 @@ alter table public.profiles      enable row level security;
 alter table public.diary_entries enable row level security;
 alter table public.blog_articles enable row level security;
 alter table public.media_assets  enable row level security;
+alter table public.photo_albums  enable row level security;
 alter table public.perf_queues   enable row level security;
 alter table public.perf_members  enable row level security;
 alter table public.perf_entries  enable row level security;
@@ -189,6 +278,23 @@ create policy media_update on public.media_assets for update
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 drop policy if exists media_delete on public.media_assets;
 create policy media_delete on public.media_assets for delete using (owner_id = auth.uid());
+
+-- 相册：本人可读自己的全部相册；别人的相册**只有装着公开照片的那些**才可读。
+-- 为什么不是「所有人可读」：相册名本身就能说明问题（「离婚材料」这种名字不该漏出去），
+-- 而访客看图时又确实需要它来分组，所以按「里面有没有公开照片」逐条放行。
+drop policy if exists photo_albums_read on public.photo_albums;
+create policy photo_albums_read on public.photo_albums for select
+  using (
+    owner_id = auth.uid()
+    or exists (
+      select 1 from public.media_assets m
+      where m.album_id = public.photo_albums.id
+        and m.kind = 'IMAGE' and m.visibility = 'PUBLIC'
+    )
+  );
+drop policy if exists photo_albums_write on public.photo_albums;
+create policy photo_albums_write on public.photo_albums for all
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
 -- 绩效：读取对所有人开放（既定设计），写入只认本人
 drop policy if exists perf_queues_read on public.perf_queues;
@@ -303,6 +409,11 @@ create policy weiwei_media_delete on storage.objects for delete to authenticated
   );
 
 -- ================================================================ 自检
--- 执行完可以把下面这句单独跑一下，确认 7 张表都开了 RLS：
+-- 执行完可以把下面这句单独跑一下，确认 8 张表都开了 RLS：
 --   select relname, relrowsecurity from pg_class where relname in
---     ('profiles','diary_entries','blog_articles','media_assets','perf_queues','perf_members','perf_entries');
+--     ('profiles','diary_entries','blog_articles','media_assets','photo_albums','perf_queues','perf_members','perf_entries');
+
+-- 让 PostgREST 立刻重读一次结构。少了这句，刚建好的表可能还会继续回
+-- "Could not find the table ... in the schema cache" 一段时间——前端看到的
+-- 就是「点了创建没反应，弹一句英文」，和真的没建表一模一样。
+notify pgrst, 'reload schema';

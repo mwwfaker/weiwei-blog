@@ -76,6 +76,51 @@ try {
   }).select().single()
   check('插入公开媒体记录', !e4, e4?.message)
 
+  console.log('\n=== 4b. 相册（两级：相册 → 子相册）===')
+  const { data: rootAlbum, error: e7 } = await clientA.from('photo_albums')
+    .insert({ owner_id: userA.id, name: `验证相册-${stamp}` }).select().single()
+  check('建一级相册', !e7, e7?.message)
+
+  const { data: childAlbum, error: e8 } = await clientA.from('photo_albums')
+    .insert({ owner_id: userA.id, parent_id: rootAlbum?.id, name: '验证子相册' }).select().single()
+  check('建子相册', !e8, e8?.message)
+
+  const { error: e9 } = await clientA.from('photo_albums')
+    .insert({ owner_id: userA.id, parent_id: childAlbum?.id, name: '三级相册' })
+  check('子相册下面不能再建子相册（触发器）', Boolean(e9), e9?.message || '（居然成功了：两级约束失效）')
+
+  const { error: e10 } = await clientA.from('photo_albums')
+    .insert({ owner_id: userA.id, name: `验证相册-${stamp}` })
+  check('同层相册重名被拒', Boolean(e10), e10?.message || '（居然成功了：唯一索引失效）')
+
+  const { data: movedPhoto, error: e11 } = await clientA.from('media_assets')
+    .update({ album_id: childAlbum?.id, album_name: '验证子相册' })
+    .eq('id', media?.id).select().single()
+  check('照片能挂进子相册', !e11 && movedPhoto?.album_id === childAlbum?.id, e11?.message)
+
+  const { data: anonAlbums } = await anon.from('photo_albums').select('id, name')
+  check('匿名读得到装着公开照片的相册',
+    (anonAlbums || []).some((row) => row.id === childAlbum?.id), `读到 ${anonAlbums?.length} 条`)
+
+  // 只有私密照片的相册不该被匿名读到：相册名本身就能说明问题（「离婚材料」这种名字不该漏出去）。
+  const { data: privateAlbum } = await clientA.from('photo_albums')
+    .insert({ owner_id: userA.id, name: '只有私密照片' }).select().single()
+  const { error: e12 } = await clientA.from('media_assets').insert({
+    owner_id: userA.id, kind: 'IMAGE', title: 'RLS 私密图片', album_name: '只有私密照片',
+    album_id: privateAlbum?.id, object_key: `users/${userA.id}/images/private-${stamp}.png`,
+    content_type: 'image/png', visibility: 'PRIVATE',
+  })
+  const { data: anonAlbums2 } = await anon.from('photo_albums').select('id')
+  check('匿名读不到只有私密照片的相册',
+    !e12 && !(anonAlbums2 || []).some((row) => row.id === privateAlbum?.id),
+    e12?.message || `匿名读到 ${anonAlbums2?.length} 条`)
+
+  // 删相册只解绑，不连带删照片——照片是用户的东西，相册只是个归类。
+  const { error: e13 } = await clientA.from('photo_albums').delete().eq('id', rootAlbum?.id)
+  const { data: orphanPhoto } = await clientA.from('media_assets').select('album_id').eq('id', media?.id).maybeSingle()
+  check('删相册后照片还在、且回到未分类',
+    !e13 && orphanPhoto?.album_id === null, e13?.message || `album_id=${orphanPhoto?.album_id}`)
+
   console.log('\n=== 5. 本人能读到自己的全部内容 ===')
   const { data: ownDiaries } = await clientA.from('diary_entries').select('id, visibility')
   check('本人可读自己全部日记', (ownDiaries || []).length === 2, `读到 ${ownDiaries?.length} 条`)
@@ -129,6 +174,7 @@ try {
   await clientA.from('diary_entries').delete().eq('owner_id', userA.id)
   await clientA.from('blog_articles').delete().eq('owner_id', userA.id)
   await clientA.from('media_assets').delete().eq('owner_id', userA.id)
+  await clientA.from('photo_albums').delete().eq('owner_id', userA.id)
   const { data: left } = await clientA.from('diary_entries').select('id')
   check('测试数据已清理', (left || []).length === 0, `剩余 ${left?.length} 条`)
 } catch (error) {
