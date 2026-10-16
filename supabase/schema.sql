@@ -434,6 +434,12 @@ values ('weiwei-assets', 'weiwei-assets', true)
 on conflict (id) do update set public = true;
 
 -- 写只允许登录用户，而且只能在 models/ 前缀下（免得有人拿公开桶当免费网盘）。
+-- 另外**必须有一条 SELECT**：storage 的 upload 是 `insert ... returning`，
+-- 少了 SELECT 时 Postgres 会用 "new row violates row-level security policy" 报错 ——
+-- 信息极具误导性，看起来像 write 策略写错了，其实是读策略缺了。
+drop policy if exists weiwei_assets_models_read on storage.objects;
+create policy weiwei_assets_models_read on storage.objects for select to authenticated
+  using (bucket_id = 'weiwei-assets');
 drop policy if exists weiwei_assets_models_write on storage.objects;
 create policy weiwei_assets_models_write on storage.objects for insert to authenticated
   with check (bucket_id = 'weiwei-assets' and name like 'models/%');
