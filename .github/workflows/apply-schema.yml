@@ -1,0 +1,69 @@
+name: Apply database schema
+
+# 数据库结构（建表 / 加列 / 权限策略）**不是前端能做的事**：PostgREST 没有任何"执行 SQL"的
+# 入口，前端手里那把 anon key 只能读写**已经存在**的表。所以结构变更走这里 ——
+# 用仓库 Secret 里的 Supabase 管理令牌调 Management API，执行 supabase/schema.sql。
+#
+# 一次性配置（只做这一次，之后永不需要再碰数据库）：
+#   GitHub 仓库 → Settings → Secrets and variables → Actions → **Secrets** 标签
+#   → New repository secret
+#   名字必须是：SUPABASE_ACCESS_TOKEN
+#   值：Supabase → Account → Access Tokens 生成的 `sbp_` 令牌
+#
+# 配好之后：**改 supabase/schema.sql 并推送，这里自动执行**，不需要任何手工操作。
+# 也可以随时到 Actions 页面点 "Run workflow" 手动跑一次。
+#
+# 为什么不「加密后把密文提交进仓库」：
+#   GitHub Secret 本身就是加密存储（libsodium 密封盒），写入后**连仓库管理员也读不回原值**，
+#   日志里还会自动打码。自己再包一层，解密口令仍然得放在某个 Secret 里才跑得起来 ——
+#   信任边界一点没变，却多了一份"可能把明文写进日志"的自制代码。
+#   公开值（anon key / 项目地址）放 Variables，机密值（管理令牌）放 Secrets，这就够了。
+on:
+  push:
+    branches: [main]
+    # 只在结构文件本身变化时执行。放在这里，而不是让 deploy 工作流顺手跑，
+    # 是因为结构变更会直接改线上数据库，值得单独一条记录、单独一次状态。
+    paths: ['supabase/schema.sql']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 两次结构变更同时跑会互相踩同一个库，排队执行而不是并发。
+concurrency:
+  group: supabase-schema
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 少了这条，"令牌没配"和"SQL 写错了"在日志里长得一模一样（都是一堆 401）。
+      - name: 检查令牌是否已配置
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::仓库里还没有 SUPABASE_ACCESS_TOKEN 这个 Secret。到 Settings → Secrets and variables → Actions → Secrets 里加一条，名字必须是 SUPABASE_ACCESS_TOKEN，值是 Supabase 的 sbp_ 管理令牌。"
+            exit 1
+          fi
+
+      # 逐条执行 schema.sql 并汇报每条的结果（见 supabase/apply.mjs 的说明）。
+      # 这个脚本不会打印令牌；GitHub 也会对 Secret 自动打码。
+      - name: 执行 supabase/schema.sql
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node supabase/apply.mjs
+
+      # 只用公开的 anon key 复查"表和列真的都在了"。它不碰任何机密，
+      # 所以本地也能随时跑：node supabase/verify-schema.mjs
+      - name: 验证表与列都到位
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: node supabase/verify-schema.mjs

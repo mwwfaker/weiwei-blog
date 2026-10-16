@@ -5,6 +5,161 @@ README 只保留「现在是什么样」。新的一条加在最上面。
 
 ---
 
+## 2026 · 密钥暴露审计 + 数据库结构改成自动应用（不再手工操作）
+
+起因是用户的三个诉求：**别每次都让我手动操作数据库**、**密钥不能出现在 GitHub 上**、
+**回头查一下以前有没有直接把密钥/接口暴露出去**。
+
+### 一、审计结论：没有任何真实密钥被推到公开仓库
+
+| 查了什么 | 结果 |
+| --- | --- |
+| 仓库当前 245 个已跟踪文件 | 只有 4 处命中，全是**文档里的警告**（"`service_role` 绝不能进前端"）和 `legacy/` 里的 `jdbc:mysql://localhost` 示例地址 |
+| 全部 29 个提交的历史 | 116 行命中 = 上面那 4 行 × 29 次提交，其余干净；`sbp_` / `ghp_` / `AVNS_` / JWT 密钥 / 公司域名**一处都没有** |
+| 线上产物（752 KB 的 JS + 121 KB 的 CSS） | 干净。只有那把 **本该公开**的 anon key（它设计上就随前端发给每个访客，权限由 RLS 兜着） |
+
+真正有风险的密钥只存在于**本机、不在 GitHub**：`_tools/` 里两个清洗脚本（含真实姓名映射表）、
+旧历史备份 `weiwei-blog-history-backup.bundle`、以及 DSH 的会话文件（里面有 Aiven 数据库密码、
+`APP_JWT_SECRET`、Supabase Storage 的 S3 secret、以及两把已失效的 `sbp_` 令牌）。
+
+排查手法记一笔：**别用 `Invoke-WebRequest` 判断线上是否存活**——它在这个环境里对
+`github.io` 返回了假的 404（真实状态是 200，`curl -D -` 才看得见响应头）。
+我自己第一版扫描脚本还把 `./assets/x.js` 拼成了非法主机名，结果把 GitHub 的 404 页当成
+"线上产物"扫了一遍，得出"页面里引用了 githubstatus.com"这种荒谬结论。
+
+### 二、为什么不能"自己加密后提交进仓库"
+
+用户提出用水印/加密的方式把密钥放进仓库。这条**没有采用**，理由是它不改变信任边界：
+GitHub Secret 本身就是加密存储（libsodium 密封盒）、日志自动打码、写入后**连仓库管理员也读不回原值**。
+自己再包一层，解密口令仍然得放在某个 Secret 里才跑得起来 —— 边界一模一样，
+却多了一份"可能把明文写进日志"的自制代码。
+
+于是分工按"公开 / 机密"切开：**公开值（anon key、项目地址）放 Variables**（明文可读，本来就该公开），
+**管理令牌放 Secrets**。
+
+### 三、一次配置，之后永不再碰数据库
+
+新增 [.github/workflows/apply-schema.yml](.github/workflows/apply-schema.yml)：推送
+`supabase/schema.sql` 时用 `secrets.SUPABASE_ACCESS_TOKEN` 自动执行它，并复查结果。
+用户只需要往仓库里加**一次**这个 Secret，之后结构变更由推送自动完成。
+令牌没配时工作流会明确报错并告诉你加在哪——否则"没配令牌"和"SQL 写错了"在日志里长得一样（都是一堆 401）。
+
+### 四、顺手抓到的真问题：结构与线上早已脱节
+
+新增 [supabase/verify-schema.mjs](supabase/verify-schema.mjs)（**只用公开的 anon key**，
+本地和 CI 都能跑）：逐张表探测"存不存在"（PostgREST 对不存在的表回 `404 PGRST205`、
+对不存在的列回 `400`）。第一次跑就发现：
+
+```
+❌ photo_albums                    表不存在（本次新加的）
+❌ media_assets(album_id, description)   列不存在（本次新加的）
+❌ media_assets(lyrics, lyrics_source)   列不存在 ← 早就漏了，和本次改动无关
+```
+
+**`lyrics` / `lyrics_source` 从来没进过数据库** —— `schema.sql` 加过这两列之后没人再执行过一次，
+于是"把歌词存到云端"这条路径一直是坏的，而且不报错、只是存不上。这正是"没有自动化就会发生的漂移"。
+
+验证：`verify:all` / `test:render` / `build` 全绿；`verify-schema.mjs` 本地跑通（如实报出上面 3 处缺失）。
+
+---
+
+## 2026 · 「点了创建没反应」的真凶：schema.sql 还没执行 + 报错翻译成人话
+
+用户报「相册还是无法创建，点击创建报错」。用 anon key 直接问 Supabase 得到的是：
+
+```
+HTTP 404 {"code":"PGRST205","message":"Could not find the table 'public.photo_albums' in the schema cache"}
+```
+
+`media_assets` 的 `album_id` / `description` 也一样不存在（查询直接 400）。**代码没问题，
+是那一版 `schema.sql` 没有跑到这个项目的数据库上**——DDL 不是前端能做的事，
+本机又没有 `SUPABASE_ACCESS_TOKEN`，只能由人在 SQL Editor 里跑一次。
+
+这件事暴露的是**报错本身不可读**：前端弹的是那句英文原文（"Could not find the table …
+in the schema cache"），用户看到的现象只有「点了创建，弹一句英文」，看不出该干什么。所以：
+
+- `services/api.js` 的 `unwrap` 把「表 / 列不存在」（`PGRST205` / `42703` / 含 "schema cache"
+  或 "does not exist"）翻译成**能照着做的一句话**：「数据库里还没有这张表 / 这一列，
+  请先执行一次 supabase/schema.sql」，原文留在括号里方便排查。
+  这个错误在这个仓库里只有一个原因——前端比数据库结构新——所以值得单独认出来。
+- `schema.sql` 末尾补一句 `notify pgrst, 'reload schema';`。少了它，刚建好的表可能还会
+  继续回 "schema cache" 一段时间，前端看到的现象和「真的没建表」一模一样。
+
+排查手法记一笔（下次还用得上）：**用 `.env.local` 里的 anon key 直接打 PostgREST**
+（`GET {url}/rest/v1/photo_albums?select=id&limit=1`）就能区分「数据库没这表」和「代码写错了」——
+404 + PGRST205 是前者，200 是后者。前端配置也可以直接看 dev server 转换后的模块
+（Vite 会把 `import.meta.env` 替换成字面量），不必靠猜。
+
+验证：`verify:all`、`test:render`、`build` 全绿。数据库那一步要人工执行一次。
+
+---
+
+## 2026 · 修：关闭动效全废（`motion` 被同名参数遮住）+ 补一条「真的点一下」的探针
+
+上一条把「化作尘埃」抽成共用件之后，**日记和全屏看图的关闭全都不动了**：
+点关闭毫无反应，页面上什么都不显示，只有控制台一行
+`Uncaught TypeError: motion.prefersReducedMotion is not a function`。
+
+- **原因**：`useDustClose` 的选项里有一个 `motion`（是否播放动效），而它同时要 import
+  `composables/motion.js` 那个聚合对象。**函数参数会遮蔽同名的模块级 import**，
+  所以那一行实际是在布尔值上取方法。import 改名为 `motionHelpers`。
+- **为什么所有检查都是绿的**：那一行只在用户点关闭时才执行。12 项结构检查看的是模板标识符
+  与样式，`build` 只编译，SSR 冒烟只跑 setup/render —— **没有任何一条会走到 `requestClose()`**。
+  换句话说，这不是"检查漏了某一项"，而是"这条路径根本没有检查覆盖"。
+- **补的网**：`ssr-smoke/entry.js` 导出 `probeDustClose()`，`run.mjs` 真的调一次
+  `requestClose()`，断言「没抛错 / 进入消散状态 / 粒子按目标元素真实位置铺开 /
+  没有立刻通知关闭」。**做了反向验证**：把 import 的名字改回去，这条立刻
+  `FAIL dust close  requestClose 抛错：TypeError…`（`1 of 24 checks failed`），改回来即绿。
+- 顺带记一笔当时的排查方式：无头 Chrome 默认就是 `prefers-reduced-motion: reduce`，
+  拿它截图看动效会被整段跳过（看起来像"没有效果"），要查这类问题得先桩掉这条媒体查询，
+  或者直接查 DOM（`document.querySelectorAll('.dust-bit').length` 当时是 435）。
+
+验证：`verify:all`、`test:render`（16 路由 + 7 分支 + 1 关闭探针）、`build` 全绿。
+
+---
+
+## 2026 · 照片相册升级成真的两级相册 + 照片描述 + 看图关闭复用尘埃特效
+
+用户要的是三件事：**照片能按自己的想法放进不同的子相册**、**每张照片能写描述**、
+**子相册也能自己取名字**。开工前确认了两个岔路口：层级要两层（相册 → 子相册），
+描述只写在照片上（相册只保留名字）。
+
+**之前那份「相册」其实不是相册**：它只是照片上的一个文本字段 `album_name`，相册条列表由
+当前照片去重临时算出来。于是建不了空相册、改不了名、删不掉，照片一多两边名字还会各自漂移。
+
+- **`photo_albums` 真表**（`owner_id` / `parent_id` / `name`），照片上的 `album_id` 才是归属，
+  `album_name` 降级成**显示用的冗余副本**——相册表对访客基本不可见（RLS 只放行「装着公开照片」
+  的那些），而公开照片墙要显示相册名，让访客为这个名字去读别人的相册表不划算。
+  代价写在这里：**任何改动归属的地方，两列必须一起写**，`services/api.js` 改名时也会顺手更新副本。
+- **两级由数据库触发器强制**（`photo_albums_keep_two_levels`）：子相册下不能再建子相册，
+  有子相册的相册也不能再挂到别人下面。写在数据库里而不是靠前端自觉——三级相册一旦存进去，
+  面包屑、筛选、删除会开始各算各的。
+- **旧数据自动升级**：`schema.sql` 里有一段 `do $$ ... $$`，把已有照片上的相册名建成真相册并挂好。
+  **只在相册表为空时跑**——不设这个前提，以后每次重跑 schema.sql 都会把故意留在「未分类」的
+  照片塞进「日常」相册。
+- **删相册不删照片**：里面的照片（含子相册里的）先解绑回「未分类」再删相册。只靠外键的
+  `on delete set null` 也解得了绑，但照片上会留着已删相册的名字，看起来像挂在一本不存在的相册上。
+- **上传落到「你现在正在看的那本」**：停在某个相册/子相册里点添加照片，照片直接进那一本；
+  停在「全部 / 未分类」时不归相册。少了这条，每张上传完都得再手动归一次。
+- **照片描述**（`media_assets.description`）与名称分开：名称是「这张是什么」，描述是
+  「当时发生了什么」。网格里两行封顶，全屏看图里完整显示。
+- **相册 id 一律按字符串比**。它会在 `<select>` 的 value、筛选键、接口参数之间来回走，
+  类型一边数字一边字符串时 `'12' === 12` 会让筛选**静默地少一批照片**——不报错，只是照片不见了。
+
+**顺带把「化作尘埃」的关闭动效做成了共用件。** 用户要求全屏看图的关闭也用那套粒子特效。
+粒子层（`DustBurst.vue`）本来就是复用件，但真正会出错的是它外面那套时序：量位置 → 先定住
+一拍（180ms）→ 等粒子飞完（1320ms）再通知关闭。三个数字里有一个两边写得不一样，症状都是
+「粒子还在飞，组件已经被摘掉」，而且只在自己那处看得见。所以抽成 `composables/useDustClose.js`，
+阅读弹窗与全屏看图共用同一份（阅读弹窗的行为未变），CSS 用 `--dust-ms` 接收时长。
+同时**移除了 `AppShell` 上包着看图的 `<Transition name="reader">`**——外层一包，
+`v-if` 会在动画开始前把组件摘掉；它对应的两条 `.reader-*` 规则也一并删掉（已无使用者）。
+
+验证：`verify:all`、`test:render`、`build` 全绿。
+**数据库那步要手动跑一次**（`node supabase/apply.mjs` 或把 `schema.sql` 贴进 SQL Editor），
+在跑之前页面会提示「相册同步失败」并退回只显示照片墙——相册表还不存在，但照片不会丢。
+
+---
+
 ## 2026 · 目录剔除收紧：正文标题一个字都不能少
 
 用户实测「一些标题也没有了，正文中的标题还是很有用的」——上一版为了修「目录还在」，

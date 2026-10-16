@@ -52,14 +52,37 @@ git add -A; git commit -m "改了什么"; git push
 
 > 桌面上有 `唯唯园-推送代码.bat`，双击等价于上面三条命令。
 
-**改数据库结构**：编辑 [supabase/schema.sql](schema.sql) 后执行
+**改数据库结构（自动，推荐）**：编辑 [supabase/schema.sql](../supabase/schema.sql) 并推送 ——
+GitHub Actions 的 **Apply database schema** 会自动执行它，并复查表和列都到位。
+
+> 这条自动化需要**一次性配置**：仓库 → Settings → Secrets and variables → Actions → **Secrets**
+> → New repository secret，名字必须是 `SUPABASE_ACCESS_TOKEN`，值是 Supabase → Account →
+> Access Tokens 生成的 `sbp_` 令牌。**配一次之后，数据库这块永远不用再手工碰。**
+>
+> 令牌放 **Secrets** 而不是 Variables：Variables 是明文可读的（我们的 anon key 故意放那里，
+> 因为它本来就设计成公开），管理令牌必须放 Secrets —— 加密存储、日志自动打码、写入后
+> 连仓库管理员也读不回原值。不要自己"加密后把密文提交进仓库"：解密口令仍然得放在 Secret 里，
+> 信任边界没变，却多了一份可能把明文写进日志的自制代码。
+
+**手动执行**（令牌在手上、想立刻跑一次）：
 
 ```powershell
-$env:SUPABASE_ACCESS_TOKEN='sbp_...'   # Supabase 账号 → Access Tokens
-node supabase/apply.mjs
+cd D:\a唯唯项目\唯唯博客网
+$env:SUPABASE_ACCESS_TOKEN='sbp_...'      # Supabase 账号 → Access Tokens
+node supabase/apply.mjs                    # 逐条执行，并报告是哪一句失败
+node supabase/verify-schema.mjs            # 只读复查（不需要令牌）
 ```
 
-脚本会逐条执行并报告哪一句失败（整份一起提交时官方接口只回一个空的 400，逐条才看得见原因）。
+`apply.mjs` 会逐条执行并报告哪一句失败（整份一起提交时官方接口只回一个空的 400，逐条才看得见原因）。
+
+**为什么还要"复查"这一步**：`schema.sql` 和线上数据库是**两份独立的东西**，加了
+一句 `alter table ... add column` 却忘记执行，前端只会在某个操作上静默出错。
+`verify-schema.mjs` 只用**公开的 anon key** 探测"表/列在不在"（PostgREST 对不存在的表回
+`404 PGRST205`、对不存在的列回 `400`），所以本地和 CI 都能跑，也不碰任何机密。
+
+> 这个脚本第一次跑就抓到了真问题：`media_assets` 的 `lyrics` / `lyrics_source` 两列
+> **从来没进过数据库**（歌词保存到云端那条路径一直是坏的），因为 `schema.sql` 加过这两列之后
+> 没有人再执行过一次。
 
 **改 Supabase 配置**：直接改 `schema.sql` 里的 RLS 策略再跑一次即可，脚本是幂等的
 （`create table if not exists` + `drop policy if exists`）。
