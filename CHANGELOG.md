@@ -45,6 +45,13 @@ README 只保留「现在是什么样」。新的一条加在最上面。
 three.js 与模型都是**点进去才动态加载**（dynamic import），平时翻相册不会多下一字节；
 模型默认从 HuggingFace 取，可用 `VITE_DEPTH_MODEL_HOST` 换成镜像或自托管。
 
+**wasm 运行时也改成了同源**（实测过生产构建）：一开始它跟模型一样走 jsdelivr CDN。
+`onnxruntime-web` 的 `exports` 单独暴露了 wasm 与装载器，可以用两个 `?url` 静态引入再交给
+`ort.wasmPaths` —— 于是那 26 MB 从自己站点取，少一个境外依赖。
+两个坑：导入路径**不带 `dist/`**（`onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm`，
+带 dist 会报 `Missing specifier`）；两个 `?url` 只是字符串，**别顺手把 transformers 也改成静态引入**，
+那会把 570 KB 拉回主包。实测生产预览：`wasm 来自：同源`，就绪 31s，主包仍是 862 KB。
+
 ### C 三个小功能
 
 - **照片信息面板**：EXIF **只取图片前 256 KB**（EXIF 在 JPEG 头部，为了一行参数下一整张不值当），

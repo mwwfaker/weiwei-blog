@@ -14,6 +14,15 @@
  * 设 `numThreads = 1` + `proxy = false` 后立刻正常。
  */
 
+// 把 onnxruntime 的运行时**当本地资源发出去**，而不是让它去 jsdelivr 取：
+//   · 少依赖一个境外 CDN（国内访客少一道坎）；
+//   · 这两个文件本来就随构建产物一起部署（Vite 会把它们放进 dist/assets）。
+// 用 ?url 拿到带 hash 的地址，再交给 onnxruntime。
+// 注意：只有这两个 **URL** 是静态引入的（就是两个字符串）；transformers 本体仍然是
+// 动态 import —— 否则那 570 KB 会回到主包里，把"点进去才加载"这件事毁掉。
+import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
+import ortMjsUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
+
 const MODEL = 'onnx-community/depth-anything-v2-small'
 /**
  * 模型从哪取。默认 HuggingFace；国内网络或想自托管时，用构建变量换掉：
@@ -53,7 +62,12 @@ function getPipeline(backend, onProgress) {
     const promise = (async () => {
       const { pipeline, env } = await import('@huggingface/transformers')
       const ort = env.backends?.onnx?.wasm
-      if (ort) { ort.numThreads = 1; ort.proxy = false } // 见文件头：不关会静默挂死
+      if (ort) {
+        ort.numThreads = 1 // 见文件头：不关会静默挂死
+        ort.proxy = false
+        // 指向构建产物里的同源文件；漏了会在开发模式下退回 CDN（能用，但多一次跨域）
+        if (ortWasmUrl && ortMjsUrl) ort.wasmPaths = { wasm: ortWasmUrl, mjs: ortMjsUrl }
+      }
       if (MODEL_HOST) {
         env.remoteHost = MODEL_HOST
         env.remotePathTemplate = '{model}/resolve/main/'

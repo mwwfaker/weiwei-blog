@@ -43,6 +43,12 @@ VITE_DEPTH_MODEL_HOST=https://hf-mirror.com
 VITE_DEPTH_MODEL_HOST=https://<项目>.supabase.co/storage/v1/object/public/weiwei-assets
 ```
 
+**wasm 运行时是同源的**：`depth.js` 用两个 `?url` 静态引入 onnxruntime 的 wasm/装载器
+（`onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm` —— 注意**不带 `dist/`**，
+包的 `exports` 就是这么暴露的；带上 dist 会报 `Missing specifier`），
+再交给 `ort.wasmPaths`。这样 26 MB 的运行时从自己的站点取，不依赖 jsdelivr。
+两个 `?url` 只是字符串，**不会**把 transformers 本体拉回主包（那仍然是动态 import）。
+
 ## 照片信息与电影感播放
 
 - `PhotoInfoPanel`：EXIF **只取图片前 256 KB**（EXIF 在头部，为一行参数下一整张不值当）；
