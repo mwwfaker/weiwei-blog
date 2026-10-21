@@ -8,7 +8,8 @@
 | `usePerfCloud.js` | 云端同步：读公开工作区列表、800ms 防抖写回、`readOnly` / 同步状态文案。读写的是传进来的 `members`/`entries`/`queues`/`checkHours` |
 | `usePerfViz.js` | 「数据可视化」的全部统计：排名、关键指标、薪资构成、队列分布、矩阵、散点、相对均值。纯派生，无状态 |
 | `usePerfImport.js` | 「导入截图」的识别与写入：文本/图片解析、匹配名单、写入 entries；`Ctrl+V` 监听也挂在这里（整页只注册一次，回调里判断当前是不是导入页） |
-| `usePerfExport.js` | 导出 Excel：全组总表 + 每人一张明细表，`xlsx` 按需 import |
+| `usePerfExport.js` | 导出。Excel：全组总表 + 每人一张明细表（`xlsx` 按需 import）。HTML：把网站的面板渲染成静态标记（挂着 → 冻结输入框与按钮 → 取 innerHTML），数据总览按「每个员工一份 / 每个队列一份」各渲染一套，再内联 `perf.css?inline`、按当前主题解析 CSS 变量、下载 |
+| `reportHtml.js` | 「导出 HTML」的**外壳 + 导航脚本**：页头、四个导航、四块面板、页脚，以及切标签/切视图/点左栏的那 50 行原生 JS。**纯字符串，不碰 DOM、不 import Vue**，`verify-perf.mjs` 的 [11] 节对着它跑了 8 条断言 |
 | `usePerfReset.js` | 四组「重置数据」：只清当月数据、保留名单结构。**唯一被 `verify-perf.mjs` 离线对拍的一个**——「该清的清了、该保留的还留着」不会报错，只能靠断言 |
 | `usePerfDaily.js` | 「单日计算」的当天数据、当天口径的行与合计；由 `PerfDailyPanel` 自己实例化（状态只被那一块用） |
 | `usePerfAura.js` | 氛围层：跟着指针走的那团柔光。只算 transform，按帧合并一次；模板里的两个元素仍在 PerfPage |

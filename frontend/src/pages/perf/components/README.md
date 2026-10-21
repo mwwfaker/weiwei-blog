@@ -5,7 +5,7 @@
 
 | 文件 | 负责的板块 | 交互方式 |
 | --- | --- | --- |
-| `PerfToolbar.vue` | 顶部工具条 `.perf-bar`：月份、数据来源、同步状态、导出、返回 | props + `update:month` / `select` / `export` / `back` |
+| `PerfToolbar.vue` | 顶部工具条 `.perf-bar`：月份、数据来源、同步状态、导出 Excel / 导出 HTML、返回 | props + `update:month` / `select` / `export` / `export-html` / `back` |
 | `PerfReadonlyNote.vue` | 公开只读提示 `.perf-readonly-note` | props，由 PerfPage 用 `v-if="readOnly"` 控制出现 |
 | `PerfEntryPanel.vue` | 「数据总览」：左侧清单 + 右侧单人详情 / 队列总览两张表 | 5 个 `v-model`（视图与选中对象）+ 行数据 props，`set-cell` / `go-tab` / `reset-member-data` / `reset-member-triple-count` 上抛 |
 | `PerfRosterPanel.vue` | 「员工名单」：姓名邮箱、月要求工时、抽调/加班/三薪、批量粘贴、每行 `↺` 重置、两个批量重置 | 3 个 `v-model` + `members`/`rowByMember`，增删改与重置全部 emit |

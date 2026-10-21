@@ -366,6 +366,10 @@ for (const file of codeFiles) {
   const text = stripComments(fs.readFileSync(file, 'utf8'))
   for (const m of text.matchAll(importRe)) {
     let spec = m[1]
+    // Vite 的查询后缀（`perf.css?inline`、`icon.svg?raw`）不是路径的一部分，解析前先剥掉。
+    // 只剥后缀、照样校验文件存在——`?inline` 引进来的文件一样可能被删掉。
+    const queryAt = spec.indexOf('?')
+    if (queryAt >= 0) spec = spec.slice(0, queryAt)
     // `@/` 就是 frontend/src 本身（见 vite.config.js 的 alias），所以剥掉前缀即可；
     // `./x` 则相对于当前文件所在的 src 子目录。
     if (spec.startsWith('@/')) spec = spec.slice(2)

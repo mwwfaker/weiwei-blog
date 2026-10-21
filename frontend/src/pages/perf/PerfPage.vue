@@ -113,7 +113,7 @@ const {
 } = usePerfCloud({ auth, members, entries, queues, checkHours })
 
 // ---- 导出 ------------------------------------------------------------------
-const { exportWorkbook } = usePerfExport({ computedAll, summary, month })
+// 在下方「数据可视化」之后接线：HTML 导出要用到那批可视化派生数据。
 
 const tab = ref('entry')
 const tabs = [
@@ -189,15 +189,16 @@ watch(members, (list) => {
   if (list.length && !list.some((m) => m.id === activeMemberId.value)) activeMemberId.value = list[0].id
 }, { immediate: true })
 
-const memberQueueRows = computed(() => {
-  const member = activeMember.value
-  if (!member) return []
+/** 某位员工在全部队列上的行数据；页面上的「按员工」视图和 HTML 导出共用。 */
+function queueRowsOf(member) {
   return queues.value.map((queue) => {
     const entry = findEntry(member.id, queue.name)
     const numbers = entry ? entryNumbers(entry, member, queue, constants.value) : null
     return { queue, entry, numbers }
   })
-})
+}
+
+const memberQueueRows = computed(() => (activeMember.value ? queueRowsOf(activeMember.value) : []))
 const memberSummary = computed(() => {
   const member = activeMember.value
   if (!member) return null
@@ -241,6 +242,16 @@ const queueTotalsAll = computed(() => {
 const {
   rankBy, rankOptions, ranked, vizStats, payStacks, queueStats, vizScatter, deviations, vizMatrix,
 } = usePerfViz({ computedAll, queueTotalsAll, queues })
+
+// ---- 导出 ------------------------------------------------------------------
+// Excel：全组总表 + 每人一张明细表。
+// HTML：把网站自己的面板渲染一遍、把输入框换成文字，得到一份静态版页面
+// （单日计算 / 导入截图 / 计算说明不导出）。
+const { exportWorkbook, exportHtml } = usePerfExport({
+  month, members, queues, constants, checkHours, summary, computedAll,
+  rowByMember, queueTotalsAll, queueRowsOf, queueRowsFor, queueTotalsFor,
+  viz: { rankBy, rankOptions, ranked, vizStats, payStacks, queueStats, vizMatrix, vizScatter, deviations },
+})
 
 // ---- 队列管理：名字 + KPI，其余全由 KPI 派生 --------------------------------
 // 新增队列用行内表单，不再用 window.prompt（两个弹框太糙，而且没法校验）
@@ -304,20 +315,23 @@ function resetConstants() {
   constants.value = { ...PERF_CONSTANTS }
 }
 
-const queueRows = computed(() => {
-  const name = activeQueue.value
+/** 某个队列的全员行；「按队列」视图和 HTML 导出共用。 */
+function queueRowsFor(queueName) {
+  const config = queues.value.find((q) => q.name === queueName) || null
   return members.value.map((member) => {
-    const entry = findEntry(member.id, name)
-    const numbers = entry ? entryNumbers(entry, member, activeQueueConfig.value, constants.value) : null
+    const entry = findEntry(member.id, queueName)
+    const numbers = entry ? entryNumbers(entry, member, config, constants.value) : null
     return { member, entry, numbers }
   })
-})
-const queueTotals = computed(() => {
+}
+
+/** 一个队列的小计；同一个式子给视图和导出用。 */
+function queueTotalsFor(rows) {
   let auditCount = 0
   let standard = 0
   let actual = 0
   let pay = 0
-  for (const row of queueRows.value) {
+  for (const row of rows) {
     if (!row.numbers) continue
     auditCount += row.numbers.auditCount
     standard += row.numbers.standardSeconds
@@ -331,7 +345,10 @@ const queueTotals = computed(() => {
     efficiency: actual > 0 ? standard / actual : 0,
     pay,
   }
-})
+}
+
+const queueRows = computed(() => queueRowsFor(activeQueue.value))
+const queueTotals = computed(() => queueTotalsFor(queueRows.value))
 
 /** 清空当前队列所有人当月的数据（目前界面上还没有入口，保留原有能力）。 */
 function clearQueue() {
@@ -424,6 +441,7 @@ const { trackCursor } = usePerfAura({ toolRef, auraRef })
         @update:month="month = $event"
         @select="selectWorkspace"
         @export="exportWorkbook"
+        @export-html="exportHtml"
         @back="backToBlog"
       />
 

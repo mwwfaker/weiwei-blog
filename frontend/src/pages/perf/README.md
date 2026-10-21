@@ -52,6 +52,61 @@
 清的字段变成 0，保留的字段（姓名 / 邮箱 / 队列归属）原样不动；另外两条专门盯
 「不碰队列数据的那个动作不能把实际 AHT 清掉」。
 
+## 导出：Excel 与 HTML
+
+顶部工具条有两个导出按钮（`memberCount` 为 0 时都禁用）：
+
+| 按钮 | 产物 | 内容 |
+| --- | --- | --- |
+| 导出 Excel | `绩效_<月份>.xlsx` | 一张全组总表 + 每人一张队列明细表（`xlsx` 按需 import） |
+| 导出 HTML | `绩效_<月份>.html` | **网站那几个面板的静态版**：数据总览 / 数据可视化 / 员工名单 / 队列 KPI |
+
+### 内容：**网站的可浏览静态版**
+
+| 导航 | 内容 |
+| --- | --- |
+| 数据总览 | 和网站一模一样：上面「按员工 / 按队列」切换，左栏点人/点队列，右边显示对应的表（含汇总条、工资构成、小计行） |
+| 数据可视化 | `PerfVizPanel` 渲染后冻结（排序按钮删掉） |
+| 员工名单 | `PerfRosterPanel` 渲染后冻结 |
+| 队列 KPI | `PerfQueuesPanel` 渲染后冻结 |
+
+不导出：单日计算 / 导入截图 / 计算说明。
+「按员工」和「按队列」两套页都**预渲染**进文件里，靠文件末尾一小段原生 JS（`reportHtml.js`
+的 `NAV_SCRIPT`，约 50 行）切 `hidden` —— 切标签、切视图、点左栏都只改可见性，
+不重算、不发请求。所以双击打开就能像网站那样点着看。
+
+### 「冻结」：把面板上的可操作变成只读
+
+`usePerfExport.js` 的 `freezePanel` 做三件事：
+
+| 做什么 | 为什么 |
+| --- | --- |
+| `<input>/<textarea>/<select>` → `<span class="perf-cell static">值</span>` | 格子里的数字是死的；值取 `el.value`，空的用占位符（`—` / `0`），和屏幕上一致 |
+| 删掉 `.perf-picker`、`.perf-view-toggle`、`.perf-overview-bar`、`.perf-empty-actions`、`.perf-grid .act` | 面板自带的那份左栏/切换是死的，导出时用我们自己新建的（带 `data-key` 给导航脚本认），工具条与每行的删除一律不留 |
+| 兜底删掉剩下的 `<button>` | 面板里多出一个按钮，也不会悄悄混进报告 |
+
+### 三个踩过的坑（改动前先看）
+
+- **冻结必须在活的 DOM 上做，且要在取 `innerHTML` 之前。** Vue 的 `<input :value>` 只写
+  `el.value`、不写 HTML 属性；先序列化再处理，数字早就没了（第一版就是这么翻车的：
+  文件里全是空框）。也正因为要「先冻结再序列化」，这一步只能在浏览器里做。
+- **导出的文档没有 `.perf-tool` 外壳**（`100dvh + overflow:hidden`），也没有 `.perf-body` 的
+  高度约束。页面里靠「父容器定高 + 子容器各自滚动」的板块到了普通文档里会塌成一条线，
+  所以报告版面的展开规则写在 `perf.css` 第 17 节（`.perf-report*`，应用里是死规则）。
+  **`[hidden]` 要写 `!important`**：`.perf-pane` / `.perf-picker-list` 自己带 `display:grid`，
+  浏览器默认的 `[hidden]{display:none}` 压不过类选择器，不写就会「两页同时露出来」。
+- **样式用 `import perfCss from '../perf.css?inline'` 取**，不要再回去翻
+  `document.styleSheets`：那条路要处理 CSSOM 的跨域拒绝、还要认是哪张表，
+  比一行 `?inline` 复杂得多，也更脆。代价只是 perf 页的 JS chunk 里多存一份 CSS 字符串
+  （约 7 kB gzip，且只在 `/perf` 这个异步 chunk 里）。CSS 变量仍然要读计算值——
+  深色主题的变量挂在 `:root.dark` 上，导出文档的 `<html>` 没有那个 class。
+
+`verify:perf` 第 [11] 节守着外壳与导航约定：四个导航按网站顺序、只有第一块默认可见、
+脚本认的 `data-tab / data-view / data-pane / data-list` 钩子都在、不出现那三个标签页、
+没有输入控件、合计对得上 `summary.total`、月份转义。**面板冻结与导航脚本要 DOM**，
+所以另外用真实数据渲染样品、在 Chrome 里点过四个导航 / 切过视图 / 点过左栏第三项核对
+（切标签、切视图、选中项都正确；面板里 input 与 button 均为 0）。
+
 ## 样式为什么是全局的
 
 模板拆进子组件后 `[data-v-xxx]` 不会跟着元素走，scoped 样式会整片失效，所以把样式块**一字未改**地

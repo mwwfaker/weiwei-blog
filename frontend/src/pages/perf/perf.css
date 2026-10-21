@@ -378,11 +378,18 @@
 .perf-tool.is-readonly select,
 .perf-tool.is-readonly textarea,
 .perf-tool.is-readonly button{pointer-events:none;opacity:.72}
-/* 只读时仍然该能用的：标签导航、导出与返回、切换月份、切换要查看的账号。 */
+/* 只读时仍然该能用的：**只是看的操作**，一个都不能少。
+   · 标签导航、导出与返回、切换月份、切换要查看的账号；
+   · 数据总览的「按员工 / 按队列」、显示三薪列；
+   · 左栏点人 / 点队列，以及左栏那个搜索框（它只过滤清单，不改数据）。
+   漏掉后两项的后果：访客进来只能看到第一个人的那一页，切不动——这正是修过的 bug。 */
 .perf-tool.is-readonly .perf-tabs button,
 .perf-tool.is-readonly .perf-bar-right button,
 .perf-tool.is-readonly .perf-bar-left input,
-.perf-tool.is-readonly .perf-bar-left select{pointer-events:auto;opacity:1}
+.perf-tool.is-readonly .perf-bar-left select,
+.perf-tool.is-readonly .perf-view-toggle button,
+.perf-tool.is-readonly .perf-picker-list button,
+.perf-tool.is-readonly .perf-picker-search{pointer-events:auto;opacity:1}
 
 
 /* ===== 行高亮：横向读数据很容易串行 =====
@@ -647,3 +654,64 @@
 .perf-grid.roster .act .perf-del + .perf-del{margin-left:5px}
 /* 重置是「可逆操作」，悬停给主题色而不是删除那种红 */
 .perf-del.reset:hover{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}
+
+/* ---- 17. 导出 HTML 的报告版面 --------------------------------------------
+   「导出 HTML」会把整份 perf.css 内联进那份独立文件，所以报告专用规则写在这里就行，
+   不用在 JS 里再拼一段样式字符串。应用里永远没有 .perf-report 元素，它们平时是死规则。
+
+   导出的文件是网站的**可浏览静态版**：四个导航 + 数据总览里的「按员工 / 按队列」。
+   和页面唯一的差别是没有 .perf-tool 外壳（100dvh + overflow:hidden）和 .perf-body 的定高，
+   所以「自己滚」的容器要改成按内容自然展开，否则会被裁成一条线。 */
+.perf-report-body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Sans','Noto Serif SC',sans-serif;font-synthesis:none;text-rendering:optimizeLegibility}
+.perf-report{
+  max-width:1560px;margin:0 auto;padding:22px clamp(14px,3vw,34px) 56px;
+  display:grid;gap:16px;align-content:start;
+}
+.perf-report-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding-bottom:14px;border-bottom:1px solid var(--line);
+}
+.perf-report-title{display:flex;align-items:center;gap:12px;min-width:0}
+.perf-report-title strong{display:block;font-family:var(--serif);font-size:17px;line-height:1.35}
+.perf-report-title small{display:block;font-size:11px;color:var(--muted)}
+.perf-report-meta{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.perf-report-meta b{color:var(--ink);font-variant-numeric:tabular-nums}
+.perf-report-foot{border-top:1px solid var(--line);padding-top:14px;font-size:10.5px;color:var(--muted)}
+
+/* 导航与面板。hidden 要 !important：这些容器自己带 display（grid/flex），
+   浏览器默认的 `[hidden]{display:none}` 压不过类选择器。 */
+.perf-report .perf-tab-panel{display:grid;gap:12px;min-width:0;align-content:start}
+.perf-report .perf-tab-panel[hidden],
+.perf-report .perf-pane[hidden],
+.perf-report .perf-picker-list[hidden]{display:none!important}
+/* 左栏限高：文档里它不该把整页撑得老长，列表自己滚一点 */
+.perf-report .perf-picker{max-height:76vh}
+.perf-report .perf-split{min-height:0}
+.perf-report .perf-split-body{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:visible}
+.perf-report .perf-split-body>.perf-list{flex:none;min-height:0;overflow-x:auto;overflow-y:visible}
+.perf-report .perf-pane{display:grid;gap:10px;min-width:0;align-content:start}
+.perf-report .perf-pane[hidden]{display:none!important}
+/* 报告里没有应用外壳的定高：面板按内容自然展开 */
+.perf-report .perf-panel{height:auto;max-width:none;overflow:visible;gap:10px}
+.perf-report .perf-panel>*{flex:none}
+.perf-report .perf-list{overflow-x:auto}
+/* 表格：输入框换成文字以后加斑马纹更好读；行入场动画在文档里没有意义（打印还会漏行） */
+.perf-report .perf-grid tbody tr{animation:none}
+.perf-report .perf-grid tbody tr:nth-child(even){background:color-mix(in srgb,var(--ink) 3.5%,transparent)}
+.perf-report .perf-grid tbody tr:hover{background:color-mix(in srgb,var(--ink) 3.5%,transparent)}
+/* 静态格子：沿用 .perf-cell 的底色与圆角，只是不能改、也不再有输入框的边框 */
+.perf-report .perf-cell.static{display:block;width:auto;text-align:inherit;white-space:nowrap;cursor:default}
+/* 面板里靠点击才能用的东西已经在 JS 里删掉了，这几条是 CSS 兜底 */
+.perf-report .perf-overview-bar,
+.perf-report .perf-grid .act,
+.perf-report .perf-empty-actions{display:none}
+
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  .perf-report{max-width:none;padding:0;gap:12px}
+  .perf-report .perf-list{overflow:visible}
+  .perf-report .perf-picker{max-height:none}
+  .perf-report .perf-grid thead{display:table-header-group}
+  .perf-report .perf-grid tr{break-inside:avoid;page-break-inside:avoid}
+}
+

@@ -1,8 +1,9 @@
-// 绩效公式与「数据重置」验证：把计算结果和用户飞书表格里的真实数字逐个对比。
+// 绩效公式、数据重置、导出 HTML 三块验证：把计算结果和用户飞书表格里的真实数字逐个对比。
 // 关键前提：KPI 是输入，标准 AHT = ROUND(24480/KPI, 2) 是算出来的。
 //
 // 重置那一组动作（[10]）也需要对拍：它是这段代码里唯一有风险的地方——
 // 清多了会丢数据、清少了没效果，而这两件事都不会报错。
+// 导出（[11]）同理：报告里混进输入框、或者合计行和 summary 对不上，都不会抛异常。
 // 运行：cd frontend && npm run verify:perf
 import { ref } from 'vue'
 import {
@@ -10,6 +11,7 @@ import {
   nameFromEmail, normalizeQueues, priceCheck, unitPriceOf,
 } from '../src/services/perf.js'
 import { usePerfReset } from '../src/pages/perf/composables/usePerfReset.js'
+import { reportBody } from '../src/pages/perf/composables/reportHtml.js'
 
 let pass = 0
 const failures = []
@@ -297,6 +299,58 @@ function resetHarness({ members = [freshMember()], entries = [freshEntry()], ans
   check('重置该员工数据：别人的录入不受影响', other.auditCount === 80 && other.tripleCount === 5)
   check('重置该员工数据：别人的时长不受影响', h.members.value[1].tripleHours === 6)
 }
+
+// ---- 11. 「导出 HTML」的文档外壳 ------------------------------------------------
+// 正文是面板渲染出来的（那一步要浏览器），这里能离线验的是外壳与导航约定：
+//   · 四个导航的顺序、第一块默认可见
+//   · 导航脚本认的那几个 data-* 钩子都在（data-tab / data-view / data-pane / data-list）
+//   · 混进 <input>、月份没转义、标签页少一个——这三类都不会抛异常
+console.log('\n[11] 导出 HTML 报告')
+
+const moneyText = (value) => Number(value || 0).toLocaleString('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const tabStub = (name) => `<div class="perf-pane" data-pane="byMember" data-key="m-1">占位-${name}</div>`
+const exportSummary = computeAll([freshMember()], [], normalizeQueues([]), PERF_CONSTANTS).summary
+const exportDoc = reportBody({
+  month: '2026-10',
+  generatedAt: '2026/10/21 23:00:00',
+  summary: exportSummary,
+  tabs: [
+    { id: 'entry', label: '数据总览', html: tabStub('数据总览') },
+    { id: 'viz', label: '数据可视化', html: tabStub('数据可视化') },
+    { id: 'roster', label: '员工名单', html: tabStub('员工名单') },
+    { id: 'queues', label: '队列 KPI', html: tabStub('队列 KPI') },
+  ],
+})
+
+check('导出：四个导航按网站顺序排',
+  ['数据总览', '数据可视化', '员工名单', '队列 KPI']
+    .every((label) => exportDoc.includes(`>${label}</button>`))
+  && exportDoc.indexOf('数据总览') < exportDoc.indexOf('数据可视化')
+  && exportDoc.indexOf('数据可视化') < exportDoc.indexOf('员工名单')
+  && exportDoc.indexOf('员工名单') < exportDoc.indexOf('队列 KPI'))
+check('导出：第一个标签页默认可见，其余隐藏',
+  (exportDoc.match(/class="perf-tab-panel" data-tab="[^"]+">/g) || []).length === 1
+  && (exportDoc.match(/class="perf-tab-panel" data-tab="[^"]+" hidden>/g) || []).length === 3)
+check('导出：导航脚本与 data-* 钩子齐全（切标签 / 切视图 / 点左栏）',
+  exportDoc.includes('<script>')
+  && exportDoc.includes("closest('.perf-tabs button')")
+  && exportDoc.includes("closest('.perf-view-toggle button')")
+  && exportDoc.includes("closest('.perf-picker-list button')")
+  && exportDoc.includes('data-list')
+  && exportDoc.includes('data-pane'))
+check('导出：不导出「单日计算 / 导入截图 / 计算说明」', !/单日计算|导入截图|计算说明/.test(exportDoc))
+check('导出：外壳里没有任何输入控件', !/<(input|select|textarea)\b/i.test(exportDoc))
+check('导出：页头合计等于 summary.total', exportDoc.includes(moneyText(exportSummary.total)))
+check('导出：月份被转义（不原样拼进标记）',
+  reportBody({ month: '<b>2026</b>', generatedAt: '', summary: {} }).includes('&lt;b&gt;2026&lt;/b&gt;'))
+
+const emptyReport = reportBody({ month: '', generatedAt: '', summary: {} })
+check('导出：没有标签页时也不崩、不产出控件',
+  emptyReport.includes('perf-report') && !/<(input|button)\b/i.test(emptyReport))
 
 console.log(failures.length ? `\n${failures.length} 项失败：${failures.join('; ')}` : `\n全部通过（${pass} 项）`)
 process.exitCode = failures.length ? 1 : 0

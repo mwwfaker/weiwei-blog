@@ -17,7 +17,7 @@
 | `useScrollChrome.js` | 下滑收起导航的状态机（rAF 节流 + 迟滞 + 冷却）。 |
 | `theme.js` | 主题的 provide/inject key。`@vueuse` 的 `useDark` 实例只在外壳里建一次。 |
 | `ids.js` | `localId()` / `isLocalId()`：区分「本机草稿」和「服务器记录」。 |
-| `download.js` | `downloadText()`：文本导出。 |
+| `download.js` | `downloadText(text, name, mime)`：文本导出。第三个参数决定浏览器把文件当成什么（TXT 用默认值，绩效报告传 `text/html`，否则会显示成源码）。 |
 
 ## 约定
 

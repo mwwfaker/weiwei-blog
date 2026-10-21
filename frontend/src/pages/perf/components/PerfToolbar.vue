@@ -10,7 +10,7 @@ defineProps({
   syncLabel: { type: String, default: '' },
   memberCount: { type: Number, default: 0 },
 })
-defineEmits(['update:month', 'select', 'export', 'back'])
+defineEmits(['update:month', 'select', 'export', 'export-html', 'back'])
 </script>
 
 <template>
@@ -29,6 +29,7 @@ defineEmits(['update:month', 'select', 'export', 'back'])
     <div class="perf-bar-right">
       <span class="perf-sync" :class="syncState">{{ syncMessage || syncLabel }}</span>
       <button class="perf-btn" :disabled="!memberCount" @click="$emit('export')">导出 Excel</button>
+      <button class="perf-btn" :disabled="!memberCount" title="导出一份能直接双击打开的报告：数据总览 + 数据可视化" @click="$emit('export-html')">导出 HTML</button>
       <button class="perf-btn primary" @click="$emit('back')">← 返回博客</button>
     </div>
   </header>
