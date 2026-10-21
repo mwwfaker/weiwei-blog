@@ -206,7 +206,6 @@ for (const id of lazyImports) {
 // 所以它不会悄悄烂掉。
 console.log('[4] 模板 class 与样式规则')
 const KNOWN_UNSTYLED = new Set([
-  'layouts/AppTopBar.vue → .search-button',
   'modules/article/ArticleEditorDialog.vue → .article-editor',
   'modules/article/ArticleEditorDialog.vue → .visibility-field',
   'modules/diary/DiaryEditorDialog.vue → .visibility-field',
@@ -214,7 +213,6 @@ const KNOWN_UNSTYLED = new Set([
   'modules/music/MusicEditorDialog.vue → .visibility-field',
   'modules/music/MusicLibrary.vue → .danger-icon',
   'pages/about/AboutPage.vue → .about-page',
-  'pages/home/components/HeroCard.vue → .orbit-one',
   'pages/messages/MessagesPage.vue → .message-list',
 ])
 const scopedCssByFile = new Map()
@@ -288,16 +286,33 @@ if (blended.length || faded.length) fail(`粒子画布被混合或淡到看不�
 else console.log('    OK    粒子画布没有被混合掉或淡到接近 0')
 
 // --- [7] 滚动容器里的下拉菜单 --------------------------------------------------------------------
-// .side-nav 用 overflow-x:auto 让七个导航项在窄屏能横向滚动。滚动容器会裁掉绝对定位的后代，
-// 「更多」菜单因此整块画不出来（按钮高亮、菜单有布局盒，但一个像素都没画、也点不到）。
+// 导航在窄屏是横向滚动容器。滚动容器会裁掉绝对定位的后代，「更多」菜单因此整块画不出来
+// （按钮高亮、菜单有布局盒，但一个像素都没画、也点不到）。
+//
+// 2026 换壳后导航从 .side-nav 变成 .dock-track，所以这里不再写死某一个选择器：
+// 凡是「模板里真的在用、且 CSS 把它设成滚动容器」的导航容器，都必须把菜单 teleport 出去。
 console.log('[7] 下拉菜单 vs 滚动容器')
-const sideNavRules = cssNoComments.match(/\.side-nav[^{]*\{[^}]*\}/g) || []
-const scrollableNav = sideNavRules.filter((rule) => /overflow(-x)?\s*:\s*(auto|scroll|hidden)/i.test(rule))
-const sidebarSource = fs.readFileSync(path.join(root, 'layouts/AppSidebar.vue'), 'utf8')
-const teleportsMenu = /<Teleport\s+to="body">[\s\S]*?nav-more-menu[\s\S]*?<\/Teleport>/.test(sidebarSource)
-if (scrollableNav.length && !teleportsMenu) fail('.side-nav 是滚动容器，但「更多」菜单没有 teleport 到 body')
-else if (scrollableNav.length) console.log('    OK    导航可滚动，且下拉菜单被 teleport 出了滚动容器')
-else console.log('    OK    .side-nav 不是滚动容器')
+const navSelectors = ['.side-nav', '.dock-track']
+const scrollableNav = navSelectors.filter((selector) => {
+  const rules = cssNoComments.match(new RegExp(`${selector.replace('.', '\\.')}[^{]*\\{[^}]*\\}`, 'g')) || []
+  return rules.some((rule) => /overflow(-x)?\s*:\s*(auto|scroll|hidden)/i.test(rule))
+})
+const layoutSource = walk(path.join(root, 'layouts'), (name) => name.endsWith('.vue'))
+  .map((file) => fs.readFileSync(file, 'utf8'))
+  .join('\n')
+const usesScrollableNav = scrollableNav.some((selector) => (
+  new RegExp(`class="[^"]*${selector.slice(1)}\\b`).test(layoutSource)
+))
+const teleportsMenu = /<Teleport\s+to="body">[\s\S]*?(nav-more-menu|dock-more-panel)[\s\S]*?<\/Teleport>/.test(layoutSource)
+if (scrollableNav.length && usesScrollableNav && !teleportsMenu) {
+  fail(`${scrollableNav.join(' / ')} 是滚动容器，但「更多」菜单没有 teleport 到 body`)
+} else if (scrollableNav.length && usesScrollableNav) {
+  console.log(`    OK    ${scrollableNav.join(' / ')} 可滚动，且「更多」菜单被 teleport 出了滚动容器`)
+} else if (scrollableNav.length) {
+  console.log(`    OK    ${scrollableNav.join(' / ')} 有滚动规则，但模板里没有用它（历史样式）`)
+} else {
+  console.log('    OK    导航不是滚动容器')
+}
 
 // --- [8] 每个目录都有一份 README ---------------------------------------------------------------
 // 「每个文件夹写一份 README」是这次重构定下的约定，光靠自觉会慢慢烂掉，所以直接查。

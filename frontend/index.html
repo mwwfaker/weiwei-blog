@@ -10,9 +10,92 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- 启动页：在 JS 与样式表到达之前就能画出来，所以必须是内联的。
+         主题读 localStorage 的 vueuse-color-scheme，和应用里的 useDark 用同一个键；
+         夜里是星空 + 轨道，白天是玻璃 + 光扫过。app/boot.js 在挂载后把它收掉。 -->
+    <script>
+      (function () {
+        var saved = 'dark'
+        try { saved = localStorage.getItem('vueuse-color-scheme') || 'dark' } catch (error) { /* 隐私模式 */ }
+        // 'auto' 跟随系统：启动页必须在应用挂载前就选对那一套，否则第一眼会是错的颜色。
+        if (saved === 'auto') {
+          saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        }
+        document.documentElement.setAttribute('data-boot-theme', saved === 'light' ? 'light' : 'dark')
+        window.__bootStart = performance.now()
+      })()
+    </script>
+    <style>
+      #boot { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; overflow: hidden; background: #05050c; transition: opacity .5s ease, visibility .5s; }
+      #boot.boot-done { opacity: 0; visibility: hidden; pointer-events: none; }
+      #boot .boot-night, #boot .boot-day { position: absolute; inset: 0; display: grid; place-items: center; }
+      html[data-boot-theme="dark"] #boot { background: #05050c; }
+      html[data-boot-theme="dark"] #boot .boot-day { display: none; }
+      html[data-boot-theme="light"] #boot { background: #eef2fb; }
+      html[data-boot-theme="light"] #boot .boot-night { display: none; }
+      .boot-inner { position: relative; display: grid; justify-items: center; gap: 14px; text-align: center; }
+      .boot-word { font-family: 'Noto Serif SC', serif; font-size: 34px; letter-spacing: .34em; text-indent: .34em; animation: bootWord 1.1s cubic-bezier(.2,.8,.2,1) both; }
+      .boot-sub { font-size: 8.5px; letter-spacing: .3em; opacity: .55; animation: bootWord 1.1s .15s cubic-bezier(.2,.8,.2,1) both; }
+      .boot-bar { position: relative; width: 132px; height: 1px; margin-top: 12px; overflow: hidden; background: rgba(140, 130, 170, .22); }
+      .boot-bar i { position: absolute; inset: 0 auto 0 0; width: 0; animation: bootBar 1.5s cubic-bezier(.3,.7,.2,1) forwards; }
+      #boot.boot-done .boot-bar i { width: 100%; transition: width .18s linear; }
+      html[data-boot-theme="dark"] .boot-word { color: #f4efff; text-shadow: 0 0 34px rgba(150, 120, 255, .45); }
+      html[data-boot-theme="dark"] .boot-sub { color: #cfc6ea; }
+      html[data-boot-theme="dark"] .boot-bar i { background: linear-gradient(90deg, #8d6cf2, #9fd7ff); box-shadow: 0 0 12px rgba(141, 108, 242, .8); }
+      html[data-boot-theme="light"] .boot-word { color: #1b1728; }
+      html[data-boot-theme="light"] .boot-sub { color: #6f6a84; }
+      html[data-boot-theme="light"] .boot-bar i { background: linear-gradient(90deg, #5a45d0, #7fb6ff); }
+      /* 夜：一圈很慢的轨道 + 几颗会呼吸的星 */
+      .boot-orbit { position: absolute; width: min(46vw, 380px); height: min(22vw, 180px); border: 1px solid rgba(160, 140, 255, .22); border-radius: 50%; transform: rotate(-14deg); animation: bootOrbit 9s linear infinite; }
+      .boot-orbit::after { content: ''; position: absolute; top: -3px; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #bda9ff; box-shadow: 0 0 14px #9d84ff; }
+      .boot-star { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #cbb8ff; opacity: .7; animation: bootStar 2.6s ease-in-out infinite; }
+      .boot-star.s1 { top: 22%; left: 26%; }
+      .boot-star.s2 { top: 30%; right: 22%; animation-delay: .6s; }
+      .boot-star.s3 { bottom: 26%; left: 34%; animation-delay: 1.1s; }
+      .boot-star.s4 { bottom: 18%; right: 30%; animation-delay: 1.7s; }
+      /* 昼：一块玻璃 + 一道扫过的光 */
+      .boot-pane { position: absolute; width: min(52vw, 420px); height: min(30vw, 240px); border: 1px solid rgba(255, 255, 255, .95); border-radius: 22px; background: linear-gradient(135deg, rgba(255, 255, 255, .6), rgba(255, 255, 255, .18)); box-shadow: 0 50px 90px -60px rgba(60, 50, 140, .55), inset 0 1px 0 #fff; }
+      .boot-sheen { position: absolute; inset: 0; overflow: hidden; }
+      .boot-sheen::after { content: ''; position: absolute; top: -40%; left: -60%; width: 40%; height: 180%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .85), transparent); transform: rotate(12deg); animation: bootSheen 1.9s .2s ease-in-out infinite; }
+      @keyframes bootWord { from { opacity: 0; letter-spacing: .6em; } to { opacity: 1; } }
+      @keyframes bootBar { 0% { width: 0; } 60% { width: 62%; } 100% { width: 88%; } }
+      @keyframes bootOrbit { to { rotate: 180deg; } }
+      @keyframes bootStar { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.2); } }
+      @keyframes bootSheen { 0% { left: -60%; } 60%, 100% { left: 120%; } }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-orbit, .boot-star, .boot-sheen::after, .boot-word, .boot-sub, .boot-bar i { animation: none !important; }
+        .boot-bar i { width: 70%; }
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
+
+    <div id="boot">
+      <div class="boot-night" aria-hidden="true">
+        <span class="boot-orbit"></span>
+        <span class="boot-star s1"></span>
+        <span class="boot-star s2"></span>
+        <span class="boot-star s3"></span>
+        <span class="boot-star s4"></span>
+        <div class="boot-inner">
+          <div class="boot-word">唯唯园</div>
+          <div class="boot-sub">A LITTLE SPACE FOR MYSELF</div>
+          <div class="boot-bar"><i></i></div>
+        </div>
+      </div>
+      <div class="boot-day" aria-hidden="true">
+        <span class="boot-pane"></span>
+        <span class="boot-sheen"></span>
+        <div class="boot-inner">
+          <div class="boot-word">唯唯园</div>
+          <div class="boot-sub">WEIWEI'S LITTLE GARDEN</div>
+          <div class="boot-bar"><i></i></div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-# frontend/src/styles 结构说明
+﻿# frontend/src/styles 结构说明
 
 `index.css` 只做 `@import`，不放任何规则。**import 顺序 = 层叠顺序**（后面的覆盖前面的），
 顺序与原 `app.css` 的行区间一一对应，禁止重排、禁止把两个文件并成一个。
@@ -18,6 +18,8 @@
 | 6 | `lyrics-and-import.css` | 784–993 | 歌词栏（滚动、居中、高亮、骨架屏）、曲库列表里的歌词状态、后台导入任务卡与音乐页内联导入队列 |
 | 7 | `polish-and-light-theme.css` | 994–1195 | 「F. 整体放柔」（位移/时长/模糊收敛）、统一圆角、中等宽度堆叠等响应式收尾，以及创作管理页、留言板/朋友/时光归档、登录与账号页的白天主题补写 |
 | 8 | `diary-tree.css` | 新增（不在原 `app.css` 里） | 日记「时间树」：树干、挂在轴上的卡片、年份牌子、按侧展开的入场、增删日记时的高度折叠。**必须排在最后**：它要压过 `polish-and-light-theme.css` 的 `.reveal{translate:0 16px}`（那是纵向揭示，树里是横向的），而 `.reveal.is-visible{translate:none}` 与 `.diary-tree-node.reveal{translate:…}` 同为 (0,2,0)，只能靠排在后面赢 |
+| 9 | `home-stage.css` | 新增 | 首页 2026 改版：首屏那块恒暗的 3D 舞台（液态星门 + 记忆星座）、hover 小卡、降级星空、分节标题、三个入口卡。也必须在最后：它要覆盖 `editorial-2026.css` / `polish-and-light-theme.css` 里对 `.home-page`、`.article-card`、`.lower-grid` 的既有规则 |
+| 10 | `shell-2026.css` | 新增 | 全站换壳：悬浮顶栏、底部胶囊 dock 与「更多」面板、页面液态转场、通栏容器，以及全站公共表面（内页标题、卡片、按钮、工具条、分类胶囊）。它是最后一份，要压过 base / editorial / polish 的旧壳规则；首页首屏由 `home-stage.css` 的 `.home-*` 前缀自己管 |
 
 ## 为什么必须是这个顺序
 
@@ -50,3 +52,5 @@
 现在的例子是 `pages/perf/perf.css`（绩效计算器，约 36 kB）。它**故意不出现在本目录的 import 列表里**。
 `verify-frontend.mjs` 会顺着组件里的 `import '*.css'` 一起找，所以检查不会漏。
 代价是这份样式不参与本目录的层叠顺序——所以它只允许作用于那个页面自己的根类（例如 `.perf-tool`）。
+| 11 | `home-day.css` | 新增 | 白天主题的第二套首页（纸艺立体书）：整页是一本摊开的书，中缝书脊、页码、纸颗粒、会站起来的纸艺立体页；夜里仍是 `home-stage.css` 的星空世界，两套版面互不覆盖 |
+

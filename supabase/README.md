@@ -6,6 +6,8 @@
 | 文件 | 是什么 |
 | --- | --- |
 | `schema.sql` | **权威结构**：表、索引、RLS 策略、存储桶策略。可重复执行（`create ... if not exists` / `drop policy if exists`）。 |
+| `study_docs` | 学习库里导入的文档（标题 + 解析后的 jsonb），RLS 只允许本人读写。 |
+| `functions/study-normalize/` | 把学习文档交给模型整理成结构化计划（key 只放服务端）。 |
 | `apply.mjs` | 把 `schema.sql` 逐条执行到 Supabase 项目上（需要管理令牌）。 |
 | `verify-schema.mjs` | **只读复查**：表和列是不是都在了。只用公开的 anon key，本地和 CI 都能跑。 |
 | `functions/lyrics/index.ts` | 歌词中转 Edge Function。 |
@@ -20,7 +22,31 @@
 这样前端就算被改坏、或者有人直接拿 anon key 调 REST 接口，也读不到别人的私密内容。
 anon key 本来就会打进前端产物，这是设计如此——它不是一个秘密，**不要把它当成秘密**。
 
+## Data API 权限（2026-10-30 之后）
+
+Supabase 在 2026-10-30 改了默认授权：public 里**新建**的表不再自动获得 anon / authenticated /
+service_role 的权限。老表不受影响，所以线上那天不会坏；但**重建环境**会坏——新项目、预览分支、
+`supabase db reset`，以及以后在这份脚本里加的新表，都会变成「表在、API 401 permission denied」。
+
+`schema.sql` 因此有一节「Data API 权限（GRANT）」，和建表放在同一份脚本里：
+
+| 角色 | 给什么 | 为什么 |
+| --- | --- | --- |
+| `anon` | `select` | 未登录访客看公开内容、看整份绩效 |
+| `authenticated` | `select, insert, update, delete` | 写操作仍由 RLS 逐行把关，grant 只负责"进得了门" |
+| `service_role` | `select, insert, update, delete` | 运维脚本用；前端永远拿不到这把钥匙 |
+
+还有一句 `grant usage on all sequences`：identity 列的序列是独立对象，表的 GRANT 不会顺带它，
+缺了会在 insert 时报 `permission denied for sequence ..._id_seq`（错误里提的是表，很容易查错方向）。
+
+**加一张表要补三处**：建表语句、上面那三个 GRANT 清单、`verify-schema.mjs` 的 `TABLES`。
+跑完用脚本里「自检」那段的两条 SQL 各查一次（RLS 是否开着、权限是否齐全）。
+
 ## 应用结构变更
+
+**函数也是自动的**：改到 `supabase/functions/**` 会触发 `.github/workflows/deploy-functions.yml`
+（部署 + 把 `STUDY_AI_KEY` 写进 Supabase secrets + 用 anon key 检查函数在线）。
+换 key 只需改 GitHub Secret 再点一次 Run workflow。
 
 **自动化（推荐，也是长期方案）**：改完 `schema.sql` 推送即可 —— GitHub Actions 的
 **Apply database schema**（[.github/workflows/apply-schema.yml](../.github/workflows/apply-schema.yml)）

@@ -10,6 +10,10 @@
  * `404 PGRST205`，对**不存在的列**返回 `400`。所以"能不能读到行"在这里不影响判断，
  * 看的是状态码本身。
  *
+ * 另有一种 401 要单独认：表在、但角色没有 GRANT（2026-10-30 之后新建的表默认没有权限），
+ * 正文里带 `permission denied`。它和"anon key 填错了"都是 401，但修法完全不同，
+ * 所以这里分开报——否则会把人送去查密钥，而真正要补的是一句 GRANT。
+ *
  * 用法（在仓库根目录）：
  *   node supabase/verify-schema.mjs
  * 配置来源（按优先级）：环境变量 SUPABASE_URL / SUPABASE_ANON_KEY →
@@ -80,6 +84,13 @@ async function probe(path) {
   return { status: res.status, body: body.slice(0, 200) }
 }
 
+/** 表在、但 anon 没有被 GRANT：同样回 401/403，区别是正文里带 permission denied。 */
+function isPermissionDenied(status, body) {
+  return (status === 401 || status === 403) && /permission denied/i.test(body)
+}
+
+const GRANT_HINT = '表在，但 anon 没有 SELECT 权限 —— 需要执行 schema.sql 的 GRANT 那一节'
+
 let failed = 0
 const line = (ok, label, detail) => {
   if (!ok) failed += 1
@@ -93,6 +104,7 @@ for (const table of TABLES) {
   const { status, body } = await probe(`${table}?select=*&limit=1`)
   if (status === 200) line(true, table)
   else if (status === 404) line(false, table, '表不存在 —— 需要执行 supabase/schema.sql')
+  else if (isPermissionDenied(status, body)) line(false, table, GRANT_HINT)
   else if (status === 401 || status === 403) line(false, table, `密钥被拒绝（${status}）`)
   else line(false, table, `HTTP ${status} ${body}`)
 }
@@ -102,6 +114,7 @@ for (const item of COLUMN_SETS) {
   const { status, body } = await probe(`${item.table}?select=${item.columns.join(',')}&limit=1`)
   const label = `${item.table}(${item.columns.join(', ')})`
   if (status === 200) line(true, label, item.why)
+  else if (isPermissionDenied(status, body)) line(false, label, GRANT_HINT)
   else line(false, label, `HTTP ${status} ${body}`)
 }
 

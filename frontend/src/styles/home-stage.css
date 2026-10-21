@@ -1,0 +1,500 @@
+/* 首页 2026 · 「整个世界」版。
+ *
+ * 与上一版的根本区别：3D 不再是页面里的一块面板，而是**固定在视口上的一整片夜空**，
+ * 内容直接排在世界里往下滚。所以这里没有任何卡片、面板、玻璃。
+ *
+ * 这一份仍然接在 index.css 最后。首页的页面已经不带 .home-page，
+ * 全部规则以 .world 开头，不会和别处的 .page-content 打架。 */
+
+/* 首页时外壳让位：没有最大宽度、没有底部 dock 的留白 */
+.app-shell.home-mode .page-frame { max-width: none; padding: 0; }
+.app-shell.home-mode .main-area { padding: 0; }
+
+.world {
+  position: relative;
+  min-height: 100svh;
+  padding: 0;
+  background: #05050c;
+  color: #f6f3ff;
+}
+.world-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  touch-action: pan-y;
+}
+.world-scene-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.world-scene.is-star { cursor: pointer; }
+/* 压暗层：下面几段文字要在任何一帧画面上都读得清 */
+.world-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(80% 55% at 50% 0%, rgba(5, 5, 12, 0) 0%, rgba(5, 5, 12, 0.35) 60%, rgba(5, 5, 12, 0.8) 100%),
+    linear-gradient(180deg, rgba(5, 5, 12, 0.04) 0%, rgba(5, 5, 12, 0.5) 46%, rgba(5, 5, 12, 0.9) 78%, #05050c 100%);
+}
+
+/* ---------- 一行字的导航 ---------- */
+.world-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 20px clamp(18px, 4vw, 48px);
+  background: linear-gradient(180deg, rgba(5, 5, 12, 0.86), rgba(5, 5, 12, 0));
+  pointer-events: none;
+}
+.world-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #f6f3ff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.world-brand .brand-mark { margin: 0; }
+.world-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.4vw, 32px);
+  margin-left: auto;
+  pointer-events: auto;
+}
+.world-links button {
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: rgba(232, 226, 250, 0.66);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.world-links button:hover {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.55);
+}
+.world-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 6px;
+  pointer-events: auto;
+}
+.world-theme {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(240, 235, 255, 0.9);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.world-theme:hover { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.12); }
+
+/* ---------- 世界里的内容 ---------- */
+.world-content {
+  position: relative;
+  z-index: 2;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 44px);
+  pointer-events: none;
+}
+.world-content button { pointer-events: auto; }
+
+.world-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  padding: 130px 0 90px;
+}
+.world-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: rgba(214, 205, 240, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.world-eyebrow::before {
+  content: '';
+  width: 36px;
+  height: 1px;
+  background: #c9b8ff;
+}
+.world-intro h1 {
+  margin: 26px 0 24px;
+  font-family: 'DM Sans', 'Noto Sans SC', sans-serif;
+  font-size: clamp(44px, 6.4vw, 96px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+  color: #f8f5ff;
+  /* 全站标题那层「墨水→强调色」的流光渐变在这里要关掉，否则白天主题会把字涂暗 */
+  background-image: none;
+  -webkit-text-fill-color: currentColor;
+}
+.world-intro h1 em {
+  font-style: normal;
+  color: #c9b8ff;
+}
+.world-lead {
+  margin: 0;
+  max-width: 520px;
+  font-size: 14.5px;
+  line-height: 2.1;
+  color: rgba(228, 221, 246, 0.72);
+}
+.world-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 36px;
+}
+.world-cta {
+  padding: 14px 26px;
+  border: 0;
+  border-radius: 999px;
+  background: #f5f1ff;
+  color: #0b0916;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.world-cta:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -22px rgba(200, 180, 255, 0.9); }
+.world-link {
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(235, 228, 255, 0.4);
+  background: none;
+  color: rgba(240, 235, 255, 0.85);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.world-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 64px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: rgba(206, 196, 240, 0.5);
+}
+.world-hint-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c9b8ff;
+  animation: worldPulse 2.6s ease-out infinite;
+}
+
+/* ---------- 章节 ---------- */
+.world-chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(18px, 2.6vw, 30px);
+  min-height: 100svh;
+  padding: 110px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+/* 每章到达视口时淡入上移（v-reveal）。原来的 reveal 只有 16px 位移，
+   在这里太轻，看起来像「内容突然贴上去了」。 */
+.world-chapter.reveal { opacity: 0; translate: 0 28px; transition: opacity 0.7s ease, translate 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.world-chapter.reveal.is-visible { opacity: 1; translate: none; }
+.world-chapter-head {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+}
+.world-chapter-no {
+  font-size: 10.5px;
+  letter-spacing: 0.24em;
+  color: #c9b8ff;
+}
+.world-chapter-head h2 {
+  margin: 0;
+  font-family: 'DM Sans', 'Noto Sans SC', sans-serif;
+  font-size: clamp(24px, 3vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #f6f3ff;
+}
+.world-more {
+  margin-left: auto;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(235, 228, 255, 0.35);
+  background: none;
+  color: rgba(232, 226, 250, 0.62);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+/* 文章：一行一篇，没有卡片 */
+.world-stories {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.world-stories button {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 92px;
+  align-items: baseline;
+  gap: 22px;
+  width: 100%;
+  padding: 26px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: padding-left 0.3s;
+}
+.world-stories button:hover { padding-left: 10px; }
+.world-story-no { font-size: 10.5px; letter-spacing: 0.18em; color: rgba(214, 205, 240, 0.5); }
+.world-story-copy { display: grid; gap: 8px; min-width: 0; }
+.world-story-copy strong {
+  font-size: clamp(20px, 2.3vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #f6f3ff;
+  transition: color 0.25s;
+}
+.world-stories button:hover .world-story-copy strong { color: #c9b8ff; }
+.world-story-copy small {
+  font-size: 12px;
+  line-height: 1.8;
+  color: rgba(222, 214, 240, 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.world-story-date {
+  justify-self: end;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgba(214, 205, 240, 0.45);
+  white-space: nowrap;
+}
+
+/* 三个入口：只有字 */
+.world-doors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 3vw, 40px);
+}
+.world-doors button {
+  display: grid;
+  gap: 10px;
+  padding: 26px 0 22px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  background: none;
+  text-align: left;
+  color: #f6f3ff;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+.world-doors button:hover { border-top-color: #c9b8ff; }
+.world-doors em {
+  font-style: normal;
+  font-size: clamp(26px, 3.4vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.world-doors small { font-size: 10.5px; letter-spacing: 0.16em; color: rgba(214, 205, 240, 0.5); }
+
+/* 日记 */
+.world-diary { margin: 0; padding: 0; list-style: none; }
+.world-diary button {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 22px;
+  width: 100%;
+  padding: 22px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: padding-left 0.3s;
+}
+.world-diary button:hover { padding-left: 10px; }
+.world-diary-date { font-size: 10.5px; letter-spacing: 0.16em; color: rgba(214, 205, 240, 0.5); }
+.world-diary strong { font-size: 18px; font-weight: 600; color: #f6f3ff; }
+.world-diary small {
+  grid-column: 2;
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: rgba(222, 214, 240, 0.5);
+}
+
+/* hover 星体时的小卡 */
+.world-tip {
+  position: fixed;
+  z-index: 6;
+  display: grid;
+  gap: 4px;
+  max-width: 260px;
+  padding: 12px 14px;
+  transform: translate(-50%, -130%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(10, 8, 20, 0.92);
+  pointer-events: none;
+}
+.world-tip-date { font-size: 9px; letter-spacing: 0.18em; color: rgba(214, 205, 240, 0.6); }
+.world-tip strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.world-tip small { font-size: 11px; line-height: 1.6; color: rgba(222, 214, 240, 0.6); }
+
+.world-a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.world .page-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 28px 0 40px;
+  color: rgba(206, 196, 240, 0.45);
+}
+
+@media (max-width: 760px) {
+  .world-nav { padding: 14px 18px; gap: 12px; }
+  .world-links { gap: 12px; }
+  .world-links button { font-size: 11px; }
+  .world-brand { font-size: 13px; }
+  .world-intro { padding: 110px 0 70px; }
+  .world-intro h1 { font-size: clamp(38px, 10.5vw, 54px); }
+  .world-lead { font-size: 13px; }
+  .world-hint { margin-top: 40px; font-size: 9.5px; }
+  .world-chapter { min-height: auto; padding: 64px 0; gap: 20px; }
+  .world-chapter-head { flex-wrap: wrap; gap: 10px; }
+  .world-more { margin-left: 0; }
+  .world-stories button { grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 20px 0; }
+  .world-story-date { display: none; }
+  .world-story-copy small { white-space: normal; }
+  .world-doors { grid-template-columns: 1fr; gap: 0; }
+  .world-diary button { grid-template-columns: 58px minmax(0, 1fr); gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-hint-dot { animation: none; }
+  .world-cta, .world-stories button, .world-diary button { transition: none; }
+}
+
+@keyframes worldPulse {
+  0% { box-shadow: 0 0 0 0 rgba(201, 184, 255, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(201, 184, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 184, 255, 0); }
+}
+/* 首页：顶栏直接压在世界里，浅色主题也保持亮字 */
+.home-mode .topbar { background: linear-gradient(180deg, rgba(5,5,12,.9), rgba(5,5,12,0)); backdrop-filter: none; }
+.home-mode .topbar-brand-copy strong { color: #f6f3ff; }
+.home-mode .topbar-brand-copy small { color: rgba(232,226,250,.45); }
+.home-mode .topbar-links button { color: rgba(232,226,250,.62); }
+.home-mode .topbar-links button:hover { color: #fff; }
+.home-mode .topbar-links button.active { color: #fff; border-bottom-color: rgba(255,255,255,.7); }
+.home-mode .topbar-theme { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: #f6f3ff; }
+.home-mode .world-intro { padding-top: 150px; }
+.home-mode .world-intro { padding-top: 96px; }
+
+/* ---------- 白天主题的首页：同一套布局，换一整套「光」的配色 ---------- */
+:root:not(.dark) .world { background: #f4f2ec; color: #1a1822; }
+:root:not(.dark) .world-sky {
+  background:
+    radial-gradient(70% 50% at 50% 0%, rgba(244, 242, 236, 0) 0%, rgba(244, 242, 236, 0.28) 55%, rgba(244, 242, 236, 0.72) 100%),
+    linear-gradient(180deg, rgba(244, 242, 236, 0.04) 0%, rgba(244, 242, 236, 0.5) 46%, #f4f2ec 84%);
+}
+:root:not(.dark) .world-eyebrow { color: #7a7486; }
+:root:not(.dark) .world-eyebrow::before { background: #6a5bd0; }
+:root:not(.dark) .world-intro h1 { color: #15131b; }
+:root:not(.dark) .world-intro h1 em { color: #5b4bd6; }
+:root:not(.dark) .world-lead { color: #565162; }
+:root:not(.dark) .world-cta { background: #1a1822; color: #fdfcff; box-shadow: 0 16px 36px -22px rgba(26, 24, 34, 0.8); }
+:root:not(.dark) .world-link { color: #2a2634; border-bottom-color: rgba(42, 38, 52, 0.35); }
+:root:not(.dark) .world-hint { color: #8a8496; }
+:root:not(.dark) .world-hint-dot { background: #6a5bd0; }
+:root:not(.dark) .world-chapter { border-top-color: rgba(26, 24, 34, 0.14); }
+:root:not(.dark) .world-chapter-no { color: #6a5bd0; }
+:root:not(.dark) .world-chapter-head h2 { color: #15131b; }
+:root:not(.dark) .world-more { color: #6b6578; border-bottom-color: rgba(26, 24, 34, 0.3); }
+:root:not(.dark) .world-stories,
+:root:not(.dark) .world-stories button,
+:root:not(.dark) .world-diary button { border-color: rgba(26, 24, 34, 0.14); }
+:root:not(.dark) .world-story-no,
+:root:not(.dark) .world-story-date,
+:root:not(.dark) .world-diary-date { color: #8a8496; }
+:root:not(.dark) .world-story-copy strong,
+:root:not(.dark) .world-diary strong,
+:root:not(.dark) .world-doors button { color: #15131b; }
+:root:not(.dark) .world-story-copy small,
+:root:not(.dark) .world-diary small,
+:root:not(.dark) .world-doors small { color: #6f6a7c; }
+:root:not(.dark) .world-stories button:hover .world-story-copy strong { color: #5b4bd6; }
+:root:not(.dark) .world-doors button { border-top-color: rgba(26, 24, 34, 0.22); }
+:root:not(.dark) .world-tip { background: #fffdf8; border-color: rgba(26, 24, 34, 0.16); color: #1a1822; }
+:root:not(.dark) .world-tip-date,
+:root:not(.dark) .world-tip small { color: #6f6a7c; }
+:root:not(.dark) .world .page-footer { color: #7a7486; border-top-color: rgba(26, 24, 34, 0.12); }
+
+/* 白天首页的顶栏跟着变浅，而不是留给它一块突兀的白条 */
+:root:not(.dark) .home-mode .topbar { background: color-mix(in srgb, var(--paper) 82%, transparent); backdrop-filter: blur(12px); }
+:root:not(.dark) .home-mode .topbar-brand-copy strong { color: var(--ink); }
+:root:not(.dark) .home-mode .topbar-brand-copy small { color: var(--muted); }
+:root:not(.dark) .home-mode .topbar-links button,
+:root:not(.dark) .home-mode .topbar-more { color: var(--muted); }
+:root:not(.dark) .home-mode .topbar-links button:hover,
+:root:not(.dark) .home-mode .topbar-links button.active { color: var(--ink); border-bottom-color: var(--ink); }
+:root:not(.dark) .home-mode .topbar-theme { border-color: var(--line); background: none; color: var(--ink); }
+
+/* ---------- 夜里首页的入场：等启动页淡出后逐行升起 ---------- */
+.world-intro > * { animation: worldRise 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.world-intro > *:nth-child(1) { animation-delay: 0.45s; }
+.world-intro > *:nth-child(2) { animation-delay: 0.52s; }
+.world-intro > *:nth-child(3) { animation-delay: 0.6s; }
+.world-intro > *:nth-child(4) { animation-delay: 0.68s; }
+.world-intro > *:nth-child(5) { animation-delay: 0.78s; }
+@keyframes worldRise {
+  from { opacity: 0; translate: 0 22px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .world-intro > * { animation: none; }
+}

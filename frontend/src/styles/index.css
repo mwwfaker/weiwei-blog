@@ -14,3 +14,12 @@
 /* 接在最后：日记「时间树」要压过 polish 里的 `.reveal{translate:0 16px}`（纵向揭示），
    它的横向展开是同分选择器，只能靠排在后面才赢。 */
 @import './diary-tree.css';
+/* 首页 2026 改版（液态星门 + 记忆星座）。也必须在最后：它要覆盖 editorial / polish 里
+   对 .home-page、.article-card、.lower-grid 的既有规则。新增文件只能接在列表末尾。 */
+@import './home-stage.css';
+/* 2026 全站换壳：悬浮顶栏、底部 dock、液态转场、通栏容器与公共表面。
+   它必须排在 home-stage.css 之后（最后一个）：换壳层要压过 base / editorial / polish 的旧壳规则，
+   而首页首屏的规则由 home-stage.css 用 `.home-*` 前缀自己管，两者不打架。 */
+@import './shell-2026.css';
+/* 白天主题的第二套首页（玻璃光学）。它只管 .day-* / .glass-*，接在最后只是为了不和上面的层纠缠。 */
+@import './home-day.css';

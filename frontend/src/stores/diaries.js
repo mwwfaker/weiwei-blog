@@ -1,6 +1,5 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import mammoth from 'mammoth/mammoth.browser'
 import { request } from '@/services/api'
 import { splitDiaryText } from '@/services/diaryImport'
 import { importProblem, detectDocumentFormat, sniffProtectedStub } from '@/services/articleImport'
@@ -263,7 +262,7 @@ export const useDiariesStore = defineStore('diaries', () => {
           if (sniffProtectedStub(bytes)) { raise(importProblem('protected-stub', file.name)); continue }
           const format = detectDocumentFormat(bytes.subarray(0, 8))
           if (format !== 'docx') { raise(importProblem(format, file.name)); continue }
-          const result = await mammoth.extractRawText({ arrayBuffer: buffer })
+          const result = await (await import('mammoth/mammoth.browser')).default.extractRawText({ arrayBuffer: buffer })
           content = result.value
         } else { notify(`已跳过不支持的文件：${file.name}`); continue }
         const groups = splitDiaryText(content)

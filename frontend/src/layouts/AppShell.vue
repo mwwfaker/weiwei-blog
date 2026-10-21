@@ -1,9 +1,7 @@
 <script setup>
-// 应用外壳：左侧导航 + 顶栏 + 当前页面 + 常驻的播放器/弹窗/提示。
-//
-// 这里只做「编排」：页面内容在 pages/ 下，导航与顶栏在 layouts/ 下，可复用块在 modules/ 下，
-// 状态在 stores/ 下。这个文件从 1540 行降到只剩接线，改一个页面不需要再碰它。
-import { onMounted, onUnmounted, provide, watch } from 'vue'
+// 应用外壳：全站一条顶栏 + 页面内容 + 常驻播放器与弹窗。
+// 顶栏放在 .page-frame 之外，首页和内页才会共用同一份左右留白。
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useDark } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import { pageComponent } from '@/app/pageRegistry'
@@ -35,7 +33,6 @@ import { useLibraryStore } from '@/stores/library'
 import { useMediaStore } from '@/stores/media'
 import { useMusicStore } from '@/stores/music'
 import { useProfileStore } from '@/stores/profile'
-import AppSidebar from './AppSidebar.vue'
 import AppTopBar from './AppTopBar.vue'
 
 const route = useRoute()
@@ -49,14 +46,11 @@ const music = useMusicStore()
 const profile = useProfileStore()
 const library = useLibraryStore()
 
-// 主题只有外壳知道（@vueuse 的 useDark 会写 <html> 的 class 和 localStorage），
-// 音乐页的频谱与粒子背景通过 inject 拿「现在是深色吗」。
 const isDark = useDark({ initialValue: 'dark' })
 provide(THEME_KEY, isDark)
 
 const { toast } = useToast()
 
-// 滚动方向决定导航是否收起；窗口尺寸变化时还要重算播放器栏的高度。
 const { scrolled } = useScrollChrome({
   onViewportChange: () => {
     moreOpen.value = false
@@ -64,20 +58,50 @@ const { scrolled } = useScrollChrome({
   },
 })
 
-// 路由 → 页面 id。老地址 #/public-diary 会被认成「日记页 · 公开标签」。
 watch(
   () => route.name,
   (name) => resolvePageName(name, { onLegacyPublicDiary: () => { diaries.diaryTab = 'public' } }),
   { immediate: true },
 )
 
+// 换页面只做交叉淡入，不再放帘子：帘子扫过时会先闪一下底色，那一下就是「闪」的来源。
+// 现在旧页绝对定位淡出、新页同时淡入，中间没有空白帧。
+
+// 顶部一条很细的进度线：换页的 0.5 秒里走完，让「正在切」这件事有反馈。
+const routing = ref(false)
+let routingTimer = 0
+watch(currentPage, () => {
+  routing.value = false
+  requestAnimationFrame(() => {
+    routing.value = true
+    window.clearTimeout(routingTimer)
+    routingTimer = window.setTimeout(() => { routing.value = false }, 560)
+  })
+})
+
+/** 首页是「一整个世界」：外壳的容器让位，但顶栏仍然常驻。 */
+const homeMode = computed(() => currentPage.value === 'home')
+
+// 主题切换：夜→昼是一片白光扩散，昼→夜是一团墨色收拢。
+// 换主题时整页会重排配色，这一层幕让「换」本身有方向感。
+const themeVeil = ref('')
+let veilTimer = 0
+watch(isDark, (dark) => {
+  themeVeil.value = dark ? 'to-dark' : 'to-light'
+  window.clearTimeout(veilTimer)
+  veilTimer = window.setTimeout(() => { themeVeil.value = '' }, 640)
+})
+
 onMounted(async () => {
   await library.restoreSession()
   await library.refreshAll()
-  // 直接打开音乐页时也要对一次高度（store 里的 watch 只在歌词或曲目数变化时才跑）。
   requestAnimationFrame(() => music.syncConsoleHeight())
 })
-onUnmounted(() => disposeToast())
+onUnmounted(() => {
+  window.clearTimeout(routingTimer)
+  window.clearTimeout(veilTimer)
+  disposeToast()
+})
 </script>
 
 <template>
@@ -88,20 +112,21 @@ onUnmounted(() => disposeToast())
     :is-dark="isDark"
   />
 
-  <div class="app-shell" :class="{ 'chrome-condensed': scrolled, 'tool-mode': isToolPage }">
-    <AppSidebar :condensed="scrolled" />
-
+  <div class="app-shell" :class="{ 'chrome-condensed': scrolled, 'tool-mode': isToolPage, 'home-mode': homeMode }">
+    <div class="route-line" :class="{ 'is-running': routing }" aria-hidden="true"></div>
+    <div class="route-sheen" :class="{ 'is-running': routing }" aria-hidden="true"></div>
+    <div class="theme-veil" :class="themeVeil" aria-hidden="true"></div>
     <main class="main-area">
-      <Transition name="page" mode="out-in">
-        <div :key="currentPage" class="page-stage">
-          <AppTopBar />
-          <component :is="pageComponent(currentPage)" />
-        </div>
-      </Transition>
+      <AppTopBar v-if="!isToolPage" :condensed="scrolled" />
+      <div class="page-frame">
+        <Transition name="page-swap">
+          <div :key="currentPage" class="page-stage">
+            <component :is="pageComponent(currentPage)" />
+          </div>
+        </Transition>
+      </div>
     </main>
 
-    <!-- 右下角的音乐盒：尺寸恒定的小卡，不展开、不模糊背景。
-         窄屏时变成贴在底部标签栏上方的一条胶囊（见 styles 里的媒体查询）。 -->
     <MusicDock
       :playing="music.playing"
       :title="music.nowPlayingLabel"
@@ -115,13 +140,10 @@ onUnmounted(() => disposeToast())
       @open="go('music')"
     />
 
-    <!-- 两个 <audio> 常驻在这里，所以切页面不会中断播放。 -->
     <AudioEngine />
 
     <Transition name="toast"><div v-if="toast" class="toast-message">✳ &nbsp;{{ toast }}</div></Transition>
 
-    <!-- 跨页面共用的弹窗。它们的可见性由各自的 store 决定，所以首页、归档页、
-         文章页点开的是同一份草稿，不会出现「两个编辑器各改各的」。 -->
     <DiaryEditorDialog v-if="diaries.diaryDialog" @close="diaries.diaryDialog = false" />
     <ArticleEditorDialog v-if="articles.articleDialog" @close="articles.articleDialog = false" />
 
@@ -133,8 +155,6 @@ onUnmounted(() => disposeToast())
       @export="diaries.exportOne"
     />
 
-    <!-- 阅读弹窗自己播入场/退场动画（见 ReadingSheet）：外层再包 <Transition> 会打架，
-         而且它会在组件被摘掉时才播 leave，等于把化灰效果盖掉。 -->
     <ArticleReaderDialog
       v-if="articles.selectedArticle"
       :article="articles.selectedArticle"
@@ -143,9 +163,6 @@ onUnmounted(() => disposeToast())
       @remove="articles.remove"
     />
 
-    <!-- 全屏看图自己播入场/退场（退场是「化作尘埃」的粒子层），所以这里不包 <Transition>：
-         外层一包，v-if 会在动画开始前就把组件摘掉，粒子一个都来不及飞。
-         它内部用的是和阅读弹窗同一份退场时序。 -->
     <GalleryViewer
       v-if="media.galleryPreview"
       :photo="media.galleryPreview"
@@ -160,8 +177,6 @@ onUnmounted(() => disposeToast())
     <MusicEditorDialog v-if="music.musicEditor" @close="music.musicEditor = null" />
     <DiaryImportDialog v-if="diaries.importDialog" @close="diaries.importDialog = false" />
     <ArticleImportDialog v-if="articles.importDialog" @close="articles.importDialog = false" />
-    <!-- 文件打不开时的提示窗。它读的是全站共用的模块级状态（composables/useImportAlert.js），
-         所以挂在最外层只此一处，日记与文章导入都往这同一个窗口里报。 -->
     <ImportProblemDialog />
     <ProfileEditorDialog v-if="profile.profileDialog" @close="profile.profileDialog = false" />
   </div>

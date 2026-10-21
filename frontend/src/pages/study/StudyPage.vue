@@ -1,19 +1,125 @@
 <script setup>
 // 学习板块：把《金融学系统自学路线》结构化呈现，并记录本机学习进度。
 // 数据全部来自 data/studyPlan.js（由原始文档结构化而来），这里只负责呈现与交互。
-import { computed, ref, watch } from 'vue'
-import { studyPlan as plan } from './data/studyPlan'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { studyPlans } from './data/studyPlans'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
+import { readLocalStudyDocs, loadStudyDocs, saveStudyDoc, removeStudyDoc, newStudyDocId } from '@/services/studyDocs'
+import { parseStudyHtml } from '@/services/studyImport'
+import { notify } from '@/app/useToast'
+import PlanDocView from './components/PlanDocView.vue'
+import PlanStructuredView from './components/PlanStructuredView.vue'
+import { normalizeStudyText } from '@/services/studyAi'
 // Imported (not globally registered) so the directive is available in any app that mounts this
 // component, including the render test.
 import { useCountUp, vReveal } from '@/composables/motion'
 
 const PROGRESS_KEY = 'weiwei-blog-study-progress'
 
-// ---- progress ---------------------------------------------------------------
-const stored = readStoredJson(PROGRESS_KEY, {})
-const done = ref(stored && typeof stored.done === 'object' && stored.done ? { ...stored.done } : {})
-watch(done, (value) => writeStoredJson(PROGRESS_KEY, { done: value, updatedAt: new Date().toISOString() }), { deep: true })
+// ---- 学习库 / 导入 ----------------------------------------------------------
+// 学习页有三种视图：library（学习库）/ plan（内置计划）/ doc（导入的文档）。
+// 导入的文档存在本机，结构由 services/studyImport 从 Word 里读出来，渲染交给 PlanDocView。
+const docs = ref(readLocalStudyDocs())
+const view = ref('library')
+const activeDoc = ref(null)
+const importInput = ref(null)
+const importing = ref(false)
+
+function openEntry(id) {
+  if (id === 'finance') {
+    switchPlan('finance')
+    view.value = 'plan'
+    return
+  }
+  activeDoc.value = docs.value.find((doc) => doc.id === id) || null
+  if (activeDoc.value) view.value = 'doc'
+}
+
+function backToLibrary() {
+  view.value = 'library'
+  activeDoc.value = null
+}
+
+async function onImportPicked(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  importing.value = true
+  try {
+    const buffer = await file.arrayBuffer()
+    const { default: mammoth } = await import('mammoth/mammoth.browser')
+    const [{ value: html }, { value: text }] = await Promise.all([
+      mammoth.convertToHtml({ arrayBuffer: buffer }),
+      mammoth.extractRawText({ arrayBuffer: buffer }),
+    ])
+    const parsed = parseStudyHtml(html, file.name.replace(/\.docx?$/i, ''))
+    const doc = { ...parsed, id: newStudyDocId(), fileName: file.name }
+
+    // 先按文档排版保底，再让模型整理成「阶段 / 课程 / 资源」。
+    // 模型失败只是少了结构，文档本身照常能看。
+    try {
+      doc.plan = await normalizeStudyText(text, file.name)
+      notify(`已整理《${doc.plan.title || doc.title}》`)
+    } catch (error) {
+      notify(`已按文档排版（AI 整理跳过：${error.message}）`)
+    }
+
+    docs.value = await saveStudyDoc(doc)
+    activeDoc.value = doc
+    view.value = 'doc'
+  } catch (error) {
+    notify(`导入失败：${error.message}`)
+  } finally {
+    importing.value = false
+  }
+}
+
+async function removeActiveDoc() {
+  if (!activeDoc.value) return
+  docs.value = await removeStudyDoc(activeDoc.value.id)
+  notify('已移除这份学习文档')
+  backToLibrary()
+}
+
+// 深链接：`#/study?doc=<id>` 直接打开某份导入的文档（分享给自己/书签用）。
+onMounted(async () => {
+  // 以数据库为准：登录后打开会把本机缓存换成服务端那份。
+  docs.value = await loadStudyDocs()
+  const match = /doc=([\w-]+)/.exec(window.location.hash)
+  if (match && docs.value.some((doc) => doc.id === match[1])) openEntry(match[1])
+})
+
+// ---- plan library -----------------------------------------------------------
+// 学习页现在是「计划库 + 当前计划」：数据从 data/studyPlans.js 来，切换计划只换 plan 的内容，
+// 不重新挂载页面。以后加一份新学习计划 = 往数组里加一项（见 data/README.md）。
+const activeId = ref(studyPlans[0].id)
+const plan = reactive({ ...studyPlans[0].plan })
+
+function progressKey() {
+  return `${PROGRESS_KEY}:${activeId.value}`
+}
+
+// ---- progress（按计划分开存，换计划不会串进度） ------------------------------
+function loadProgress() {
+  const stored = readStoredJson(progressKey(), {})
+  done.value = stored && typeof stored.done === 'object' && stored.done ? { ...stored.done } : {}
+}
+const done = ref({})
+loadProgress()
+watch(done, (value) => writeStoredJson(progressKey(), { done: value, updatedAt: new Date().toISOString() }), { deep: true })
+
+function switchPlan(id) {
+  const next = studyPlans.find((item) => item.id === id)
+  if (!next || id === activeId.value) return
+  activeId.value = id
+  Object.assign(plan, next.plan)
+  activeStage.value = '全部'
+  query.value = ''
+  statusFilter.value = 'all'
+  coreOnly.value = false
+  expanded.value = {}
+  loadProgress()
+}
 
 const isDone = (code) => Boolean(done.value[code])
 const completedCount = computed(() => plan.courses.filter((course) => isDone(course.code)).length)
@@ -31,15 +137,17 @@ function resetProgress() {
 }
 
 // ---- stage tabs -------------------------------------------------------------
+// 阶段标签从课程数据里长出来，而不是写死：「预科 / 本科核心 / …」是这份计划的说法，
+// 换一份学习计划就不一定长这样。
 const stages = plan.stages
-const stageTabs = [
-  { key: '预科', tag: '阶段 0', meta: stages[0] },
-  { key: '本科核心', tag: '阶段 1', meta: stages[1] },
-  { key: '硕士核心', tag: '阶段 2', meta: stages[2] },
-  { key: '硕士进阶', tag: '阶段 2+', meta: stages[2], summary: stages[2]?.supplement?.summary },
-  { key: '博士工具', tag: '阶段 3', meta: stages[3] },
-  { key: '博士研究', tag: '阶段 4', meta: stages[4] },
-]
+const stageTabs = computed(() => {
+  const labels = [...new Set(plan.courses.map((course) => course.stage))]
+  return labels.map((label, index) => ({
+    key: label,
+    tag: label,
+    meta: plan.stages[index] || plan.stages[plan.stages.length - 1],
+  }))
+})
 const ALL = '全部'
 const activeStage = ref(ALL)
 
@@ -70,7 +178,8 @@ const visibleCourses = computed(() => {
   })
 })
 
-const activeTabMeta = computed(() => stageTabs.find((tab) => tab.key === activeStage.value) || null)
+const activeTabMeta = computed(() => stageTabs.value.find((tab) => tab.key === activeStage.value) || null)
+const activePlan = computed(() => studyPlans.find((item) => item.id === activeId.value) || null)
 
 // ---- expand / collapse ------------------------------------------------------
 const expanded = ref({})
@@ -104,6 +213,60 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
        这三层以前由 App.vue 的 <section> 提供，拆出页面后要跟着页面自己走。 -->
   <section class="page-content inner-page study-wrap">
   <div class="study-page">
+    <!-- 学习库：所有计划 + 导入入口 -->
+    <section v-if="view === 'library'" class="study-library">
+      <header class="study-library-head">
+        <div>
+          <div class="section-kicker">STUDY LIBRARY <span></span></div>
+          <h1>学习库</h1>
+          <p>想学什么就打开哪一份。新的学习计划可以直接导入 Word。</p>
+        </div>
+        <button class="button-secondary" @click="importInput?.click()">{{ importing ? '正在解析…' : '⇧ 导入文档' }}</button>
+        <input ref="importInput" type="file" accept=".docx" hidden @change="onImportPicked" />
+      </header>
+
+      <div class="study-library-grid">
+        <button class="study-card" @click="openEntry('finance')">
+          <span class="study-card-kicker">BUILT-IN</span>
+          <strong>金融学系统自学路线</strong>
+          <small>29 门课程 · 5 个阶段</small>
+          <span class="study-card-go">打开 ↗</span>
+        </button>
+        <button v-for="doc in docs" :key="doc.id" class="study-card" @click="openEntry(doc.id)">
+          <span class="study-card-kicker">IMPORTED</span>
+          <strong>{{ doc.title }}</strong>
+          <small>{{ doc.plan ? `AI 结构化 · ${doc.plan.stages.length} 个阶段` : `${doc.sections.length} 个阶段 · ${doc.count} 个条目` }}</small>
+          <span class="study-card-go">打开 ↗</span>
+        </button>
+        <button class="study-card study-card-add" @click="importInput?.click()">
+          <strong>＋ 导入学习文档</strong>
+          <small>支持 .docx，按标题层级自动排版</small>
+        </button>
+      </div>
+      <p class="study-library-hint">导入的文档只存在这台设备上；换设备需要重新导入。</p>
+    </section>
+
+    <PlanStructuredView
+      v-else-if="view === 'doc' && activeDoc?.plan"
+      :plan="activeDoc.plan"
+      :doc-id="activeDoc.id"
+      @back="backToLibrary"
+      @remove="removeActiveDoc"
+    />
+    <PlanDocView
+      v-else-if="view === 'doc' && activeDoc"
+      :doc="activeDoc"
+      @back="backToLibrary"
+      @remove="removeActiveDoc"
+    />
+
+    <template v-else>
+    <!-- 内置计划：从学习库进来，顶部留一个返回 -->
+    <nav class="study-plan-bar" aria-label="学习计划">
+      <button class="study-plan-back" @click="backToLibrary">← 学习库</button>
+      <span class="study-plan-name">{{ activePlan?.name }}</span>
+      <span class="study-plan-note">{{ activePlan?.note }}</span>
+    </nav>
     <!-- ── 头部 ─────────────────────────────────────────────── -->
     <section class="study-hero" v-reveal>
       <div class="study-hero-glow" aria-hidden="true"></div>
@@ -388,6 +551,7 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
         <li v-for="note in plan.resourceNotes" :key="note">{{ note }}</li>
       </ul>
     </section>
+    </template>
   </div>
   </section>
 </template>
@@ -702,5 +866,35 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
   .study-course-title { grid-template-columns: auto 1fr auto; row-gap: 4px; }
   .study-course-stars { grid-column: 2; }
   .study-course-caret { grid-row: 1; grid-column: 3; }
+}
+
+/* 计划库：一行很薄的条，不抢首屏 */
+.study-plan-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.study-plan-label { letter-spacing: .2em; font-size: 9.5px; }
+.study-plan-list { display: flex; gap: 8px; flex-wrap: wrap; }
+.study-plan-list button {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.study-plan-list button:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.study-plan-list button.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+.study-plan-note { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+@media (max-width: 760px) {
+  .study-plan-note { display: none; }
 }
 </style>

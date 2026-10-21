@@ -4,7 +4,6 @@ import { request, uploadMedia } from '@/services/api'
 import { importProblem, splitArticleBlocks, stripTableOfContents, blocksFromText, DEFAULT_IMPORT_TAGS, detectDocumentFormat, sniffProtectedStub } from '@/services/articleImport'
 import { useImportAlert } from '@/composables/useImportAlert'
 import { useBulkImport } from '@/composables/useBulkImport'
-import mammoth from 'mammoth/mammoth.browser'
 import { isLocalId, localId } from '@/app/ids'
 import { notify } from '@/app/useToast'
 import { requireLogin } from '@/app/useGuard'
@@ -342,7 +341,7 @@ export const useArticlesStore = defineStore('articles', () => {
           if (sniffProtectedStub(bytes)) { raise(importProblem('protected-stub', file.name)); continue }
           const format = detectDocumentFormat(bytes.subarray(0, 8))
           if (format !== 'docx') { raise(importProblem(format, file.name)); continue }
-          const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
+          const result = await (await import('mammoth/mammoth.browser')).default.convertToHtml({ arrayBuffer: buffer })
           blocks = blocksFromHtml(result.value)
         } else if (extension === 'txt' || extension === 'md' || extension === 'markdown') {
           blocks = blocksFromText(await file.text())

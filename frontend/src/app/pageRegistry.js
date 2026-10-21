@@ -2,16 +2,13 @@ import { defineAsyncComponent, h } from 'vue'
 import AboutPage from '@/pages/about/AboutPage.vue'
 import AccountPage from '@/pages/account/AccountPage.vue'
 import AdminPage from '@/pages/admin/AdminPage.vue'
-import ArchivesPage from '@/pages/archives/ArchivesPage.vue'
 import ArticlesPage from '@/pages/articles/ArticlesPage.vue'
-import CategoriesPage from '@/pages/categories/CategoriesPage.vue'
 import DiaryPage from '@/pages/diary/DiaryPage.vue'
-import FriendsPage from '@/pages/friends/FriendsPage.vue'
 import GalleryPage from '@/pages/gallery/GalleryPage.vue'
 import HomePage from '@/pages/home/HomePage.vue'
 import MessagesPage from '@/pages/messages/MessagesPage.vue'
 import MusicPage from '@/pages/music/MusicPage.vue'
-import TagsPage from '@/pages/tags/TagsPage.vue'
+import ToolsPage from '@/pages/tools/ToolsPage.vue'
 
 // The study plan carries ~300 kB of course data. Loading it on demand keeps that out of the bundle
 // every visitor downloads; the delay means the placeholder never flashes on a warm cache.
@@ -40,17 +37,14 @@ export const pageComponents = {
   about: AboutPage,
   study: StudyPage,
   articles: ArticlesPage,
-  categories: CategoriesPage,
-  tags: TagsPage,
   diary: DiaryPage,
   gallery: GalleryPage,
   music: MusicPage,
   messages: MessagesPage,
-  friends: FriendsPage,
-  archives: ArchivesPage,
   admin: AdminPage,
   perf: PerfPage,
   account: AccountPage,
+  tools: ToolsPage,
 }
 
 /** 未知 id 落到「关于我」——和之前 v-else 的行为一致。 */

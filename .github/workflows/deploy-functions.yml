@@ -1,0 +1,82 @@
+name: Deploy study AI function
+
+# 学习页的「导入 Word → AI 整理」靠 supabase/functions/study-normalize。
+# 结构变更走 apply-schema.yml，前端走 deploy-pages.yml，函数之前没有自动化 ——
+# 这份补上：**改到 supabase/functions/ 就自动部署**，顺便把模型 key 写进 Supabase secrets。
+#
+# 一次性配置（只做这一次）：
+#   Settings → Secrets and variables → Actions → Secrets
+#     SUPABASE_ACCESS_TOKEN  Supabase → Account → Access Tokens 的 sbp_ 令牌（和 schema 工作流共用）
+#     STUDY_AI_KEY            chatanywhere/GPT_API_free 领的 sk-...（没配也能部署，只是函数会提示未配置）
+#   Variables（可选）
+#     SUPABASE_PROJECT_REF    覆盖默认项目 ref
+#
+# 换 key：改上面那个 Secret，然后到 Actions 里 Run workflow（或随便推一次函数目录）。
+# 不需要重新部署前端，也不需要重新部署函数。
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/functions/**', '.github/workflows/deploy-functions.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      STUDY_AI_KEY: ${{ secrets.STUDY_AI_KEY }}
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || 'ossnacjetutqihbbvoau' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # 令牌没配时，日志里否则只会是一堆 401，看不出是配置问题还是代码问题。
+      - name: 检查令牌是否已配置
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::仓库里还没有 SUPABASE_ACCESS_TOKEN。到 Settings → Secrets and variables → Actions → Secrets 加一条，值是 Supabase 的 sbp_ 管理令牌。"
+            exit 1
+          fi
+
+      - name: 部署 study-normalize
+        run: supabase functions deploy study-normalize --project-ref "$PROJECT_REF"
+
+      # key 只存在 GitHub Secret 与 Supabase secrets 里，不落仓库。
+      - name: 写入模型 key
+        run: |
+          if [ -z "$STUDY_AI_KEY" ]; then
+            echo "::notice::没有配置 STUDY_AI_KEY —— 函数能部署，但导入时会提示「服务端还没配置」。"
+            exit 0
+          fi
+          supabase secrets set STUDY_AI_KEY="$STUDY_AI_KEY" --project-ref "$PROJECT_REF"
+
+      # 用公开的 anon key 打一次空请求：401/400 说明函数在线，404 说明没部署成功。
+      - name: 确认函数在线
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::notice::没配 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY，跳过在线检查"
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "$SUPABASE_URL/functions/v1/study-normalize" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "study-normalize 返回 HTTP $code"
+          if [ "$code" = "404" ]; then
+            echo "::error::函数返回 404，部署可能没成功。"
+            exit 1
+          fi

@@ -36,7 +36,7 @@ src/
   App.vue              入口，只挂 AppShell
   main.js              createApp + Pinia + router + 样式入口
   app/                 骨架：路由表、页面注册表、导航表、页面调度、提示、登录守卫
-  layouts/             应用外壳：AppShell / AppSidebar / AppTopBar
+  layouts/             应用外壳：AppShell / AppTopBar / AppDock
   pages/               15 个页面，一个页面一个文件夹
   modules/             跨页面复用的块（页面通用件、弹窗、文章、日记、相册、音乐、粒子）
   stores/              全部跨组件状态（Pinia）

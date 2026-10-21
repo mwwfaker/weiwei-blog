@@ -11,16 +11,13 @@ export const navigation = [
   { id: 'gallery', label: '相册', icon: '▧' },
 ]
 
-// 其余页面收在「更多」里。
+// 其余页面收在「更多」里。分类 / 标签 / 归档 / 朋友已经删掉（用不上）；
+// 绩效计算器收进「工具箱」，工具类页面以后都往那里加。
 export const secondaryNavigation = [
   { id: 'admin', label: '创作管理', icon: '⚙' },
-  { id: 'perf', label: '绩效计算器', icon: '¥' },
+  { id: 'tools', label: '工具箱', icon: '▦' },
   { id: 'about', label: '关于我', icon: '✿' },
-  { id: 'categories', label: '文章分类', icon: '◈' },
-  { id: 'tags', label: '标签星图', icon: '＃' },
-  { id: 'archives', label: '时光归档', icon: '◷' },
   { id: 'messages', label: '留言板', icon: '✉' },
-  { id: 'friends', label: '朋友们', icon: '↔' },
 ]
 
 // 两组导航拼成的完整表。只在本文件里给 pageLabel 用，不对外导出——

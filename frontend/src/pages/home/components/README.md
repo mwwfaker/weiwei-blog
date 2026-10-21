@@ -1,12 +1,15 @@
-# `pages/home/components/` — 首页自己的板块
+# `pages/home/components/` — 首页的两套主视觉
 
-只被首页使用的三块。首页本身（`HomePage.vue`）只负责把它们摆好。
+| 文件 | 内容 |
+| --- | --- |
+| `HeroScene.vue` | 夜：three.js 舞台（液态背景、粒子字、日记星体、拖拽/悬停/点击、滚动镜头） |
+| `heroStage.js` | GLSL 与纯几何工具（字形采样、星尘、贴图）。**不 import three** |
+| `heroParticles.js` | 粒子字与星尘的创建、每帧模拟与点击冲量 |
+| `heroStars.js` | 日记星体与屏幕空间拾取 |
+| `DayGlass.vue` | 昼：玻璃光学的整页版面、指针光斑与玻璃倾斜（纯 DOM/CSS，无 WebGL） |
 
-| 文件 | 内容 | 状态来源 |
-| --- | --- | --- |
-| `HeroCard.vue` | 主视觉：标题、两个入口按钮、右侧装饰画 | `profile`、`diaries` |
-| `DiaryPreview.vue` | 「日记碎片」两条 | `diaries.homeDiaries` |
-| `QuoteCard.vue` | 引用卡，内容固定 | 无状态 |
+## 边界
 
-**升级到 `modules/` 的条件**：某个板块被第二个页面用到。目前三块都只在首页出现，
-所以留在这里而不是 `modules/`。
+- three 只在 `HeroScene.vue` 挂载时动态 import；其余文件只使用传进来的命名空间。
+- `HeroScene` 与 `DayGlass` 都只读 store 的数据、调 store 的方法，不直接请求接口。
+- 样式不在这里：夜在 `styles/home-stage.css`，昼在 `styles/home-day.css`。

@@ -241,6 +241,37 @@ create table if not exists public.perf_entries (
 );
 create index if not exists idx_perf_entries_member on public.perf_entries (owner_id, member_client_id);
 
+-- ================================================================ Data API 权限（GRANT）
+-- Supabase 从 2026-10-30 起不再给 public 里**新建**的表自动加 Data API 权限。
+-- 已经建好的表保持原样，所以线上不会当天就坏；但「新项目 / 预览分支 / 本地 supabase db reset /
+-- 这之后新建的表」只会拿到所有权，PostgREST 用 anon 或 authenticated 的身份一查就是
+-- `permission denied for table ...`（401，正文里会附上该跑的 GRANT）。
+-- 所以把权限写进这份脚本、和建表放在一起：重跑幂等，重建环境也一次到位。
+--
+-- 只给到够用为止，不替代 RLS：
+--   anon           只读。未登录访客也要能看公开日记 / 文章 / 照片和整份绩效。
+--   authenticated  读写。能不能写到别人的行仍由 RLS 逐行决定，grant 只是让请求进得了门。
+--   service_role   全权。它本来就在 RLS 之外，留给运维脚本；前端永远拿不到这把钥匙。
+grant select on public.profiles, public.diary_entries, public.blog_articles,
+  public.media_assets, public.photo_albums, public.perf_queues,
+  public.perf_members, public.perf_entries
+  to anon;
+
+grant select, insert, update, delete on public.profiles, public.diary_entries,
+  public.blog_articles, public.media_assets, public.photo_albums,
+  public.perf_queues, public.perf_members, public.perf_entries
+  to authenticated;
+
+grant select, insert, update, delete on public.profiles, public.diary_entries,
+  public.blog_articles, public.media_assets, public.photo_albums,
+  public.perf_queues, public.perf_members, public.perf_entries
+  to service_role;
+
+-- identity 列的自增值来自**另一个对象**（序列），表的 GRANT 不会顺带它。
+-- 少了这句，insert 会报 `permission denied for sequence ..._id_seq`——错误里提到的是表，
+-- 很容易误判成 RLS 或表权限。
+grant usage on all sequences in schema public to authenticated, service_role;
+
 -- ================================================================ RLS
 alter table public.profiles      enable row level security;
 alter table public.diary_entries enable row level security;
@@ -451,8 +482,42 @@ create policy weiwei_assets_models_update on storage.objects for update to authe
 -- 执行完可以把下面这句单独跑一下，确认 8 张表都开了 RLS：
 --   select relname, relrowsecurity from pg_class where relname in
 --     ('profiles','diary_entries','blog_articles','media_assets','photo_albums','perf_queues','perf_members','perf_entries');
+--
+-- 再确认权限没漏（8 张表 × 3 个角色都该有行；缺了 Data API 就会 401）：
+--   select table_name, grantee, string_agg(privilege_type, ', ' order by privilege_type) as privileges
+--   from information_schema.role_table_grants
+--   where table_schema = 'public' and grantee in ('anon', 'authenticated', 'service_role')
+--   group by table_name, grantee order by table_name, grantee;
 
 -- 让 PostgREST 立刻重读一次结构。少了这句，刚建好的表可能还会继续回
 -- "Could not find the table ... in the schema cache" 一段时间——前端看到的
 -- 就是「点了创建没反应，弹一句英文」，和真的没建表一模一样。
 notify pgrst, 'reload schema';
+
+
+-- ================================================================ 学习文档（导入的 Word 解析结果）
+-- 只存本人：学习计划是私人内容，不做公开读。结构直接存 jsonb（阶段/条目/块），
+-- 解析在 services/studyImport.js，这里只负责持久化。
+create table if not exists public.study_docs (
+  id          text primary key,
+  owner_id    uuid not null references auth.users (id) on delete cascade,
+  title       text not null,
+  subtitle    text,
+  doc         jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.study_docs enable row level security;
+
+grant select, insert, update, delete on public.study_docs to authenticated, service_role;
+
+drop policy if exists study_docs_read on public.study_docs;
+create policy study_docs_read on public.study_docs for select using (owner_id = auth.uid());
+drop policy if exists study_docs_insert on public.study_docs;
+create policy study_docs_insert on public.study_docs for insert with check (owner_id = auth.uid());
+drop policy if exists study_docs_update on public.study_docs;
+create policy study_docs_update on public.study_docs for update
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+drop policy if exists study_docs_delete on public.study_docs;
+create policy study_docs_delete on public.study_docs for delete using (owner_id = auth.uid());
