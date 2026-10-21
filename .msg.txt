@@ -1,0 +1,24 @@
+﻿fix(perf): 手机上不再「锁一屏」，顶栏跟着滚走，把整屏高度让给内容
+
+绩效页是照「桌面工具」做的：.perf-tool 固定 100dvh，顶栏、标签、筛选常驻，
+只有最里面那块内容自己滚。手机上这套行不通——顶栏两行 + 导出按钮行 + 只读提示
++ 标签 + 筛选就吃掉近一半屏幕，剩下那点高度里还要再内滚一次，员工名单只露出三行。
+
+改成手机上整条链解开（只在 ≤760 生效，桌面仍是锁一屏的工具布局）：
+
+  .perf-tool       height:auto + min-height:100dvh + overflow:visible
+  .perf-body       flex:none + overflow:visible
+  面板 section      flex:none + overflow:visible
+  .perf-picker     max-height:none
+  .perf-picker-list / .perf-split-body / .perf-review   去掉内滚
+  .perf-list       max-height:none（保留横向滚动，宽表还是要横滑）
+
+那串 flex:1 + min-height:0 本来是为「占满剩余高度」设的，外层解锁后会塌成 0，
+所以逐个改成按内容定高。
+
+实测 390×844：员工名单从「露出 3 人」变成整页连续列出 13 人 + 选中摘要 + 重置按钮
++ 各队列表格；390×2200 的长截图确认整页流动、没有裁断。顶栏随页面一起滚走。
+
+验证：verify:all（14 项 + 歌词 23 / 绩效 120 / OCR 41 / 日记导入 60）、
+test:render（13 条路由 + 7 个组件分支 + 1 个关闭动画探针）、build 全绿。
+PerfPage 的样式 chunk 36.89 kB（gzip 7.03），首屏 CSS 不变。

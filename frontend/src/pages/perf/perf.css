@@ -731,3 +731,28 @@
   .perf-tabs { overflow-x: auto; overscroll-behavior-x: contain; }
   .perf-tabs button { flex: none; white-space: nowrap; }
 }
+/* ---- 手机：不再「锁一屏」，顶栏跟页面一起滚走 ------------------------------------
+   桌面版是「锁一屏的工具」：.perf-tool 固定 100dvh，顶栏、标签、筛选常驻，
+   只有最里面那块内容自己滚。手机上这套完全行不通——顶栏两行 + 导出按钮行 +
+   只读提示 + 标签 + 筛选就吃掉近一半屏幕，剩下的高度里还要再内滚一次，
+   列表只露出两三行。
+   所以手机上把这条链解开：外层按内容长高、页面整体滚动，内层的滚动容器
+   全部改成随内容长高（只保留宽表的横向滚动）。顶栏自然跟着滚走，
+   整屏高度都归内容。桌面不受影响。 */
+@media (max-width: 760px) {
+  .perf-tool { height: auto; min-height: 100dvh; overflow: visible; }
+  .perf-body { flex: none; overflow: visible; padding-bottom: 28px; }
+  .perf-body > section:is(.perf-panel, .perf-import) { flex: none; overflow: visible; padding-bottom: 0; }
+  .perf-body > section.split-panel { overflow: visible; }
+
+  /* 进去之后是为「占满剩余高度」而设的一串 flex:1 + min-height:0，
+     外层解锁后它们会塌成 0，所以逐个改成按内容定高。 */
+  .perf-panel > .perf-split,
+  .perf-split { flex: none; min-height: 0; }
+  .perf-picker { max-height: none; overflow: visible; }
+  .perf-picker-list { flex: none; overflow: visible; }
+  .perf-split-body { overflow: visible; }
+  .perf-split-body > .perf-list,
+  .perf-list { flex: none; max-height: none; }
+  .perf-review { max-height: none; }
+}
