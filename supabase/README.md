@@ -6,8 +6,6 @@
 | 文件 | 是什么 |
 | --- | --- |
 | `schema.sql` | **权威结构**：表、索引、RLS 策略、存储桶策略。可重复执行（`create ... if not exists` / `drop policy if exists`）。 |
-| `study_docs` | 学习库里导入的文档（标题 + 解析后的 jsonb），RLS 只允许本人读写。 |
-| `functions/study-normalize/` | 把学习文档交给模型整理成结构化计划（key 只放服务端）。 |
 | `apply.mjs` | 把 `schema.sql` 逐条执行到 Supabase 项目上（需要管理令牌）。 |
 | `verify-schema.mjs` | **只读复查**：表和列是不是都在了。只用公开的 anon key，本地和 CI 都能跑。 |
 | `functions/lyrics/index.ts` | 歌词中转 Edge Function。 |

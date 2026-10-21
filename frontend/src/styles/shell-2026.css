@@ -868,3 +868,41 @@
   .plan-stage-duration { margin-left: 0; }
   .plan-course { grid-template-columns: 24px minmax(0, 1fr); padding: 14px; }
 }
+
+
+/* ---------- 学习库：本机 AI 设置 ---------- */
+.study-ai-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+.study-ai-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--muted); opacity: .5; }
+.study-ai-dot.is-on { background: #4fd08a; opacity: 1; box-shadow: 0 0 0 3px rgba(79, 208, 138, .18); }
+.study-ai-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass);
+}
+.study-ai-hint { margin: 0; max-width: 78ch; font-size: 11.5px; line-height: 1.85; color: var(--muted); }
+.study-ai-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; font-size: 11.5px; color: var(--muted); }
+.study-ai-row input, .study-ai-select {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  outline: none;
+}
+.study-ai-row input:focus, .study-ai-select:focus { border-color: var(--accent); }
+.study-ai-actions { display: flex; gap: 10px; }
+@media (max-width: 620px) { .study-ai-row { grid-template-columns: 1fr; gap: 6px; } }
+
+
+/* ---------- 学习库：导入 JSON ---------- */
+.study-json-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+.study-json-panel { display: grid; gap: 12px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--glass); }
+.study-json-hint { margin: 0; max-width: 78ch; font-size: 11.5px; line-height: 1.85; color: var(--muted); }
+.study-json-hint code { padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 7%, transparent); font-size: 10.5px; }
+.study-json-textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; line-height: 1.7; resize: vertical; outline: none; }
+.study-json-textarea:focus { border-color: var(--accent); }
+.study-json-actions { display: flex; gap: 10px; flex-wrap: wrap; }

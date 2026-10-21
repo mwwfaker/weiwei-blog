@@ -1,16 +1,12 @@
-# `pages/study/components/` — 学习页的渲染组件
+# `pages/study/components/` — 学习计划的渲染组件
 
 | 文件 | 内容 |
 | --- | --- |
-| `PlanDocView.vue` | 渲染一份**导入的**学习文档（标题 / 阶段 / 条目） |
-| `DocBlocks.vue` | 渲染文档里的单个内容块（段落 / 列表 / 链接 / 表格 / 引用） |
-| `PlanStructuredView.vue` | 渲染 AI 整理后的结构化计划（统计 / 阶段 / 课程卡 / 进度 / 资源） |
+| `PlanJsonView.vue` | 渲染导入的 JSON 计划（统计 / 阶段 / 课程卡 / 勾选进度 / 资源） |
 
 ## 边界
 
-- 这两个组件只负责「把解析好的结构画出来」，不解析文档、不读写存储。
-  解析在 `services/studyImport.js`，存储在本机 `services/studyDocs.js`。
-- 结构来自 Word 的标题层级：`h1` 计划名、`h2` 阶段、`h3` 阶段里的条目。
-  认不出的内容会被解析器退化成段落，所以这里不需要「兜底渲染」。
-- 样式在 `styles/shell-2026.css` 的 `.doc-*` 段（学习页是按需加载的，但这两块很小，
-  跟着全局样式走可以让弹窗/预览复用同一套）。
+- 只负责「把已经归一化好的 plan 画出来」：不解析 JSON、不读写本地计划列表。
+  解析与存储分别在 `services/studyJson.js`。
+- 进度按 `planId` 分开存在本机（`weiwei-blog-study-done:<id>`），互不干扰。
+- 样式在 `styles/shell-2026.css` 的 `.plan-*` 段。

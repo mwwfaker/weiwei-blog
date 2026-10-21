@@ -1,93 +1,77 @@
 <script setup>
 // 学习板块：把《金融学系统自学路线》结构化呈现，并记录本机学习进度。
 // 数据全部来自 data/studyPlan.js（由原始文档结构化而来），这里只负责呈现与交互。
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { studyPlans } from './data/studyPlans'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
-import { readLocalStudyDocs, loadStudyDocs, saveStudyDoc, removeStudyDoc, newStudyDocId } from '@/services/studyDocs'
-import { parseStudyHtml } from '@/services/studyImport'
+import { readJsonPlans, writeJsonPlans, newPlanId, parsePlanText } from '@/services/studyJson'
 import { notify } from '@/app/useToast'
-import PlanDocView from './components/PlanDocView.vue'
-import PlanStructuredView from './components/PlanStructuredView.vue'
-import { normalizeStudyText } from '@/services/studyAi'
+import PlanJsonView from './components/PlanJsonView.vue'
 // Imported (not globally registered) so the directive is available in any app that mounts this
 // component, including the render test.
 import { useCountUp, vReveal } from '@/composables/motion'
 
 const PROGRESS_KEY = 'weiwei-blog-study-progress'
 
-// ---- 学习库 / 导入 ----------------------------------------------------------
-// 学习页有三种视图：library（学习库）/ plan（内置计划）/ doc（导入的文档）。
-// 导入的文档存在本机，结构由 services/studyImport 从 Word 里读出来，渲染交给 PlanDocView。
-const docs = ref(readLocalStudyDocs())
+// 学习库 → 计划详情。库是入口，详情是现在这股金融路线。
 const view = ref('library')
-const activeDoc = ref(null)
-const importInput = ref(null)
-const importing = ref(false)
 
-function openEntry(id) {
-  if (id === 'finance') {
-    switchPlan('finance')
-    view.value = 'plan'
-    return
-  }
-  activeDoc.value = docs.value.find((doc) => doc.id === id) || null
-  if (activeDoc.value) view.value = 'doc'
+function openPlan(id) {
+  switchPlan(id)
+  view.value = 'plan'
 }
 
 function backToLibrary() {
   view.value = 'library'
-  activeDoc.value = null
+  activeJsonId.value = ''
 }
 
-async function onImportPicked(event) {
+// ---- 导入的 JSON 计划 -------------------------------------------------------
+const jsonPlans = ref(readJsonPlans())
+const activeJsonId = ref('')
+const jsonOpen = ref(false)
+const jsonText = ref('')
+const jsonFile = ref(null)
+
+const activeJsonPlan = computed(() => jsonPlans.value.find((item) => item.id === activeJsonId.value) || null)
+
+function openJsonPlan(id) {
+  activeJsonId.value = id
+  view.value = 'json'
+}
+
+function saveJsonPlan(source, label = '') {
+  const plan = parsePlanText(source)
+  const record = { id: newPlanId(), plan, label, importedAt: new Date().toISOString() }
+  jsonPlans.value = [record, ...jsonPlans.value]
+  writeJsonPlans(jsonPlans.value)
+  activeJsonId.value = record.id
+  view.value = 'json'
+  jsonOpen.value = false
+  jsonText.value = ''
+  notify('已导入《' + plan.title + '》')
+}
+
+function onJsonFile(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
   if (!file) return
-  importing.value = true
-  try {
-    const buffer = await file.arrayBuffer()
-    const { default: mammoth } = await import('mammoth/mammoth.browser')
-    const [{ value: html }, { value: text }] = await Promise.all([
-      mammoth.convertToHtml({ arrayBuffer: buffer }),
-      mammoth.extractRawText({ arrayBuffer: buffer }),
-    ])
-    const parsed = parseStudyHtml(html, file.name.replace(/\.docx?$/i, ''))
-    const doc = { ...parsed, id: newStudyDocId(), fileName: file.name }
-
-    // 先按文档排版保底，再让模型整理成「阶段 / 课程 / 资源」。
-    // 模型失败只是少了结构，文档本身照常能看。
-    try {
-      doc.plan = await normalizeStudyText(text, file.name)
-      notify(`已整理《${doc.plan.title || doc.title}》`)
-    } catch (error) {
-      notify(`已按文档排版（AI 整理跳过：${error.message}）`)
-    }
-
-    docs.value = await saveStudyDoc(doc)
-    activeDoc.value = doc
-    view.value = 'doc'
-  } catch (error) {
-    notify(`导入失败：${error.message}`)
-  } finally {
-    importing.value = false
-  }
+  file.text().then((text) => {
+    try { saveJsonPlan(text, file.name) } catch (error) { notify('导入失败：' + error.message) }
+  })
 }
 
-async function removeActiveDoc() {
-  if (!activeDoc.value) return
-  docs.value = await removeStudyDoc(activeDoc.value.id)
-  notify('已移除这份学习文档')
+function importJsonText() {
+  try { saveJsonPlan(jsonText.value) } catch (error) { notify('导入失败：' + error.message) }
+}
+
+function removeJsonPlan() {
+  if (!activeJsonId.value) return
+  jsonPlans.value = jsonPlans.value.filter((item) => item.id !== activeJsonId.value)
+  writeJsonPlans(jsonPlans.value)
+  notify('已移除这份计划')
   backToLibrary()
 }
-
-// 深链接：`#/study?doc=<id>` 直接打开某份导入的文档（分享给自己/书签用）。
-onMounted(async () => {
-  // 以数据库为准：登录后打开会把本机缓存换成服务端那份。
-  docs.value = await loadStudyDocs()
-  const match = /doc=([\w-]+)/.exec(window.location.hash)
-  if (match && docs.value.some((doc) => doc.id === match[1])) openEntry(match[1])
-})
 
 // ---- plan library -----------------------------------------------------------
 // 学习页现在是「计划库 + 当前计划」：数据从 data/studyPlans.js 来，切换计划只换 plan 的内容，
@@ -213,55 +197,62 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
        这三层以前由 App.vue 的 <section> 提供，拆出页面后要跟着页面自己走。 -->
   <section class="page-content inner-page study-wrap">
   <div class="study-page">
-    <!-- 学习库：所有计划 + 导入入口 -->
+    <!-- 学习库：以后加计划就是往 data/studyPlans.js 里加一项 -->
     <section v-if="view === 'library'" class="study-library">
       <header class="study-library-head">
         <div>
           <div class="section-kicker">STUDY LIBRARY <span></span></div>
           <h1>学习库</h1>
-          <p>想学什么就打开哪一份。新的学习计划可以直接导入 Word。</p>
+          <p>想学什么就打开哪一份。新的计划可以导入 JSON，也可以让站主单独定制一页。</p>
         </div>
-        <button class="button-secondary" @click="importInput?.click()">{{ importing ? '正在解析…' : '⇧ 导入文档' }}</button>
-        <input ref="importInput" type="file" accept=".docx" hidden @change="onImportPicked" />
+        <div class="study-json-bar">
+          <button class="button-secondary" @click="jsonOpen = !jsonOpen">⇧ 导入 JSON</button>
+          <input ref="jsonFile" type="file" accept=".json,.txt" hidden @change="onJsonFile" />
+        </div>
       </header>
 
-      <div class="study-library-grid">
-        <button class="study-card" @click="openEntry('finance')">
-          <span class="study-card-kicker">BUILT-IN</span>
-          <strong>金融学系统自学路线</strong>
-          <small>29 门课程 · 5 个阶段</small>
-          <span class="study-card-go">打开 ↗</span>
-        </button>
-        <button v-for="doc in docs" :key="doc.id" class="study-card" @click="openEntry(doc.id)">
-          <span class="study-card-kicker">IMPORTED</span>
-          <strong>{{ doc.title }}</strong>
-          <small>{{ doc.plan ? `AI 结构化 · ${doc.plan.stages.length} 个阶段` : `${doc.sections.length} 个阶段 · ${doc.count} 个条目` }}</small>
-          <span class="study-card-go">打开 ↗</span>
-        </button>
-        <button class="study-card study-card-add" @click="importInput?.click()">
-          <strong>＋ 导入学习文档</strong>
-          <small>支持 .docx，按标题层级自动排版</small>
-        </button>
+      <div v-if="jsonOpen" class="study-json-panel">
+        <p class="study-json-hint">
+          让 AI 按 <code>pages/study/data/README.md</code> 里的 schema 输出 JSON，整段粘进来即可。<br />
+          计划只存在这台设备的浏览器里：不需要 key、不需要后端。
+        </p>
+        <textarea v-model="jsonText" class="study-json-textarea" rows="8" placeholder="{ &quot;title&quot;: &quot;…&quot;, &quot;stages&quot;: [ … ] }" spellcheck="false"></textarea>
+        <div class="study-json-actions">
+          <button class="button-primary" @click="importJsonText">解析并导入</button>
+          <button class="button-secondary" @click="jsonFile?.click()">选择 .json 文件</button>
+        </div>
       </div>
-      <p class="study-library-hint">导入的文档只存在这台设备上；换设备需要重新导入。</p>
+
+      <div class="study-library-grid">
+        <button class="study-card" @click="openPlan('finance')">
+          <span class="study-card-kicker">CURATED</span>
+          <strong>金融学系统自学路线</strong>
+          <small>29 门课程 · 5 个阶段 · 完整资源</small>
+          <span class="study-card-go">打开 ↗</span>
+        </button>
+        <button v-for="item in jsonPlans" :key="item.id" class="study-card" @click="openJsonPlan(item.id)">
+          <span class="study-card-kicker">IMPORTED</span>
+          <strong>{{ item.plan.title }}</strong>
+          <small>{{ item.plan.stages.length }} 个阶段 · {{ item.plan.stages.reduce((sum, stage) => sum + stage.courses.length, 0) }} 门课程</small>
+          <span class="study-card-go">打开 ↗</span>
+        </button>
+        <div class="study-card study-card-add">
+          <strong>＋ 还想学什么</strong>
+          <small>导入 JSON，或把文档给站主定制</small>
+        </div>
+      </div>
+      <p class="study-library-hint">每份计划都有自己的进度记录，互不干扰。</p>
     </section>
 
-    <PlanStructuredView
-      v-else-if="view === 'doc' && activeDoc?.plan"
-      :plan="activeDoc.plan"
-      :doc-id="activeDoc.id"
+    <PlanJsonView
+      v-else-if="view === 'json' && activeJsonPlan"
+      :plan="activeJsonPlan.plan"
+      :plan-id="activeJsonPlan.id"
       @back="backToLibrary"
-      @remove="removeActiveDoc"
-    />
-    <PlanDocView
-      v-else-if="view === 'doc' && activeDoc"
-      :doc="activeDoc"
-      @back="backToLibrary"
-      @remove="removeActiveDoc"
+      @remove="removeJsonPlan"
     />
 
     <template v-else>
-    <!-- 内置计划：从学习库进来，顶部留一个返回 -->
     <nav class="study-plan-bar" aria-label="学习计划">
       <button class="study-plan-back" @click="backToLibrary">← 学习库</button>
       <span class="study-plan-name">{{ activePlan?.name }}</span>

@@ -17,7 +17,6 @@ npm run test:render    # SSR 渲染冒烟测试（在 ssr-smoke/ 里）
 | `verify-ocr.mjs` | `verify:ocr` | 飞书粘贴文本与真实截图 OCR 输出的解析（41 项） | 解析回归会让导入整段错位 |
 | `verify-diary-import.mjs` | `verify:diary` | 「整合日记」按日期头拆篇的规则（63 项），含「正文里自带日期、没有独立日期行」的那一类；带 `DIARY_FILE=<路径>` 时还会对真实文件做篇数与行数守恒回归 | 拆分错了只是「多了几篇很长的、少了几篇」，可它直接写进数据库，发现时要去后台一篇篇删 |
 | `verify-article-import.mjs` | `verify:article` | Word/文本导入的规则（84 项）：脏字符清理、Markdown 标题、按最浅一级标题拆篇、子标题留在正文、标题前那段的保留/丢弃、空段落丢弃、摘要截断、**目录剔除**（含"别把正文误判成目录"）、文件头认格式、WPS 私密文档识别、提示窗文案 | 同上——拆错就是往数据库里灌错文章；这里只测纯函数，docx → 块 那步要用 `DOMParser`，归 SSR 冒烟 |
-| `check-study-ai.mjs` | `node scripts/check-study-ai.mjs` | **不是检查，是排查工具**：拿 `STUDY_AI_KEY` 发一次最小请求，判断网关/key 还能不能用（免费 key 会过期） | 免费 key 过期后，页面里只看到「导入失败」，分不清是 key、网关还是模型名的问题 |
 | `new-page.mjs` | `new:page` | **不是检查，是生成器** | 加页面要同时改三处注册点，靠人记一定会漏 |
 
 ## `new-page.mjs` —— 加一个页面

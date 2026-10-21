@@ -644,37 +644,6 @@ const routes = [
     }))
   }],
 
-  // ---- 学习文档（导入的 Word 解析结果，只存本人） ----
-  ['GET', /^\/api\/study-docs$/, async () => {
-    const user = await requireUser()
-    const rows = unwrap(await supabase.from('study_docs').select('*')
-      .eq('owner_id', user.id).order('created_at', { ascending: false }))
-    return (rows || []).map((row) => ({ ...(row.doc || {}), id: row.id, savedAt: row.created_at }))
-  }],
-
-  ['POST', /^\/api\/study-docs$/, async ({ body }) => {
-    const user = await requireUser()
-    const doc = body.doc || {}
-    const id = String(body.id || doc.id || '').trim()
-    if (!id) throw fail('缺少文档 id')
-    const row = {
-      id,
-      owner_id: user.id,
-      title: String(doc.title || '未命名学习计划').slice(0, 200),
-      subtitle: String(doc.subtitle || '').slice(0, 500),
-      doc: { ...doc, id },
-      updated_at: new Date().toISOString(),
-    }
-    unwrap(await supabase.from('study_docs').upsert(row, { onConflict: 'id' }))
-    return { ...doc, id }
-  }],
-
-  ['DELETE', /^\/api\/study-docs\/([\w-]+)$/, async ({ params }) => {
-    const user = await requireUser()
-    unwrap(await supabase.from('study_docs').delete().eq('id', params[0]).eq('owner_id', user.id))
-    return { ok: true }
-  }],
-
   // ---- 对象存储 ----
   ['POST', /^\/api\/storage\/presign-download$/, async ({ body }) => {
     const key = String(body.key || '')

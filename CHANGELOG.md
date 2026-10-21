@@ -1,3 +1,12 @@
+## 2026 · 撤掉学习文档的 AI 导入
+
+试过“导入 Word → 模型整理 → 结构化渲染”，结论是**排版仍然不如手工定制**，用户决定以后直接把文档给站主、单独做一页。
+因此撤掉：`study-normalize` Edge Function、`services/studyAi.js / studyDocs.js / studyImport.js`、
+`pages/study/components/` 三个渲染组件、`study_docs` 表与接口、AI 设置面板、测 key 脚本。
+学习页保留「计划库 + 计划切换」的壳：以后加一份计划仍然是往 `data/studyPlans.js` 加一项。
+
+---
+
 ## 2026 · 学习文档走 AI 结构化（Edge Function）
 
 用户嫌“按文档排版太呆板”，于是改成：导入 Word 后，把纯文本交给 Edge Function
