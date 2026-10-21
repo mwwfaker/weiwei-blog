@@ -13,6 +13,16 @@ shots/
 .audit/
 frontend/.verify-*/
 
+# 写提交信息用的临时文件。`git add -A` 会顺手把它加进去（924db78 就发生过一次），
+# 提交完再删就变成「已提交但工作区已删除」，所以直接挡住。
+.msg.txt
+.commit-msg.txt
+*.commitmsg
+
+# 无头浏览器探针页面：为了同源测量临时放进 public/，验证完必须删；
+# 万一忘了删，至少别让它进版本库（它会被原样拷进 dist）。
+frontend/public/__probe*.html
+
 # 本地环境变量：每个人各自配置，不进版本库（`.env` 只匹配同名文件，
 # 所以 .env.local / .env.*.local 要单独列出来，否则会被提交上去）
 .env
