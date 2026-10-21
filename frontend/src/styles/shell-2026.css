@@ -896,15 +896,3 @@
 .study-ai-row input:focus, .study-ai-select:focus { border-color: var(--accent); }
 .study-ai-actions { display: flex; gap: 10px; }
 @media (max-width: 620px) { .study-ai-row { grid-template-columns: 1fr; gap: 6px; } }
-
-
-/* ---------- 学习库：导入 JSON ---------- */
-.study-json-bar { display: flex; gap: 10px; flex-wrap: wrap; }
-.study-json-panel { display: grid; gap: 12px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--glass); }
-.study-json-hint { margin: 0; max-width: 78ch; font-size: 11.5px; line-height: 1.85; color: var(--muted); }
-.study-json-hint code { padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 7%, transparent); font-size: 10.5px; }
-.study-json-textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; line-height: 1.7; resize: vertical; outline: none; }
-.study-json-textarea:focus { border-color: var(--accent); }
-.study-json-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-
-.study-json-error { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #e4502a 12%, transparent); color: #e4502a; font-size: 11.5px; line-height: 1.7; }

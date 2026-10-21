@@ -4,9 +4,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { studyPlans } from './data/studyPlans'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
-import { readJsonPlans, writeJsonPlans, newPlanId, parsePlanText, SAMPLE_PLAN } from '@/services/studyJson'
-import { notify } from '@/app/useToast'
-import PlanJsonView from './components/PlanJsonView.vue'
 // Imported (not globally registered) so the directive is available in any app that mounts this
 // component, including the render test.
 import { useCountUp, vReveal } from '@/composables/motion'
@@ -23,64 +20,6 @@ function openPlan(id) {
 
 function backToLibrary() {
   view.value = 'library'
-  activeJsonId.value = ''
-}
-
-// ---- 导入的 JSON 计划 -------------------------------------------------------
-const jsonPlans = ref(readJsonPlans())
-const activeJsonId = ref('')
-const jsonOpen = ref(false)
-const jsonText = ref('')
-const jsonError = ref('')
-const jsonFile = ref(null)
-
-const activeJsonPlan = computed(() => jsonPlans.value.find((item) => item.id === activeJsonId.value) || null)
-
-function openJsonPlan(id) {
-  activeJsonId.value = id
-  view.value = 'json'
-}
-
-function saveJsonPlan(source, label = '') {
-  const plan = parsePlanText(source)
-  const record = { id: newPlanId(), plan, label, importedAt: new Date().toISOString() }
-  jsonPlans.value = [record, ...jsonPlans.value]
-  writeJsonPlans(jsonPlans.value)
-  activeJsonId.value = record.id
-  view.value = 'json'
-  jsonOpen.value = false
-  jsonText.value = ''
-  notify('已导入《' + plan.title + '》')
-}
-
-function onJsonFile(event) {
-  const file = event.target.files?.[0]
-  event.target.value = ''
-  if (!file) return
-  file.text().then((text) => {
-    try { saveJsonPlan(text, file.name) } catch (error) { notify('导入失败：' + error.message) }
-  })
-}
-
-function importJsonText() {
-  jsonError.value = ''
-  try { saveJsonPlan(jsonText.value) } catch (error) {
-    jsonError.value = error.message
-    notify('导入失败：' + error.message)
-  }
-}
-
-function loadSample() {
-  jsonError.value = ''
-  jsonText.value = SAMPLE_PLAN
-}
-
-function removeJsonPlan() {
-  if (!activeJsonId.value) return
-  jsonPlans.value = jsonPlans.value.filter((item) => item.id !== activeJsonId.value)
-  writeJsonPlans(jsonPlans.value)
-  notify('已移除这份计划')
-  backToLibrary()
 }
 
 // ---- plan library -----------------------------------------------------------
@@ -213,27 +152,9 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
         <div>
           <div class="section-kicker">STUDY LIBRARY <span></span></div>
           <h1>学习库</h1>
-          <p>想学什么就打开哪一份。新的计划可以导入 JSON，也可以让站主单独定制一页。</p>
-        </div>
-        <div class="study-json-bar">
-          <button class="button-secondary" @click="jsonOpen = !jsonOpen">⇧ 导入 JSON</button>
-          <input ref="jsonFile" type="file" accept=".json,.txt" hidden @change="onJsonFile" />
+          <p>想学什么就打开哪一份。新的学习计划由站主单独定制一页。</p>
         </div>
       </header>
-
-      <div v-if="jsonOpen" class="study-json-panel">
-        <p class="study-json-hint">
-          让 AI 按 <code>pages/study/data/README.md</code> 里的 schema 输出 JSON，整段粘进来即可。<br />
-          计划只存在这台设备的浏览器里：不需要 key、不需要后端。
-        </p>
-        <textarea v-model="jsonText" class="study-json-textarea" rows="8" placeholder="{ &quot;title&quot;: &quot;…&quot;, &quot;stages&quot;: [ … ] }" spellcheck="false"></textarea>
-        <p v-if="jsonError" class="study-json-error">{{ jsonError }}</p>
-        <div class="study-json-actions">
-          <button class="button-primary" @click="importJsonText">解析并导入</button>
-          <button class="button-secondary" @click="loadSample">载入示例</button>
-          <button class="button-secondary" @click="jsonFile?.click()">选择 .json 文件</button>
-        </div>
-      </div>
 
       <div class="study-library-grid">
         <button class="study-card" @click="openPlan('finance')">
@@ -242,27 +163,13 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
           <small>29 门课程 · 5 个阶段 · 完整资源</small>
           <span class="study-card-go">打开 ↗</span>
         </button>
-        <button v-for="item in jsonPlans" :key="item.id" class="study-card" @click="openJsonPlan(item.id)">
-          <span class="study-card-kicker">IMPORTED</span>
-          <strong>{{ item.plan.title }}</strong>
-          <small>{{ item.plan.stages.length }} 个阶段 · {{ item.plan.stages.reduce((sum, stage) => sum + stage.courses.length, 0) }} 门课程</small>
-          <span class="study-card-go">打开 ↗</span>
-        </button>
         <div class="study-card study-card-add">
           <strong>＋ 还想学什么</strong>
-          <small>导入 JSON，或把文档给站主定制</small>
+          <small>把文档给站主，单独定制一份</small>
         </div>
       </div>
       <p class="study-library-hint">每份计划都有自己的进度记录，互不干扰。</p>
     </section>
-
-    <PlanJsonView
-      v-else-if="view === 'json' && activeJsonPlan"
-      :plan="activeJsonPlan.plan"
-      :plan-id="activeJsonPlan.id"
-      @back="backToLibrary"
-      @remove="removeJsonPlan"
-    />
 
     <template v-else>
     <nav class="study-plan-bar" aria-label="学习计划">
