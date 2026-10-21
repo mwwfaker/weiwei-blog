@@ -1,9 +1,10 @@
 <script setup>
 // 学习板块：把《金融学系统自学路线》结构化呈现，并记录本机学习进度。
 // 数据全部来自 data/studyPlan.js（由原始文档结构化而来），这里只负责呈现与交互。
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { studyPlans } from './data/studyPlans'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
+import WeavingPlanView from './components/WeavingPlanView.vue'
 // Imported (not globally registered) so the directive is available in any app that mounts this
 // component, including the render test.
 import { useCountUp, vReveal } from '@/composables/motion'
@@ -18,9 +19,21 @@ function openPlan(id) {
   view.value = 'plan'
 }
 
+function openWeaving() {
+  view.value = 'weaving'
+}
+
 function backToLibrary() {
   view.value = 'library'
 }
+
+// 深链接：`#/study?plan=weaving` 直接打开某份计划（书签/分享用）。
+onMounted(() => {
+  const match = /plan=([\w-]+)/.exec(window.location.hash)
+  if (!match) return
+  if (match[1] === 'weaving') view.value = 'weaving'
+  else if (match[1] === 'finance') view.value = 'plan'
+})
 
 // ---- plan library -----------------------------------------------------------
 // 学习页现在是「计划库 + 当前计划」：数据从 data/studyPlans.js 来，切换计划只换 plan 的内容，
@@ -163,6 +176,12 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
           <small>29 门课程 · 5 个阶段 · 完整资源</small>
           <span class="study-card-go">打开 ↗</span>
         </button>
+        <button class="study-card" @click="openWeaving">
+          <span class="study-card-kicker">CURATED</span>
+          <strong>手工编织与纤维手作</strong>
+          <small>7 大技法 · 40 周路线 · 13 个项目</small>
+          <span class="study-card-go">打开 ↗</span>
+        </button>
         <div class="study-card study-card-add">
           <strong>＋ 还想学什么</strong>
           <small>把文档给站主，单独定制一份</small>
@@ -170,6 +189,8 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
       </div>
       <p class="study-library-hint">每份计划都有自己的进度记录，互不干扰。</p>
     </section>
+
+    <WeavingPlanView v-else-if="view === 'weaving'" @back="backToLibrary" />
 
     <template v-else>
     <nav class="study-plan-bar" aria-label="学习计划">

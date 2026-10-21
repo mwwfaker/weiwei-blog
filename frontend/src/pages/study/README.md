@@ -56,3 +56,16 @@ scoped 会给每条选择器加一个属性选择器（`.study-hero` → `.study
    让统一层真正接管——同样是视觉变化。
 
 新组件不要照抄这里的写法。
+
+
+## 当前的两份计划
+
+| 计划 | 数据 | 版面 |
+| --- | --- | --- |
+| 金融学系统自学路线 | `data/studyPlan.js` | `StudyPage.vue` 内的通用「课程 + 阶段」版面 |
+| 手工编织与纤维手作 | `data/weavingPlan.js` | `components/WeavingPlanView.vue`（技法地图 / 40 周路线 / 项目库 / 材料工具） |
+
+深链接：`#/study?plan=finance`、`#/study?plan=weaving`。
+
+**加一份新计划**：把文档给站主 → 在 `data/` 出结构化数据 + 在 `components/` 写这一份的定制版面 →
+在 `StudyPage.vue` 加一个 `v-else-if` 分支与学习库卡片。

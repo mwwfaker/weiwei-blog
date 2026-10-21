@@ -896,3 +896,87 @@
 .study-ai-row input:focus, .study-ai-select:focus { border-color: var(--accent); }
 .study-ai-actions { display: flex; gap: 10px; }
 @media (max-width: 620px) { .study-ai-row { grid-template-columns: 1fr; gap: 6px; } }
+
+
+/* ---------- 编织课程：定制版面 ---------- */
+.weave-page { display: grid; gap: clamp(26px, 4vw, 48px); }
+.weave-hero { display: grid; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.weave-kicker { font-size: 9px; letter-spacing: .26em; color: var(--accent); }
+.weave-page h1 { margin: 4px 0 0; font-family: var(--serif); font-size: clamp(32px, 4.4vw, 54px); line-height: 1.12; letter-spacing: -.03em; }
+.weave-subtitle { margin: 0; font-size: 13.5px; color: var(--muted); }
+.weave-intro { margin: 4px 0 0; max-width: 74ch; font-size: 13px; line-height: 1.95; color: var(--ink); }
+.weave-actions { display: flex; gap: 10px; margin-top: 6px; }
+.weave-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.weave-stats div { padding: 15px 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--glass); }
+.weave-stats b { display: block; font-family: var(--serif); font-size: 21px; font-weight: 600; }
+.weave-stats span { font-size: 10.5px; letter-spacing: .08em; color: var(--muted); }
+.weave-progress { display: grid; gap: 8px; margin-top: 12px; }
+.weave-progress-bar { height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.weave-progress-bar i { display: block; height: 100%; background: linear-gradient(90deg, #d9a441, #e4502a); transition: width .3s; }
+.weave-progress span { font-size: 10.5px; color: var(--muted); }
+.weave-usage { margin: 6px 0 0; padding: 12px 14px; border-left: 2px solid var(--accent); font-size: 11.5px; line-height: 1.85; color: var(--muted); }
+
+.weave-block { display: grid; gap: 16px; }
+.weave-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.weave-no { font-size: 10px; letter-spacing: .2em; color: var(--accent); }
+.weave-head h2 { margin: 0; font-family: var(--serif); font-size: clamp(20px, 2.4vw, 28px); }
+.weave-hint { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+
+.weave-tech-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.weave-tech { padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--glass); }
+.weave-tech summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+.weave-tech summary::-webkit-details-marker { display: none; }
+.weave-tech-code { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 10px; }
+.weave-tech summary strong { font-family: var(--serif); font-size: 17px; font-weight: 600; }
+.weave-tech-count { margin-left: auto; font-size: 10px; color: var(--muted); }
+.weave-tech-summary { margin: 10px 0 0; font-size: 11.5px; line-height: 1.85; color: var(--muted); }
+.weave-units { display: grid; gap: 10px; margin: 12px 0 0; padding: 12px 0 0; list-style: none; border-top: 1px dashed var(--line); }
+.weave-units li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 10px; }
+.weave-units b { font-size: 9.5px; letter-spacing: .1em; color: var(--accent); }
+.weave-units span { font-size: 11.5px; line-height: 1.7; }
+.weave-units small { grid-column: 2; font-size: 10.5px; line-height: 1.7; color: var(--muted); }
+
+.weave-phases { display: grid; gap: 10px; }
+.weave-phase { border: 1px solid var(--line); border-radius: 16px; background: var(--glass); padding: 4px 18px; }
+.weave-phase summary { display: flex; align-items: baseline; gap: 12px; padding: 12px 0; cursor: pointer; list-style: none; }
+.weave-phase summary::-webkit-details-marker { display: none; }
+.weave-phase-weeks { font-size: 10px; letter-spacing: .1em; color: var(--accent); white-space: nowrap; }
+.weave-phase summary strong { font-family: var(--serif); font-size: 16px; font-weight: 600; }
+.weave-phase-done { margin-left: auto; font-size: 10px; color: var(--muted); }
+.weave-phase-focus { margin: 0 0 8px; font-size: 11.5px; line-height: 1.85; color: var(--ink); }
+.weave-phase-outcome, .weave-phase-check, .weave-phase-fix { margin: 0 0 6px; font-size: 10.5px; line-height: 1.8; color: var(--muted); }
+.weave-phase-outcome b, .weave-phase-check b, .weave-phase-fix b { margin-right: 8px; color: var(--ink); font-weight: 600; }
+.weave-weeks { display: grid; gap: 0; margin: 10px 0 12px; padding: 0; list-style: none; border-top: 1px dashed var(--line); }
+.weave-weeks li { border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.weave-weeks li.is-done { opacity: .5; }
+.weave-weeks label { display: grid; grid-template-columns: 18px 40px minmax(0, 1fr); gap: 10px; padding: 12px 0; cursor: pointer; }
+.weave-weeks input { accent-color: var(--accent); margin-top: 3px; }
+.weave-week-no { font-size: 9.5px; letter-spacing: .1em; color: var(--muted); }
+.weave-week-copy { display: grid; gap: 4px; min-width: 0; }
+.weave-week-copy strong { font-size: 12.5px; font-weight: 600; }
+.weave-week-copy small { font-size: 11px; line-height: 1.75; color: var(--muted); }
+.weave-week-copy em { font-size: 10px; font-style: normal; color: color-mix(in srgb, var(--accent) 75%, var(--muted)); }
+
+.weave-project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.weave-project { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--glass); }
+.weave-project strong { font-family: var(--serif); font-size: 15px; font-weight: 600; }
+.weave-project-level { justify-self: start; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 9.5px; }
+.weave-project small { font-size: 10.5px; color: var(--muted); }
+.weave-project em { font-size: 10.5px; font-style: normal; color: var(--muted); }
+
+.weave-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.weave-table-card { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--glass); }
+.weave-table-card h3 { margin: 0 0 12px; font-family: var(--serif); font-size: 15px; }
+.weave-materials { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.weave-materials li { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px dashed var(--line); }
+.weave-materials li:last-child { border-bottom: 0; padding-bottom: 0; }
+.weave-materials strong { font-size: 11.5px; }
+.weave-materials span { font-size: 10.5px; color: var(--ink); }
+.weave-materials small { font-size: 10px; line-height: 1.7; color: var(--muted); }
+
+.weave-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 10px; color: var(--muted); }
+@media (max-width: 900px) {
+  .weave-tech-grid, .weave-project-grid, .weave-two-col { grid-template-columns: 1fr; }
+  .weave-stats { grid-template-columns: 1fr 1fr; }
+  .weave-hint { margin-left: 0; }
+}
