@@ -715,3 +715,19 @@
   .perf-report .perf-grid tr{break-inside:avoid;page-break-inside:avoid}
 }
 
+
+/* ---- 手机：顶栏与标签页改竖排 --------------------------------------------------
+   绩效页原本是「锁一屏」的桌面工具：.perf-bar 一行放标题 + 四个按钮、
+   .perf-tabs 一行放四个标签。窄屏下 flex 会把标题压成一字一行
+   （实测 320px 下「绩效计算器」竖排、标签只剩「数」），整页没法看。
+   这里只动这两条横排：竖着放，按钮与标签各自成行；标签条改成可横滑。 */
+@media (max-width: 760px) {
+  .perf-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .perf-bar-left { flex: none; }
+  .perf-bar-left strong,
+  .perf-bar-left small { white-space: nowrap; }
+  .perf-bar-right { justify-content: flex-start; }
+  .perf-btn { white-space: nowrap; }
+  .perf-tabs { overflow-x: auto; overscroll-behavior-x: contain; }
+  .perf-tabs button { flex: none; white-space: nowrap; }
+}

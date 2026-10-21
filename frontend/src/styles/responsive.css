@@ -111,6 +111,44 @@
 /* 不加这条时，iPhone 横屏会把所有文字按比例吹大，版面直接塌。 */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
+/* ---- 6.5 收住「入场动画」造成的横向溢出 ------------------------------------ */
+/* 日记时间树的入场是 `translate: ±52%`：还没滚动到的节点会停在半个身位以外，
+   于是整页一加载就能横向滚动（1440px 下量到内容越界 264px）。这不是版面错，
+   是动画的预备状态被当成了页面内容。
+   收在 `.page-frame` 而不是 `body`：
+     · 它比 body 更窄，能收住页面内容，又不会连带剪掉全站背景层；
+     · 日记树右侧那把刻度尺虽然探出 `.diary-tree` 36px，但仍在 `.page-frame` 内（实测
+       ruler R=1317 / page-frame R=1330），所以不会被剪掉；
+     · 顶栏在 `.page-frame` **之外**，`position:sticky` 完全不受影响。
+   必须是 `overflow-x: clip` 不能是 `hidden`：`hidden` 会把它变成滚动容器，
+   那样树里刻度尺的 `position:sticky` 就失效了；`clip` 只剪裁、不建滚动容器。
+   它也不影响**页面内部**的横向滚动（绩效宽表就是 `.perf-list{overflow:auto}`）。 */
+.page-frame { overflow-x: clip; }
+
+/* ---- 6.6 顶栏在手机上的排布 ------------------------------------------------ */
+/* 顶栏一行里塞了「图标 + 站名 + 六个导航 + 主题 + 头像」。不加约束时，
+   窄屏下浏览器会把导航标签**一个字一行**地折起来（「学习」变成上下两个方块），
+   看着像坏了；再窄下去就整行攥出右边。
+   处理：标签禁止换行、导航字号与间距收窄；到 ≤560 只留图标不显示站名。 */
+@media (max-width: 760px) {
+  .topbar-links { gap: 6px; margin-left: 6px; }
+  .topbar-links button { white-space: nowrap; font-size: 11.5px; }
+  .topbar-actions { gap: 6px; }
+  .topbar-brand-copy strong { white-space: nowrap; }
+}
+
+@media (max-width: 560px) {
+  .topbar-brand-copy { display: none; }
+}
+
+@media (max-width: 380px) {
+  .topbar-links { gap: 4px; margin-left: 4px; }
+  .topbar-links button { font-size: 11px; }
+  /* 原生下拉在极窄屏会按最长选项撑开（绩效页的队列选择实测越界 25px）。
+     原生控件的内部宽度不受 width 控制，只能靠 max-width 兜住。 */
+  select { max-width: 100%; }
+}
+
 /* ---- 7. 被主题规则压住的手机版面：重新声明一遍，让它真正生效 ---------------- */
 /* 这是一整类 bug，不是个别现象：主题规则写成 `:root.dark .X` / `:root:not(.dark) .X`
    时特异性是 (0,3,0)，而各层手机块里写的是 `.X`（(0,1,0)）。于是**手机上这些规则
