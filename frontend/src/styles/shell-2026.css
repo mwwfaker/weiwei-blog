@@ -906,3 +906,5 @@
 .study-json-textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; line-height: 1.7; resize: vertical; outline: none; }
 .study-json-textarea:focus { border-color: var(--accent); }
 .study-json-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.study-json-error { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #e4502a 12%, transparent); color: #e4502a; font-size: 11.5px; line-height: 1.7; }

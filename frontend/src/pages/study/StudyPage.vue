@@ -4,7 +4,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { studyPlans } from './data/studyPlans'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
-import { readJsonPlans, writeJsonPlans, newPlanId, parsePlanText } from '@/services/studyJson'
+import { readJsonPlans, writeJsonPlans, newPlanId, parsePlanText, SAMPLE_PLAN } from '@/services/studyJson'
 import { notify } from '@/app/useToast'
 import PlanJsonView from './components/PlanJsonView.vue'
 // Imported (not globally registered) so the directive is available in any app that mounts this
@@ -31,6 +31,7 @@ const jsonPlans = ref(readJsonPlans())
 const activeJsonId = ref('')
 const jsonOpen = ref(false)
 const jsonText = ref('')
+const jsonError = ref('')
 const jsonFile = ref(null)
 
 const activeJsonPlan = computed(() => jsonPlans.value.find((item) => item.id === activeJsonId.value) || null)
@@ -62,7 +63,16 @@ function onJsonFile(event) {
 }
 
 function importJsonText() {
-  try { saveJsonPlan(jsonText.value) } catch (error) { notify('导入失败：' + error.message) }
+  jsonError.value = ''
+  try { saveJsonPlan(jsonText.value) } catch (error) {
+    jsonError.value = error.message
+    notify('导入失败：' + error.message)
+  }
+}
+
+function loadSample() {
+  jsonError.value = ''
+  jsonText.value = SAMPLE_PLAN
 }
 
 function removeJsonPlan() {
@@ -217,8 +227,10 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
           计划只存在这台设备的浏览器里：不需要 key、不需要后端。
         </p>
         <textarea v-model="jsonText" class="study-json-textarea" rows="8" placeholder="{ &quot;title&quot;: &quot;…&quot;, &quot;stages&quot;: [ … ] }" spellcheck="false"></textarea>
+        <p v-if="jsonError" class="study-json-error">{{ jsonError }}</p>
         <div class="study-json-actions">
           <button class="button-primary" @click="importJsonText">解析并导入</button>
+          <button class="button-secondary" @click="loadSample">载入示例</button>
           <button class="button-secondary" @click="jsonFile?.click()">选择 .json 文件</button>
         </div>
       </div>
