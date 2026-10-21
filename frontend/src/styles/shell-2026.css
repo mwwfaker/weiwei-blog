@@ -1074,3 +1074,81 @@
 }
 
 .weave-hero-copy { display: grid; gap: 8px; min-width: 0; }
+
+
+/* ---------- 编织页 v3：与金融计划同一套视觉 ---------- */
+.weave-page { display: grid; gap: clamp(30px, 4.4vw, 56px); }
+.weave-topbar { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.weave-back { padding: 0; border: 0; background: none; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+.weave-back:hover { color: var(--accent); }
+.weave-topbar-name { font-family: var(--serif); font-size: 13px; color: var(--ink); }
+.weave-topbar-note { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+
+.weave-hero {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(240px, .9fr);
+  gap: clamp(22px, 3.4vw, 46px);
+  padding: clamp(26px, 4vw, 52px); border-radius: 30px;
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--panel)) 0%, var(--panel) 46%, color-mix(in srgb, var(--accent) 7%, var(--panel-raised)) 100%);
+  box-shadow: 0 30px 80px -30px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.weave-hero-glow { position: absolute; inset: -40% -10% auto auto; width: 62%; aspect-ratio: 1; background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 66%); filter: blur(30px); opacity: .5; z-index: -1; pointer-events: none; animation: studyFloat 13s ease-in-out infinite alternate; }
+.weave-hero-main { display: grid; gap: 0; min-width: 0; }
+.weave-hero-main h1 { margin: 12px 0 6px; font-family: var(--serif); font-size: clamp(27px, 4vw, 46px); font-weight: 600; line-height: 1.16; letter-spacing: -.02em; }
+.weave-hero-main h1 em { font-style: normal; color: var(--accent); }
+.weave-subtitle { margin: 0 0 14px; font-size: 13px; color: var(--muted); letter-spacing: .04em; }
+.weave-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.weave-tags span { padding: 5px 11px; border-radius: 999px; font-size: 10px; letter-spacing: .06em; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); color: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+.weave-principle { margin: 0 0 12px; max-width: 62ch; font-size: 13px; line-height: 1.85; color: color-mix(in srgb, var(--ink) 84%, transparent); }
+.weave-version { margin: 0; font-size: 10px; letter-spacing: .05em; color: var(--muted); }
+.weave-hero-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: center; }
+.weave-stat { padding: 15px 14px; border-radius: 18px; text-align: center; background: color-mix(in srgb, var(--panel-raised) 72%, transparent); border: 1px solid var(--line); transition: transform .4s cubic-bezier(.2,.8,.2,1), border-color .4s; }
+.weave-stat:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.weave-stat.is-wide { grid-column: span 2; }
+.weave-stat strong { display: block; font-family: var(--serif); font-size: clamp(21px, 2.6vw, 30px); font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.weave-stat small { display: block; margin-top: 3px; font-size: 10px; letter-spacing: .07em; color: var(--muted); }
+
+.weave-section { display: grid; gap: 18px; }
+.weave-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.weave-section-head h2 { margin: 8px 0 0; font-family: var(--serif); font-size: clamp(21px, 2.6vw, 31px); font-weight: 600; letter-spacing: -.01em; }
+.weave-hint { margin: 0; max-width: 52ch; font-size: 12px; line-height: 1.7; color: var(--muted); }
+
+.weave-progress-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.weave-progress-card { padding: 16px 18px; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--panel) 84%, transparent); }
+.weave-progress-top { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 11px; color: var(--muted); }
+.weave-progress-top b { color: var(--ink); font-weight: 600; }
+.weave-progress-bar { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.weave-progress-bar i { display: block; height: 100%; background: linear-gradient(90deg, #d9a441, #d98a5f); transition: width .3s; }
+.weave-progress-bar.is-alt i { background: linear-gradient(90deg, #8fa86a, #5f9ea0); }
+
+.weave-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.weave-step { display: grid; gap: 8px; align-content: start; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--panel) 86%, transparent); }
+.weave-step-no { font-family: var(--serif); font-size: 20px; color: color-mix(in srgb, var(--accent) 70%, var(--muted)); }
+.weave-step strong { font-family: var(--serif); font-size: 15px; font-weight: 600; }
+.weave-step p { margin: 0; font-size: 11.5px; line-height: 1.85; color: var(--muted); }
+
+.weave-units { padding: 4px 16px 0; }
+.weave-units li { display: block; }
+.weave-units label { display: grid; grid-template-columns: 18px 44px minmax(0, 1fr); gap: 3px 10px; padding: 8px 0; cursor: pointer; align-items: start; }
+.weave-units input { margin-top: 3px; accent-color: var(--accent); }
+.weave-units b { grid-column: 2; font-size: 9.5px; letter-spacing: .1em; color: var(--accent); }
+.weave-units span { grid-column: 3; font-size: 11.5px; line-height: 1.75; }
+.weave-units small { grid-column: 3; font-size: 10.5px; line-height: 1.7; color: var(--muted); }
+.weave-links.is-wide { display: flex; flex-wrap: wrap; gap: 8px; }
+.weave-links.is-wide a { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; color: var(--ink); text-decoration: none; }
+
+@media (max-width: 900px) {
+  .weave-hero { grid-template-columns: 1fr; }
+  .weave-progress-row, .weave-steps { grid-template-columns: 1fr; }
+  .weave-topbar-note { margin-left: 0; }
+}
+
+.weave-start { margin: 14px 0 6px; padding: 11px 14px; border-left: 2px solid var(--accent); border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 11.5px; line-height: 1.85; color: var(--ink); }
+.weave-start b { margin-right: 8px; color: var(--accent); font-family: var(--serif); }
+
+/* 单元行：编号不折行，配图别占满整行 */
+.weave-units label { grid-template-columns: 18px 58px minmax(0, 1fr); }
+.weave-units b { white-space: nowrap; }
+.weave-tech-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 620px; }
+.weave-tech-figures img { height: 118px; }
