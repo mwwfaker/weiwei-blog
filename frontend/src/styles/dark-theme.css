@@ -120,5 +120,9 @@
 :root.dark .toast-message{background:rgba(23,23,36,.96);border-color:#343148;color:#c9bdf1}
 :root.dark .article-toolbar select,:root.dark .article-toolbar input{padding:8px 10px;border-radius:6px}
 
-@media(max-width:760px){.main-area{padding-bottom:90px}.gallery-grid{columns:2}.guestbook-form{grid-template-columns:1fr}.guestbook-form .button-primary{justify-self:start}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-panels{grid-template-columns:1fr}.account-card{grid-template-columns:1fr}.account-visual{min-height:165px;padding:18px}.account-visual>span{left:auto;right:17px;top:15px}.account-visual strong{font-size:17px}.account-visual small{margin-top:8px}.account-form{padding:21px}.article-toolbar{flex-wrap:wrap}.article-toolbar input{max-width:100%}.music-library-controls{flex-wrap:wrap}.music-library-controls input{flex-basis:100%}}
+@media(max-width:760px){.main-area{padding-bottom:90px}.gallery-grid{columns:2}.guestbook-form .button-primary{justify-self:start}.article-toolbar input{max-width:100%}.music-library-controls input{flex-basis:100%}}
+
+/* 手机档的「版面」类改动（留言表单、创作管理、账号页、统计卡的栅格与间距）不在这里：
+   本文件里的规则都是 `:root.dark .X`，特异性 (0,3,0)，而手机块里写的是 `.X`（(0,1,0)），
+   写了也压不过自己。它们统一放在 styles/responsive.css 的第 7 节，那里是最后一层。 */
 

@@ -28,7 +28,7 @@
 .music-player-panel,.study-panel,.study-resource-card,.study-course,.study-stage-card,.study-hero{border-radius:22px}
 .article-card,.diary-card,.message-card,.admin-panel,.stats-grid article{border-radius:16px}
 
-@media (max-width:1080px){
+@media (max-width:1024px){
   /* 两栏在中等宽度下改成上下堆叠：歌词栏横向变窄后每行放不下几个字。
      堆叠以后不再要求等高，各自按内容定高，歌词栏给一个够用的下限就行。 */
   /* 窄屏：上下堆叠，各自按内容定高，不再套用等高（那是两栏布局才需要的约束） */

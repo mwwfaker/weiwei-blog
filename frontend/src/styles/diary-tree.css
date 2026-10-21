@@ -92,7 +92,7 @@
    它靠着 `margin-right` 的负值一直推到树干右侧留白之外（再往右 36px 进 main-area 的内边距），
    比只贴在树边缘更靠右；没有 overflow 的祖先不会裁掉它。 */
 .diary-tree-ruler{display:none}
-@media(min-width:1000px){
+@media(min-width:1024px){
   .diary-tree{padding-left:80px;padding-right:80px}
   .diary-tree-ruler{
     display:block;position:sticky;top:50vh;height:0;

@@ -1,0 +1,164 @@
+/* 响应式收尾层 ================================================================
+   这一份只干一件事：把所有**跨组件**的屏幕适配集中在这里。组件自己的版面调整
+   仍然留在各自的层里（music.css 管音乐盒、diary-tree.css 管时间树…），
+   这里只放「好几层都躲不开」的那些：安全区、触控目标、手机字号下限、跨层栅格。
+
+   必须排在 index.css 的**最末**：它要压过前面所有层的同选择器规则。
+   这也是为什么它敢用和其它层一样的特异性——靠的是更靠后，不是更具体。
+
+   ── 断点刻度（**只有这几个**，第 [14] 项会拦下其它值）──────────────────────
+     ≤ 380px    小手机（iPhone SE 竖屏，320–380）
+     ≤ 560px    窄档（绩效页把宽表折成卡片）
+     ≤ 760px    手机（绝大多数手机竖屏；也是「手机 / 非手机」的分界）
+     ≤ 1024px   平板（iPad 竖屏 768/820/834、mini 横屏 1024 都落在这一档）
+     ≥ 761px    非手机（阅读弹窗的左右入退场用）
+     ≥ 1024px   宽屏（日记树右侧刻度尺只在够宽时出现）
+     ≥ 1500px   超大屏（内容区加宽）
+
+   为什么不用更多断点：2026 年之前这里同时存在 380/560/620/700/720/760/761/
+   900/1000/1080/1120/1500 十二个刻度，同一个组件被三个文件在三个断点上各写一遍，
+   改一处要翻五个文件。归并到上面七个值之后，一个断点对应一类设备。
+
+   新增适配时先问：这是「某个组件的版面」还是「跨组件的通例」？
+   前者写回那个组件自己的层，后者写这里。 */
+
+/* ---- 1. 刘海与手势条：贴边的固定元素要让出安全区 ---------------------------- */
+/* 没有 env() 的浏览器（桌面）取兜底 0px，所以这段在桌面上是空操作。 */
+@media (max-width: 760px) {
+  /* 右下角音乐盒：74px / 12px 这两个偏移量来自 music.css 的 .music-dock，
+     这里在它们之上再叠安全区。改 music.css 的偏移时要同步改这里。 */
+  .music-dock {
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* 提示条贴在顶部，让开刘海 */
+  .toast-message { top: calc(24px + env(safe-area-inset-top, 0px)); }
+
+  /* 「更多」面板由 JS 定位在按钮下方；屏幕上挤时自己滚，别顶出可视区 */
+  .nav-more-panel {
+    max-height: calc(100dvh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ---- 2. 触控目标：手机上手指比鼠标粗 ---------------------------------------- */
+/* 44px 是 iOS HIG 给的最小可点尺寸；桌面浏览器不受影响（只在 ≤760 生效）。 */
+@media (max-width: 760px) {
+  .button-primary,
+  .button-secondary {
+    min-height: 44px;
+    padding-inline: 18px;
+    font-size: 13px;   /* base.css 的手机档把它压到了 10px，太小 */
+  }
+
+  .icon-button { width: 40px; height: 40px; }
+
+  /* 表格里的行内按钮也跟着放大，否则一排小方块根本点不准 */
+  .diary-card-actions button,
+  .article-toolbar button { min-width: 40px; min-height: 40px; }
+}
+
+/* ---- 3. 手机字号下限：功能性小字不许小于 11px ------------------------------- */
+/* 这套排版原本是编辑风格的微缩标签（7–9px + 大字距），在显示器上是一种质感，
+   但在手机上 8px 基本读不出来。下面只抬**带信息**的那些：
+   日期、统计标签、表头、卡片脚注。纯装饰的（.play-ascii 那类 ASCII 艺术、
+   .section-kicker 的小圆点）保持原样，抬了反而破坏版面。 */
+@media (max-width: 760px) {
+  .article-meta,
+  .article-footer,
+  .article-info p,
+  .diary-card-top > span,
+  .diary-card-top > b,
+  .calendar-badge,
+  .stats-grid small,
+  .stats-grid span,
+  .page-footer,
+  .gallery-grid figcaption,
+  .gallery-grid figcaption small,
+  .message-index,
+  .music-row-index,
+  .reading-tags,
+  .topbar-brand-copy small,
+  small {
+    font-size: 11px;
+  }
+
+  /* 分区小标题是「这块是什么」的标签，不是纯装饰，给 10px */
+  .section-kicker { font-size: 10px; letter-spacing: .12em; }
+}
+
+/* ---- 4. 统计卡片：4 列在手机上是挤的 --------------------------------------- */
+/* 深色层写过一条 `.stats-grid{repeat(2)}`，但它的特异性 (0,1,0) 打不过基础规则
+   `:root.dark .stats-grid{repeat(4)}` 的 (0,3,0)——所以深浅两个主题其实都是 4 列。
+   这里用同等特异性 + 更靠后来真正生效。 */
+@media (max-width: 760px) {
+  :root.dark .stats-grid,
+  :root:not(.dark) .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- 5. 平板档：桌面栅格在 761–1024 之间太密 ------------------------------- */
+/* 这一档原先几乎没有人管：要么还是桌面三列（800px 上每张卡 250px），
+   要么已经被当成手机（一列，于是平板显得很空）。 */
+@media (max-width: 1024px) {
+  .article-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---- 6. iOS 横屏不放大字号 -------------------------------------------------- */
+/* 不加这条时，iPhone 横屏会把所有文字按比例吹大，版面直接塌。 */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* ---- 7. 被主题规则压住的手机版面：重新声明一遍，让它真正生效 ---------------- */
+/* 这是一整类 bug，不是个别现象：主题规则写成 `:root.dark .X` / `:root:not(.dark) .X`
+   时特异性是 (0,3,0)，而各层手机块里写的是 `.X`（(0,1,0)）。于是**手机上这些规则
+   从来没生效过**——文章与音乐库的工具栏、留言板表单、创作管理、账号页、统计卡片，
+   在手机上一直是桌面版面。深色和浅色两边都是如此。
+   
+   这里用同等特异性 (0,3,0) + 排在最后一层来真正压过去。
+   改这些声明时**必须连这两处一起改**：原层里的（已被删掉的）副本已经不存在了，
+   所以这里是唯一的一处。
+   
+   注意：不要改用 `.X.X` 之类的写法去堆特异性——那会让下一次改主题颜色的人莫名其妙。 */
+@media (max-width: 760px) {
+  /* 留言板：原来固定 160px + 1fr + auto，手机上第一列就占掉一半 */
+  :root.dark .guestbook-form,
+  :root:not(.dark) .guestbook-form { grid-template-columns: 1fr; }
+
+  /* 创作管理与账号页：桌面两栏，手机上叠成一栏 */
+  :root.dark .admin-panels,
+  :root:not(.dark) .admin-panels,
+  :root.dark .account-card,
+  :root:not(.dark) .account-card { grid-template-columns: 1fr; }
+
+  :root.dark .account-visual,
+  :root:not(.dark) .account-visual { min-height: 165px; padding: 18px; }
+  :root.dark .account-visual>span,
+  :root:not(.dark) .account-visual>span { left: auto; right: 17px; top: 15px; }
+  :root.dark .account-visual strong,
+  :root:not(.dark) .account-visual strong { font-size: 17px; }
+  :root.dark .account-visual small,
+  :root:not(.dark) .account-visual small { margin-top: 8px; }
+  :root.dark .account-form,
+  :root:not(.dark) .account-form { padding: 21px; }
+
+  /* 文章 / 日记 / 音乐库的工具条：手机上一行放不下，改成竖排 */
+  :root.dark .article-toolbar,
+  :root:not(.dark) .article-toolbar { display: grid; grid-template-columns: 1fr; }
+  :root.dark .diary-toolbar,
+  :root:not(.dark) .diary-toolbar,
+  :root.dark .article-toolbar,
+  :root:not(.dark) .article-toolbar { gap: 9px; }
+
+  /* 音乐库：搜索框占满一行，按钮跟在对角 */
+  :root.dark .music-library-controls,
+  :root:not(.dark) .music-library-controls { display: grid; grid-template-columns: 1fr auto; }
+  :root.dark .music-row-name strong,
+  :root:not(.dark) .music-row-name strong { font-size: 13px; }
+
+  /* 白天首页的顶栏是 absolute + top:0（(0,4,0)），压住了手机档的 top:8px */
+  :root:not(.dark) .home-mode .topbar { top: 8px; }
+}
+

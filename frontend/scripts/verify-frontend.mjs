@@ -18,6 +18,7 @@
 //  [11] 不许新增 <style scoped>（它会压过 styles/ 里的覆盖层）
 //  [12] 单文件体积提示（把该拆出去的板块找出来）
 //  [13] 样式里的类名都必须有人在用（删组件/删页面之后别忘了删样式）
+//  [14] 断点只能用约定的那几个刻度（否则一轮轮攒出十几个互不认识的断点）
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -534,6 +535,37 @@ if (notRegistered.length) {
 if (staleUnused.length) fail(`KNOWN_UNUSED_CSS 已经过期（这些类名现在有人用了）: ${staleUnused.join(', ')}`)
 if (!notRegistered.length && !staleUnused.length) {
   console.log(`    OK    ${cssClassNames.size} 个类名都有对应的模板/脚本在用`)
+}
+
+// --- [14] 断点刻度 -------------------------------------------------------------------------------
+// 屏幕适配最容易烂的地方不是「没写」，而是「每人各写一个」：2026 年这里同时存在
+// 380/560/620/700/720/760/761/900/1000/1080/1120/1500 十二个刻度，同一个组件被三个文件
+// 在三个断点上各调一遍，改一次要翻五个文件，还很难判断某条规则到底在哪个宽度生效。
+// 归并成下面的刻度之后，一个断点对应一类设备；新加适配时先在这张表里挑，别自己造。
+console.log('[14] 断点刻度')
+const ALLOWED_BREAKPOINTS = new Map([
+  [380, '小手机（iPhone SE 竖屏 320–380）'],
+  [560, '窄档（绩效页把宽表折成卡片）'],
+  [760, '手机（≤760 是「手机 / 非手机」的分界）'],
+  [761, '非手机（与 760 互补，用在必须二选一时）'],
+  [1024, '平板（iPad 竖屏 768/820/834、mini 横屏 1024）'],
+  [1500, '超大屏（内容区加宽）'],
+])
+const badBreakpoints = []
+for (const file of cssFiles) {
+  const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  for (const m of text.matchAll(/@media([^{]+)\{/g)) {
+    for (const d of m[1].matchAll(/(?:min|max)-width\s*:\s*(\d+(?:\.\d+)?)px/g)) {
+      const value = Number(d[1])
+      if (!ALLOWED_BREAKPOINTS.has(value)) badBreakpoints.push(`${srcRel(file)} → ${value}px`)
+    }
+  }
+}
+if (badBreakpoints.length) {
+  const hint = [...ALLOWED_BREAKPOINTS.keys()].join(' / ')
+  fail(`用了刻度外的断点宽度（只允许 ${hint} 这几种）: ${[...new Set(badBreakpoints)].join(', ')}—— 先看 styles/responsive.css 顶部那张表，挑一个最接近的`)
+} else {
+  console.log(`    OK    ${cssFiles.length} 份样式表只用了 ${[...ALLOWED_BREAKPOINTS.keys()].length} 个约定刻度`)
 }
 
 console.log(failures ? `\n${failures} problem(s) found.` : `\nAll frontend checks passed (${vueFiles.length} components, ${cssFiles.length} stylesheets, ${folders.length} folders).`)

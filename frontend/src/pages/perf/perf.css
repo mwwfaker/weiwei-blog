@@ -42,7 +42,7 @@
 .perf-split-body>.perf-summary-line,.perf-split-body>.perf-breakdown{flex:none}
 
 /* 窄屏：两栏改成上下，左栏限高，右表拿到整个宽度——否则表格会被压扁、列互相遮挡 */
-@media (max-width:900px){
+@media (max-width:1024px){
   .perf-split{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,auto) minmax(0,1fr)}
   .perf-picker{max-height:200px}
 }
@@ -225,7 +225,7 @@
 .perf-empty p{margin:0;font-size:11.5px;color:var(--muted);max-width:48ch}
 .perf-empty-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:5px}
 
-@media (max-width:720px){
+@media (max-width:760px){
   .perf-grid th,.perf-grid td{padding:7px 8px;font-size:12px}
   .perf-cell{padding:6px 7px}
   .perf-cell.wide{min-width:140px}

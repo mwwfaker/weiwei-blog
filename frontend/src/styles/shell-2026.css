@@ -233,7 +233,7 @@
 }
 
 /* ---------- 响应式 ---------- */
-@media (max-width: 900px) {
+@media (max-width:1024px) {
   .topbar { gap: 10px; }
 }
 
@@ -524,10 +524,10 @@
 .study-plan-back { padding: 0; border: 0; background: none; color: var(--muted); font-size: 11.5px; cursor: pointer; }
 .study-plan-back:hover { color: var(--accent); }
 .study-plan-name { font-family: var(--serif); font-size: 13px; color: var(--ink); }
-@media (max-width: 900px) {
+@media (max-width:1024px) {
   .study-library-grid { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 620px) { .study-library-grid { grid-template-columns: 1fr; } }
+@media (max-width:760px) { .study-library-grid { grid-template-columns: 1fr; } }
 
 
 /* ---------- 编织课程：定制版面 ---------- */
@@ -590,7 +590,7 @@
 .weave-materials small { font-size: 10px; line-height: 1.7; color: var(--muted); }
 
 .weave-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 10px; color: var(--muted); }
-@media (max-width: 900px) {
+@media (max-width:1024px) {
   .weave-tech-grid, .weave-project-grid, .weave-two-col { grid-template-columns: 1fr; }
   .weave-hint { margin-left: 0; }
 }
@@ -650,7 +650,7 @@
 .weave-links a:hover { border-color: var(--weave-warm); color: var(--weave-warm); }
 .weave-progress-bar i { background: linear-gradient(90deg, var(--weave-yarn), var(--weave-warm)); }
 
-@media (max-width: 900px) {
+@media (max-width:1024px) {
   .weave-hero { grid-template-columns: 1fr; }
   .weave-tech-grid { grid-template-columns: 1fr; }
 }
@@ -718,7 +718,7 @@
 .weave-links.is-wide { display: flex; flex-wrap: wrap; gap: 8px; }
 .weave-links.is-wide a { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; color: var(--ink); text-decoration: none; }
 
-@media (max-width: 900px) {
+@media (max-width:1024px) {
   .weave-hero { grid-template-columns: 1fr; }
   .weave-progress-row, .weave-steps { grid-template-columns: 1fr; }
   .weave-topbar-note { margin-left: 0; }

@@ -334,13 +334,13 @@
 /* 白天首页的顶栏底色要和光场顶部同色 */
 :root:not(.dark) .home-mode .topbar { background: #eef2fb; }
 
-@media (max-width: 900px) {
+@media (max-width:1024px) {
   .glass-hero { grid-template-columns: 1fr; min-height: auto; padding-top: 18px; }
   .glass-stage { height: 360px; margin-top: 18px; }
   .glass-copy h1 { font-size: clamp(38px, 10vw, 54px); }
   .glass-shard { display: none; }
 }
-@media (max-width: 700px) {
+@media (max-width:760px) {
   .glass-head { flex-wrap: wrap; gap: 10px; }
   .glass-more { margin-left: 0; }
   .glass-stories button { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }

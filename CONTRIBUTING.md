@@ -112,7 +112,7 @@ frontend/src/pages/<页面 id>/
 
 ```bash
 cd frontend
-npm run verify:all      # 13 项结构检查 + 歌词 / 绩效 / OCR / 日记导入四个离线自检
+npm run verify:all      # 14 项结构检查 + 歌词 / 绩效 / OCR / 日记导入四个离线自检
 npm run test:render     # 用真实路由把 13 条路由各渲染一遍，再渲染组件状态分支与关闭动画
 npm run build           # 生产构建
 ```
