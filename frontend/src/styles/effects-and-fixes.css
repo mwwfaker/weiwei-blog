@@ -51,14 +51,8 @@ body::before{
 }
 .reveal.is-visible{opacity:1;translate:none;scale:none;filter:none}
 
-/* ---- 3. 页面切换 --------------------------------------------------------- */
-.page-enter-active{transition:opacity .34s ease,transform .46s cubic-bezier(.2,.8,.2,1),filter .34s ease}
-.page-leave-active{transition:opacity .2s ease,transform .24s ease,filter .2s ease}
-.page-enter-from{opacity:0;transform:translateY(20px) scale(.99);filter:blur(7px)}
-.page-leave-to{opacity:0;transform:translateY(-10px) scale(.995);filter:blur(4px)}
-
 /* ---- 4. 文字与标题 ------------------------------------------------------- */
-.page-content h1,.section-heading h2,.inner-title-row h1{
+.page-content h1,.inner-title-row h1{
   background-image:linear-gradient(96deg,var(--ink) 18%,color-mix(in srgb,var(--accent) 82%,var(--ink)) 58%,var(--ink) 96%);
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
   background-size:220% 100%;
@@ -71,12 +65,11 @@ body::before{
 @keyframes kickerSweep{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
 
 /* ---- 5. 表面质感：玻璃 + 悬浮 -------------------------------------------- */
-.article-card,.diary-card,.stats-grid article,.admin-panel,.taxonomy-card,
-.friend-card,.message-card,.account-card,.friend-request,.quote-card{
+.article-card,.diary-card,.stats-grid article,.admin-panel,.message-card,.account-card{
   backdrop-filter:blur(14px) saturate(1.15);
   transition:transform .46s cubic-bezier(.2,.8,.2,1),box-shadow .46s ease,border-color .4s ease,background-color .4s ease;
 }
-.article-card:hover,.diary-card:hover,.taxonomy-card:hover,.friend-card:hover,
+.article-card:hover,.diary-card:hover,
 .message-card:hover,.stats-grid article:hover{
   transform:translateY(-6px);
   border-color:var(--ring)!important;
@@ -84,26 +77,13 @@ body::before{
 }
 .article-card:hover .article-image-wrap img,.gallery-photo:hover img{transform:scale(1.07)}
 .article-image-wrap img,.gallery-photo img{transition:transform .8s cubic-bezier(.2,.8,.2,1)}
-.hero-card{box-shadow:0 34px 84px -42px rgba(30,22,60,.55)}
-.hero-card::after{
-  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  background:linear-gradient(120deg,transparent 34%,color-mix(in srgb,var(--accent) 22%,transparent) 50%,transparent 66%);
-  background-size:260% 100%;opacity:.55;
-  animation:heroSweep 7.5s ease-in-out infinite;
-}
-@keyframes heroSweep{0%{background-position:130% 0}55%,100%{background-position:-60% 0}}
-.hero-art .art-orbit{animation:orbitSpin 34s linear infinite}
-.hero-art .orbit-two{animation-duration:52s;animation-direction:reverse}
-.hero-art .sun-disc{animation:sunBreathe 6.5s ease-in-out infinite}
-.hero-art .art-spark{animation:sparkTwinkle 3.4s ease-in-out infinite}
-.hero-art .spark-two{animation-delay:.9s}
-.hero-art .spark-three{animation-delay:1.7s}
-@keyframes orbitSpin{to{transform:rotate(360deg)}}
-@keyframes sunBreathe{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.06);opacity:1}}
-@keyframes sparkTwinkle{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-5px)}}
+
+
+
+
 
 /* ---- 6. 按钮 ------------------------------------------------------------- */
-.button-primary,.button-secondary,.icon-button,.nav-item,.view-all,.round-link{
+.button-primary,.button-secondary,.icon-button{
   transition:transform .34s cubic-bezier(.2,.8,.2,1),box-shadow .34s ease,background-color .3s ease,color .3s ease,border-color .3s ease;
 }
 .button-primary{position:relative;overflow:hidden;isolation:isolate}
@@ -117,23 +97,9 @@ body::before{
 .button-primary:hover::after{transform:translateX(130%)}
 .button-secondary:hover{transform:translateY(-3px)}
 .icon-button:hover{transform:translateY(-3px) rotate(-7deg)}
-.view-all:hover,.round-link:hover{transform:translateX(4px)}
-.round-link:hover{transform:translateX(4px) rotate(45deg)}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
   outline:2px solid var(--accent);outline-offset:2px;border-radius:6px;
 }
-
-/* ---- 7. 导航 ------------------------------------------------------------- */
-.side-nav{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;justify-content:safe center}
-.side-nav::-webkit-scrollbar{display:none}
-.nav-item{position:relative}
-.nav-item::after{
-  content:"";position:absolute;left:50%;bottom:4px;height:2px;width:0;border-radius:2px;
-  background:var(--accent);transform:translateX(-50%);
-  transition:width .38s cubic-bezier(.2,.8,.2,1);
-}
-.nav-item:hover::after{width:52%}
-.nav-item.active::after{width:0}
 .topbar{position:relative}
 .topbar::after{
   content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
@@ -141,8 +107,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   opacity:.5;animation:barSlide 4.6s ease-in-out infinite;
 }
 @keyframes barSlide{0%,100%{transform:translateX(-18%) scaleX(.7);opacity:.25}50%{transform:translateX(18%) scaleX(1);opacity:.7}}
-.nav-more-menu{animation:menuIn .26s cubic-bezier(.2,.9,.25,1) both}
-@keyframes menuIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
+
 
 /* ---- 8. 弹层与反馈 ------------------------------------------------------- */
 .modal-backdrop{backdrop-filter:blur(7px)}
@@ -183,7 +148,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--ring)!im
     transition-duration:.001ms!important;
     scroll-behavior:auto!important;
   }
-  .page-content h1,.section-heading h2,.inner-title-row h1{-webkit-text-fill-color:currentColor;background:none}
+  .page-content h1,.inner-title-row h1{-webkit-text-fill-color:currentColor;background:none}
 }
 
 /* ==========================================================================
@@ -219,15 +184,6 @@ body::before{inset:0}
   50%{background-position:145% 0;opacity:.7}
 }
 
-/* ---- B3. 首页大标题被裁掉 ----------------------------------------------
-   新版主题把 .hero-copy h1 放大到 clamp(52px,9vw,116px)，但 .hero-card 仍是原来的固定
-   344px 高度；实测内容 454px，被 overflow:hidden 裁掉，整排按钮看不见。
-   卡片改为按内容撑开，并给标题一个更稳的上限。                                     */
-.hero-card{height:auto;min-height:clamp(360px,36vw,500px);padding:clamp(30px,4vw,52px) clamp(26px,4vw,54px)}
-.hero-copy h1{font-size:clamp(34px,5.4vw,74px);line-height:1.06;margin:22px 0 18px;max-width:100%}
-.hero-copy>p{font-size:13px;line-height:1.9}
-.hero-art{height:100%}
-
 /* ---- B4. 主题切换后仍然是固定色的几处 ----------------------------------
    用无头浏览器在明暗两种主题下扫描「可见元素的背景亮度与页面相反」的元素，找出这些漏网
    的硬编码颜色：文章封面占位在浅色主题下是深蓝紫块，个人介绍卡片在深色主题下是一整块白。
@@ -252,7 +208,6 @@ body::before{inset:0}
    它不是博客的一个页面，而是一个独立系统，从博客路由进去。打开时把侧边导航、顶部栏、
    粒子背景和播放器都收起来，内容占满整屏。 */
 .app-shell.tool-mode{display:block;padding:0}
-.app-shell.tool-mode .sidebar,
 .app-shell.tool-mode .topbar,
 .app-shell.tool-mode .music-dock,
 .app-shell.tool-mode .toast,
@@ -263,22 +218,4 @@ body::before{inset:0}
 .app-shell.tool-mode .page-stage{padding:0;max-width:none;border:0}
 .app-shell.tool-mode body::before,
 body:has(.app-shell.tool-mode)::before{display:none}
-
-/* ---- C. 下滑收起导航：左侧向左、右侧向右 ----------------------------------
-   位移从 138% 缩到 74%，时长加长并换成更柔的曲线，透明度提前开始变化——
-   原来又远又快，看起来像被「甩」出去，这就是生硬感的来源。                     */
-.sidebar{
-  overflow-x:clip;
-  overflow-y:visible;
-  transition:height .72s cubic-bezier(.22,.9,.24,1),min-height .72s cubic-bezier(.22,.9,.24,1),
-             padding .72s cubic-bezier(.22,.9,.24,1),background-color .5s ease,border-color .5s ease,box-shadow .5s ease;
-}
-.brand,.sidebar-bottom{
-  transition:transform .78s cubic-bezier(.22,.9,.24,1),opacity .52s ease;
-  will-change:transform,opacity;
-}
-.sidebar.condensed{height:60px;min-height:60px;box-shadow:0 12px 36px -26px rgba(20,14,40,.5)}
-.sidebar.condensed .brand{transform:translateX(-74%) scale(.97);opacity:0;pointer-events:none}
-.sidebar.condensed .sidebar-bottom{transform:translateX(74%) scale(.97);opacity:0;pointer-events:none}
-.sidebar.condensed .nav-item{padding:9px 15px;font-size:12.5px}
 

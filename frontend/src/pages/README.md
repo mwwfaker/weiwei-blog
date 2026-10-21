@@ -15,22 +15,23 @@
 | --- | --- | --- |
 | 首页 | `/` | `home/` |
 | 关于我 | `/about` | `about/` |
-| 学习路线 | `/study` | `study/` |
+| 学习路线 | `/study` | `study/`（金融计划 + 手工编织两套内容） |
 | 文章宇宙 | `/articles` | `articles/` |
-| 文章分类 | `/categories` | `categories/` |
-| 标签星图 | `/tags` | `tags/` |
 | 日记 | `/diary` | `diary/` |
 | 相册 | `/gallery` | `gallery/` |
 | 音乐收藏 | `/music` | `music/` |
 | 留言板 | `/messages` | `messages/` |
-| 朋友们 | `/friends` | `friends/` |
-| 时光归档 | `/archives` | `archives/` |
+| 工具箱 | `/tools` | `tools/`（工具类页面都从这里进） |
 | 创作管理 | `/admin` | `admin/` |
 | 绩效计算器 | `/perf` | `perf/`（独立小项目，见它自己的 README） |
 | 账号 | `/account` | `account/` |
 
 > 「公开日记」没有独立文件夹：它是日记页里的第二个标签，由 `diaries.diaryTab` 控制。
 > 老的 `#/public-diary` 链接仍然能打开（见 `src/app/README.md`）。
+>
+> 「文章分类」「标签星图」「朋友们」「时光归档」四个页面已经删掉——分类和标签并进了文章页的筛选，
+> 归档并进了日记与文章的时间轴，友链没有入口就一起下线了。**改这类东西时记得连样式一起删**：
+> 那四个页面留下的 179 个死类名是第 [13] 项被加进来的直接原因。
 
 ## 写一个页面时的规矩
 

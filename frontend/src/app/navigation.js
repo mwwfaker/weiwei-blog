@@ -20,11 +20,4 @@ export const secondaryNavigation = [
   { id: 'messages', label: '留言板', icon: '✉' },
 ]
 
-// 两组导航拼成的完整表。只在本文件里给 pageLabel 用，不对外导出——
-// 外面要「有哪些页面」应该去问 app/pageRegistry.js 或 app/routes.js。
-const allNavigation = [...navigation, ...secondaryNavigation]
-
-/** 顶栏面包屑用：页面 id → 中文名。找不到就返回空串（不显示）。 */
-export function pageLabel(id) {
-  return allNavigation.find((item) => item.id === id)?.label || ''
-}
+// 外面要「有哪些页面」应该去问 app/pageRegistry.js 或 app/routes.js，不要从这两张表推。

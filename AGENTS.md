@@ -105,14 +105,15 @@ npm run new:page -- <页面id> "中文导航标题" --primary  # 进主导航
 
 ```bash
 cd frontend
-npm run verify:all      # 12 项结构检查 + 歌词 / 绩效 / OCR / 日记导入四个离线自检
+npm run verify:all      # 13 项结构检查 + 歌词 / 绩效 / OCR / 日记导入四个离线自检
 npm run test:render     # 路由表里每条路由的 SSR 渲染 + 7 个组件状态分支
 npm run build           # 生产构建
 ```
 
-`verify` 的 12 项覆盖：模板标识符、自定义指令、页面注册一致性、模板 class 有没有样式、
+`verify` 的 13 项覆盖：模板标识符、自定义指令、页面注册一致性、模板 class 有没有样式、
 fixed 包含块、粒子可见性、下拉菜单裁剪、目录 README 与根目录契约文件、孤儿文件、
-**分层越界**、**`<style scoped>`**、单文件体积（提示）。
+**分层越界**、**`<style scoped>`**、单文件体积（提示）、
+**样式里的类名必须有人用**（第 [13] 项：删组件/删页面之后忘了删样式，靠它挡住）。
 
 ### 只搬代码、不改行为时，额外做一件事
 
@@ -134,7 +135,7 @@ node ssr-smoke/snapshot.mjs ../after      # 改动后，逐字节比对
 
 - **不要动 `legacy/`。** 那是归档，不参与构建。
 - **不要删 `frontend/scripts/*.mjs` 里的 `KNOWN_UNSTYLED` / `KNOWN_UNREFERENCED` /
-  `KNOWN_SCOPED_STYLES` 清单。** 它们是「重构前就存在的已知问题」的登记簿。
+  `KNOWN_SCOPED_STYLES` / `KNOWN_UNUSED_CSS` 清单。** 它们是「已知问题」的登记簿。
   修好了对应的东西，脚本会反过来提醒你删掉那一行；手动清空清单只会让检查失效。
 - **不要重排 `styles/index.css` 的 import。** 那不是一个「列表」，是层叠顺序。
 - **不要给自检脚本加依赖。** 装依赖才能跑的自检，最后一定没人跑。

@@ -28,7 +28,7 @@
 `TypeError: motion.prefersReducedMotion is not a function`。
 
 症状特别隐蔽：**点关闭毫无反应，页面上什么都不显示**，只有控制台一行 TypeError；
-构建、12 项结构检查、SSR 渲染冒烟全是绿的，因为那一行只在用户点关闭时才执行。
+构建、13 项结构检查、SSR 渲染冒烟全是绿的，因为那一行只在用户点关闭时才执行。
 所以 import 改名为 `motionHelpers`，并且 `ssr-smoke` 里加了一条真的去调
 `requestClose()` 的探针（见 `ssr-smoke/README.md`）——**这类 bug 只能靠「真的点一下」抓**。
 

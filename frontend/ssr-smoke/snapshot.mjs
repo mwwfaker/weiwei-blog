@@ -1,6 +1,7 @@
-// 临时工具：把某个路由的 SSR 渲染结果写成文件，用于「重构前后 HTML 必须逐字一致」的比对。
-// 只在重构期间使用，验证完即删。
-import { writeFileSync } from 'node:fs'
+// 工具：把每条路由的 SSR 渲染结果写成文件，用于「只搬代码、不改行为」的逐字节比对。
+// 路径从真实路由表推导（和 run.mjs 同一来源），新加/删除页面会自动跟上——
+// 之前这里是手写列表，页面删了它还照着渲染，白白生成几条已经不存在路由的快照。
+import { mkdirSync, writeFileSync } from 'node:fs'
 
 const store = new Map()
 globalThis.localStorage = {
@@ -22,17 +23,17 @@ globalThis.history = { pushState() {}, replaceState() {}, state: null, go() {}, 
 globalThis.addEventListener = () => {}
 globalThis.removeEventListener = () => {}
 
-const { render } = await import('./dist-ssr/entry.js')
+const { render, routePaths } = await import('./dist-ssr/entry.js')
 
-const routes = ['/', '/about', '/study', '/perf', '/articles', '/categories', '/tags', '/diary', '/gallery', '/music', '/messages', '/friends', '/archives', '/admin', '/account']
 const outDir = process.argv[2]
 if (!outDir) { console.error('usage: node snapshot.mjs <outDir>'); process.exit(2) }
+mkdirSync(outDir, { recursive: true })
 
-for (const route of routes) {
+for (const route of routePaths) {
   const { html, warnings } = await render(route)
   const name = route === '/' ? 'home' : route.replace(/[^a-zA-Z0-9]/g, '_')
   writeFileSync(`${outDir}/${name}.html`, html, 'utf8')
   if (warnings.length) console.error(`warnings on ${route}: ${warnings.join(' | ')}`)
 }
-console.log(`snapshots written to ${outDir}`)
+console.log(`snapshots written to ${outDir}（${routePaths.length} 条路由）`)
 process.exit(0)

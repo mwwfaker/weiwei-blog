@@ -21,7 +21,7 @@ npm run dev        # http://localhost:5173
 | `npm run build` | 生产构建到 `dist/` |
 | `npm run preview` | 本地预览构建产物 |
 | `npm run new:page -- <id> "标题"` | **加一个页面**：建目录并把三处注册点一起改掉 |
-| `npm run verify` | 12 项静态结构检查（见 `scripts/README.md`） |
+| `npm run verify` | 13 项静态结构检查（见 `scripts/README.md`） |
 | `npm run verify:all` | 上面这个 + 歌词 / 绩效 / OCR / 日记导入四个离线自检 |
 | `npm run test:render` | 把路由表里的每条路由各 SSR 渲染一遍，再单渲染歌词栏与音乐盒的 7 个状态分支 |
 | `npm test` | `verify:all` + `test:render` |
@@ -36,9 +36,9 @@ src/
   App.vue              入口，只挂 AppShell
   main.js              createApp + Pinia + router + 样式入口
   app/                 骨架：路由表、页面注册表、导航表、页面调度、提示、登录守卫
-  layouts/             应用外壳：AppShell / AppTopBar / AppDock
-  pages/               15 个页面，一个页面一个文件夹
-  modules/             跨页面复用的块（页面通用件、弹窗、文章、日记、相册、音乐、粒子）
+  layouts/             应用外壳：AppShell / AppTopBar
+  pages/               12 个页面，一个页面一个文件夹
+  modules/             按领域成套装的可复用块（页面通用件、弹窗、文章、日记、相册、音乐、资料、粒子）
   stores/              全部跨组件状态（Pinia）
   services/            与外部打交道：HTTP、对象存储、歌词接口、OCR、纯计算
   composables/         可复用的组合式函数（目前只有动效层）

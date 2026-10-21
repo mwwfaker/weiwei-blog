@@ -3,7 +3,6 @@
 // 刻意用模块级单例而不是 Pinia：`currentPage` 被顶栏、侧边栏、每个页面和若干 store 同时读，
 // 而且路由同步要在 AppShell 挂载时就装好，不能等某个 store 第一次被用到才建。
 import { computed, ref } from 'vue'
-import { pageLabel } from './navigation'
 
 // 路由实例在 AppShell 里绑进来，这样本模块不依赖 vue-router 的注入上下文，
 // 在 SSR / 渲染测试里（没有组件实例）也能安全调用。
@@ -47,11 +46,6 @@ export function resolvePageName(name, { onLegacyPublicDiary } = {}) {
 }
 
 export const isToolPage = computed(() => currentPage.value === 'perf')
-export const currentPageLabel = computed(() => pageLabel(currentPage.value))
-
-export function usePageNav() {
-  return { currentPage, moreOpen, isToolPage, currentPageLabel, go: setPage }
-}
 
 export { currentPage, moreOpen }
 export const go = setPage

@@ -28,8 +28,3 @@ export const demoMessages = [
   { id: 1, name: '小岛', date: '2026-09-26', content: '喜欢这个安静的小世界，祝你每天都有好心情。' },
   { id: 2, name: '阿橘', date: '2026-09-21', content: '“慢一点也没关系”这句话送给最近忙碌的自己。' },
 ]
-
-export const demoFriends = [
-  { name: '纸飞机的信箱', url: 'https://example.com', note: '写字、读书和散步。' },
-  { name: '小岛日记', url: 'https://example.org', note: '收藏沿途的风景。' },
-]

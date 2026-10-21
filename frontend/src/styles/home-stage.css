@@ -40,79 +40,6 @@
     linear-gradient(180deg, rgba(5, 5, 12, 0.04) 0%, rgba(5, 5, 12, 0.5) 46%, rgba(5, 5, 12, 0.9) 78%, #05050c 100%);
 }
 
-/* ---------- 一行字的导航 ---------- */
-.world-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 20px clamp(18px, 4vw, 48px);
-  background: linear-gradient(180deg, rgba(5, 5, 12, 0.86), rgba(5, 5, 12, 0));
-  pointer-events: none;
-}
-.world-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #f6f3ff;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  pointer-events: auto;
-}
-.world-brand .brand-mark { margin: 0; }
-.world-links {
-  display: flex;
-  align-items: center;
-  gap: clamp(14px, 2.4vw, 32px);
-  margin-left: auto;
-  pointer-events: auto;
-}
-.world-links button {
-  padding: 4px 0;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: none;
-  color: rgba(232, 226, 250, 0.66);
-  font-size: 12.5px;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
-}
-.world-links button:hover {
-  color: #fff;
-  border-bottom-color: rgba(255, 255, 255, 0.55);
-}
-.world-nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: 6px;
-  pointer-events: auto;
-}
-.world-theme {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(240, 235, 255, 0.9);
-  font-size: 14px;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-.world-theme:hover { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.12); }
-
 /* ---------- 世界里的内容 ---------- */
 .world-content {
   position: relative;
@@ -396,10 +323,6 @@
 }
 
 @media (max-width: 760px) {
-  .world-nav { padding: 14px 18px; gap: 12px; }
-  .world-links { gap: 12px; }
-  .world-links button { font-size: 11px; }
-  .world-brand { font-size: 13px; }
   .world-intro { padding: 110px 0 70px; }
   .world-intro h1 { font-size: clamp(38px, 10.5vw, 54px); }
   .world-lead { font-size: 13px; }

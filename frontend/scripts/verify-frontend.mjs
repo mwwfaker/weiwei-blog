@@ -17,6 +17,7 @@
 //  [10] 分层越界：页面/模块不许直接调后端或读本机存储；services 不许 import Vue 或 store
 //  [11] 不许新增 <style scoped>（它会压过 styles/ 里的覆盖层）
 //  [12] 单文件体积提示（把该拆出去的板块找出来）
+//  [13] 样式里的类名都必须有人在用（删组件/删页面之后别忘了删样式）
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -473,6 +474,67 @@ for (const [file, info] of parsed) {
 }
 if (bigFiles.length) console.log(`    note  超过 ${BIG} 行的页面/块（考虑把板块拆到 components/）: ${bigFiles.join(', ')}`)
 else console.log(`    OK    没有超过 ${BIG} 行的页面/块`)
+
+// --- [13] 样式里没有「谁都不用的类名」 --------------------------------------------------------
+// [4] 管「模板里写的 class 必须有规则」；这一项管反方向——**样式里的每个类名都必须有人用**。
+//
+// 为什么需要它：组件删了、页面下线了、版式改版了，样式却几乎没人回头删。2026 年清过一次：
+// 179 个类名在整个 src 里一次都不出现，占全部样式的 25%（首屏 CSS 206 kB → 164 kB）。
+// 起因是四件事叠加——首页重做（HeroCard/QuoteCard/DiaryPreview 删除）、侧边栏删除、
+// 归档/分类/标签/友链四个页面下线、学习页改版六次，每一次都只加样式不删。
+// 这种腐烂完全安静，所以必须由检查盯着。
+//
+// 判据故意从宽：类名当成普通单词，在**去掉注释的** .vue/.js 里搜，任何一处出现就算在用。
+// 这样将来有人用拼接的方式生成类名（`'is-' + state`）也不会被误判成死样式。
+// 框架自己生成的类要减掉：<Transition>/<TransitionGroup> 的六个阶段类、
+// `is-${…}` 这类模板字面量前缀、以及 v-reveal 与 useDark 注入的 reveal / is-visible / dark。
+console.log('[13] 样式里没有没人用的类名')
+const KNOWN_UNUSED_CSS = new Set([
+  // 每条都要写清原因。现在一条都没有——2026 年这一轮清干净了，保持住。
+  // 注意：修好对应样式之后这一行会变成「过期登记」并报错，所以它不会悄悄留住垃圾。
+])
+
+const codeWords = new Set()
+for (const file of walk(root, (name) => /\.(vue|js)$/.test(name))) {
+  const text = stripComments(fs.readFileSync(file, 'utf8'))
+  for (const m of text.matchAll(/[A-Za-z_$][\w$-]*/g)) codeWords.add(m[0])
+}
+
+const cssClassNames = new Set()
+for (const file of cssFiles) {
+  const text = fs.readFileSync(file, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/@import[^;]+;/g, '')
+    // 相对路径与引号里的东西（`url(./a.png)`、`[href$=".pdf"]`）不是类名
+    .replace(/url\([^)]*\)/g, '')
+    .replace(/"[^"]*"|'[^']*'/g, '')
+  for (const m of text.matchAll(/\.([A-Za-z][\w-]*)/g)) cssClassNames.add(m[1])
+}
+
+const cssGenerated = new Set(['reveal', 'is-visible', 'dark', 'light'])
+for (const file of vueFiles) {
+  const text = fs.readFileSync(file, 'utf8')
+  for (const m of text.matchAll(/<Transition(?:Group)?\s+name="([\w-]+)"/g)) {
+    for (const phase of ['enter-active', 'enter-from', 'enter-to', 'leave-active', 'leave-from', 'leave-to']) {
+      cssGenerated.add(`${m[1]}-${phase}`)
+    }
+  }
+  for (const m of text.matchAll(/`([A-Za-z][\w-]*-)\$\{/g)) {
+    for (const name of cssClassNames) if (name.startsWith(m[1])) cssGenerated.add(name)
+  }
+}
+
+const unusedCss = [...cssClassNames].filter((n) => !codeWords.has(n) && !cssGenerated.has(n)).sort()
+const notRegistered = unusedCss.filter((n) => !KNOWN_UNUSED_CSS.has(n))
+const staleUnused = [...KNOWN_UNUSED_CSS].filter((n) => !unusedCss.includes(n))
+if (notRegistered.length) {
+  const shown = notRegistered.slice(0, 12).join('、')
+  fail(`样式里有 ${notRegistered.length} 个类名没有任何模板/脚本在用: ${shown}${notRegistered.length > 12 ? ' …' : ''}—— 删掉那些规则；确实要留就登记进 KNOWN_UNUSED_CSS 并写清原因`)
+}
+if (staleUnused.length) fail(`KNOWN_UNUSED_CSS 已经过期（这些类名现在有人用了）: ${staleUnused.join(', ')}`)
+if (!notRegistered.length && !staleUnused.length) {
+  console.log(`    OK    ${cssClassNames.size} 个类名都有对应的模板/脚本在用`)
+}
 
 console.log(failures ? `\n${failures} problem(s) found.` : `\nAll frontend checks passed (${vueFiles.length} components, ${cssFiles.length} stylesheets, ${folders.length} folders).`)
 process.exitCode = failures ? 1 : 0
