@@ -1,7 +1,7 @@
 // 手工编织与纤维手作：从《手工编织与纤维手作系统课程》整理出来的结构化数据。
 //
-// 这份计划不走通用渲染，页面是给它单独做的（pages/study/components/WeavingPlanView.vue）：
-// 内容里有「技法单元」「40 周课程表」「项目库」「材料工具」四种形状，套模板反而会失去它们。
+// 每个技法 / 项目自带 links（来自原文档对应章节的链接）与 figures（public/weaving/ 里的配图），
+// 页面因此能像「课程卡」一样把资源挂在它该在的位置，而不是最后堆一串链接。
 export const weavingPlan = {
   "meta": {
     "title": "手工编织与纤维手作",
@@ -334,6 +334,27 @@ export const weavingPlan = {
           "skill": "密度、缝合、藏线、湿整理",
           "pass": "织围脖或杯垫；尺寸偏差不超过目标的 10%，线头牢固。"
         }
+      ],
+      "links": [
+        {
+          "title": "棒针入门围巾图文与逐步视频",
+          "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/"
+        },
+        {
+          "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+          "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf"
+        },
+        {
+          "title": "钩针罗纹围巾免费图文与视频",
+          "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/"
+        },
+        {
+          "title": "钩针罗纹围巾分段视频",
+          "url": "https://www.youtube.com/watch?v=8-TAriLCPLE"
+        }
+      ],
+      "figures": [
+        "/weaving/fig-1.jpg"
       ]
     },
     {
@@ -367,6 +388,24 @@ export const weavingPlan = {
           "skill": "换色、收边、藏线",
           "pass": "完成杯垫或方形小袋，边缘平整，线头不外露。"
         }
+      ],
+      "links": [
+        {
+          "title": "方片毯免费图解与视频",
+          "url": "https://www.thepurpleponcho.com/granny-square-blanket/"
+        },
+        {
+          "title": "钩针帽免费图解与视频",
+          "url": "https://www.marchingnorth.com/everyday-crochet-beanie-top-down-brimless/"
+        },
+        {
+          "title": "钩针开衫图解与视频",
+          "url": "https://wilmade.com/my-first-cardigan/"
+        }
+      ],
+      "figures": [
+        "/weaving/fig-2.jpg",
+        "/weaving/fig-3.jpg"
       ]
     },
     {
@@ -395,7 +434,30 @@ export const weavingPlan = {
           "skill": "线色匹配、面料方向、熨烫与加固",
           "pass": "写下修补前后照片、问题原因和洗护方式。"
         }
-      ]
+      ],
+      "links": [
+        {
+          "title": "MoMA 衣物修补图文 PDF",
+          "url": "https://www.moma.org/momaorg/shared/pdfs/docs/learn/courses/loved-clothes-last.pdf"
+        },
+        {
+          "title": "刺子绣补衣视频",
+          "url": "https://www.youtube.com/watch?v=plrmII86LMM"
+        },
+        {
+          "title": "Sarah 手绣针法图库",
+          "url": "https://www.embroidery.rocksea.org/reference/picture-dictionary/"
+        },
+        {
+          "title": "V&amp;A 基础刺绣针法图示",
+          "url": "https://media.vam.ac.uk/media/documents/legacy_documents/file_upload/55229_file.pdf"
+        },
+        {
+          "title": "十字绣初学者图文指南",
+          "url": "https://www.re-imagining.org/wp-content/uploads/2020/07/Cross-stitch.-A-beginners-guide.pdf"
+        }
+      ],
+      "figures": []
     },
     {
       "id": "embroidery",
@@ -423,6 +485,31 @@ export const weavingPlan = {
           "skill": "熨烫保护、书签/布贴/小框装裱",
           "pass": "图案中心、布边留量合适，线头收牢。"
         }
+      ],
+      "links": [
+        {
+          "title": "MoMA 衣物修补图文 PDF",
+          "url": "https://www.moma.org/momaorg/shared/pdfs/docs/learn/courses/loved-clothes-last.pdf"
+        },
+        {
+          "title": "刺子绣补衣视频",
+          "url": "https://www.youtube.com/watch?v=plrmII86LMM"
+        },
+        {
+          "title": "Sarah 手绣针法图库",
+          "url": "https://www.embroidery.rocksea.org/reference/picture-dictionary/"
+        },
+        {
+          "title": "V&amp;A 基础刺绣针法图示",
+          "url": "https://media.vam.ac.uk/media/documents/legacy_documents/file_upload/55229_file.pdf"
+        },
+        {
+          "title": "十字绣初学者图文指南",
+          "url": "https://www.re-imagining.org/wp-content/uploads/2020/07/Cross-stitch.-A-beginners-guide.pdf"
+        }
+      ],
+      "figures": [
+        "/weaving/fig-4.jpg"
       ]
     },
     {
@@ -451,6 +538,19 @@ export const weavingPlan = {
           "skill": "贴布、包边、挂环、内衬",
           "pass": "完成布书签、小收纳袋或针插。"
         }
+      ],
+      "links": [
+        {
+          "title": "Janome 四片拼布杯垫图文教程",
+          "url": "https://www.janome.com/inspire/projects/easy-four-patch-coasters/"
+        },
+        {
+          "title": "四片拼布杯垫视频教程",
+          "url": "https://www.youtube.com/watch?v=ZwIhiu54UQk"
+        }
+      ],
+      "figures": [
+        "/weaving/fig-5.jpg"
       ]
     },
     {
@@ -474,7 +574,22 @@ export const weavingPlan = {
           "skill": "配色、珠子、组合结",
           "pass": "杯垫或小挂饰；线头隐藏，结构不松散。"
         }
-      ]
+      ],
+      "links": [
+        {
+          "title": "Macrame 平结图文步骤",
+          "url": "https://macrameforbeginners.com/square-knot-tutorial-macrame-knot-guide/"
+        },
+        {
+          "title": "平结手绳制作步骤",
+          "url": "https://www.shopgiraa.com/blogs/news/how-to-make-a-macrame-bracelet"
+        },
+        {
+          "title": "Domestika 平结图解",
+          "url": "https://www.domestika.org/en/blog/7790-macrame-tutorial-how-to-tie-a-square-knot-step-by-step"
+        }
+      ],
+      "figures": []
     },
     {
       "id": "felt",
@@ -502,6 +617,23 @@ export const weavingPlan = {
           "skill": "针毡装饰、刺绣点缀、缝合配件",
           "pass": "完成胸针/挂饰并牢固安装配件。"
         }
+      ],
+      "links": [
+        {
+          "title": "针毡初学视频",
+          "url": "https://www.youtube.com/watch?v=baccjU-Ha4g"
+        },
+        {
+          "title": "针毡新手项目视频集合",
+          "url": "https://thefelthub.com/beginner-needle-felting-video-tutorials-start-with-confidence/"
+        },
+        {
+          "title": "Erindale 入门针毡教程",
+          "url": "https://erindaletapestrystudio.com/tutorials/tutorials-needlefelting/"
+        }
+      ],
+      "figures": [
+        "/weaving/fig-6.jpg"
       ]
     }
   ],
@@ -510,79 +642,303 @@ export const weavingPlan = {
       "name": "基础长围巾",
       "size": "宽 18–24 × 长 150–180 cm",
       "level": "入门",
-      "learn": "下针、边针、收针"
+      "learn": "下针、边针、收针",
+      "links": [
+        {
+          "title": "棒针入门围巾图文与逐步视频",
+          "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/"
+        },
+        {
+          "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+          "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf"
+        },
+        {
+          "title": "钩针罗纹围巾免费图文与视频",
+          "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/"
+        },
+        {
+          "title": "钩针罗纹围巾分段视频",
+          "url": "https://www.youtube.com/watch?v=8-TAriLCPLE"
+        }
+      ]
     },
     {
       "name": "2×2 罗纹围巾",
       "size": "宽 18–22 × 长 140–170 cm",
       "level": "入门",
-      "learn": "上下针交替、弹性收针"
+      "learn": "上下针交替、弹性收针",
+      "links": [
+        {
+          "title": "棒针入门围巾图文与逐步视频",
+          "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/"
+        },
+        {
+          "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+          "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf"
+        },
+        {
+          "title": "钩针罗纹围巾免费图文与视频",
+          "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/"
+        },
+        {
+          "title": "钩针罗纹围巾分段视频",
+          "url": "https://www.youtube.com/watch?v=8-TAriLCPLE"
+        }
+      ]
     },
     {
       "name": "条纹 / 色块围巾",
       "size": "宽 20–25 × 长 150–180 cm",
       "level": "入门到进阶",
-      "learn": "换色、藏线、色彩规划"
+      "learn": "换色、藏线、色彩规划",
+      "links": [
+        {
+          "title": "棒针入门围巾图文与逐步视频",
+          "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/"
+        },
+        {
+          "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+          "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf"
+        },
+        {
+          "title": "钩针罗纹围巾免费图文与视频",
+          "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/"
+        },
+        {
+          "title": "钩针罗纹围巾分段视频",
+          "url": "https://www.youtube.com/watch?v=8-TAriLCPLE"
+        }
+      ]
     },
     {
       "name": "圈织脖套",
       "size": "围度 55–70 × 高 22–35 cm",
       "level": "初级",
-      "learn": "环形起针、防扭转"
+      "learn": "环形起针、防扭转",
+      "links": [
+        {
+          "title": "棒针入门围巾图文与逐步视频",
+          "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/"
+        },
+        {
+          "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+          "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf"
+        },
+        {
+          "title": "钩针罗纹围巾免费图文与视频",
+          "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/"
+        },
+        {
+          "title": "钩针罗纹围巾分段视频",
+          "url": "https://www.youtube.com/watch?v=8-TAriLCPLE"
+        }
+      ],
+      "figure": "/weaving/fig-7.jpg"
     },
     {
       "name": "三角披肩",
       "size": "最长边 140–190 cm",
       "level": "初中级",
-      "learn": "加针、记号扣、重复图样"
+      "learn": "加针、记号扣、重复图样",
+      "links": [
+        {
+          "title": "棒针入门围巾图文与逐步视频",
+          "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/"
+        },
+        {
+          "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+          "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf"
+        },
+        {
+          "title": "钩针罗纹围巾免费图文与视频",
+          "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/"
+        },
+        {
+          "title": "钩针罗纹围巾分段视频",
+          "url": "https://www.youtube.com/watch?v=8-TAriLCPLE"
+        }
+      ]
     },
     {
       "name": "插肩毛衣",
       "size": "按量体定尺码",
       "level": "进阶",
-      "learn": "密度、育克加针、分袖、试穿"
+      "learn": "密度、育克加针、分袖、试穿",
+      "links": [
+        {
+          "title": "Tin Can Knits Flax 插肩毛衣图解与教程",
+          "url": "https://blog.tincanknits.com/2013/10/25/lets-knit-a-sweater/"
+        },
+        {
+          "title": "Flax 毛衣视频第 1 部分",
+          "url": "https://www.youtube.com/watch?v=B-D2kFUUhtI"
+        },
+        {
+          "title": "Flax 毛衣视频第 2 部分",
+          "url": "https://www.youtube.com/watch?v=WlEOT6WKp-8"
+        },
+        {
+          "title": "Purl Soho 插肩毛衣免费图解",
+          "url": "https://www.purlsoho.com/create/2022/01/18/lightweight-raglan-pullover-in-new-colors/"
+        },
+        {
+          "title": "Purl Soho 插肩毛衣视频答疑与技法",
+          "url": "https://www.purlsoho.com/create/zoom-knit-lightweight-raglan-pullover/"
+        }
+      ],
+      "figure": "/weaving/fig-8.jpg"
     },
     {
       "name": "Granny 方片毯",
       "size": "按目标边长拼片",
       "level": "初级",
-      "learn": "长针簇、角部加针、拼接"
+      "learn": "长针簇、角部加针、拼接",
+      "links": [
+        {
+          "title": "方片毯免费图解与视频",
+          "url": "https://www.thepurpleponcho.com/granny-square-blanket/"
+        },
+        {
+          "title": "钩针帽免费图解与视频",
+          "url": "https://www.marchingnorth.com/everyday-crochet-beanie-top-down-brimless/"
+        },
+        {
+          "title": "钩针开衫图解与视频",
+          "url": "https://wilmade.com/my-first-cardigan/"
+        }
+      ]
     },
     {
       "name": "合身钩针帽",
       "size": "头围 ÷ 3.14 算帽顶",
       "level": "初级",
-      "learn": "圆片加针、帽身、帽檐"
+      "learn": "圆片加针、帽身、帽檐",
+      "links": [
+        {
+          "title": "方片毯免费图解与视频",
+          "url": "https://www.thepurpleponcho.com/granny-square-blanket/"
+        },
+        {
+          "title": "钩针帽免费图解与视频",
+          "url": "https://www.marchingnorth.com/everyday-crochet-beanie-top-down-brimless/"
+        },
+        {
+          "title": "钩针开衫图解与视频",
+          "url": "https://wilmade.com/my-first-cardigan/"
+        }
+      ]
     },
     {
       "name": "牛仔补丁与刺子绣",
       "size": "覆盖磨损区",
       "level": "入门",
-      "learn": "内贴补、平针交织"
+      "learn": "内贴补、平针交织",
+      "links": [
+        {
+          "title": "MoMA 衣物修补图文 PDF",
+          "url": "https://www.moma.org/momaorg/shared/pdfs/docs/learn/courses/loved-clothes-last.pdf"
+        },
+        {
+          "title": "刺子绣补衣视频",
+          "url": "https://www.youtube.com/watch?v=plrmII86LMM"
+        },
+        {
+          "title": "Sarah 手绣针法图库",
+          "url": "https://www.embroidery.rocksea.org/reference/picture-dictionary/"
+        },
+        {
+          "title": "V&amp;A 基础刺绣针法图示",
+          "url": "https://media.vam.ac.uk/media/documents/legacy_documents/file_upload/55229_file.pdf"
+        },
+        {
+          "title": "十字绣初学者图文指南",
+          "url": "https://www.re-imagining.org/wp-content/uploads/2020/07/Cross-stitch.-A-beginners-guide.pdf"
+        }
+      ]
     },
     {
       "name": "手绣布贴",
       "size": "按图样定",
       "level": "入门",
-      "learn": "回针、缎面绣、收边"
+      "learn": "回针、缎面绣、收边",
+      "links": [
+        {
+          "title": "MoMA 衣物修补图文 PDF",
+          "url": "https://www.moma.org/momaorg/shared/pdfs/docs/learn/courses/loved-clothes-last.pdf"
+        },
+        {
+          "title": "刺子绣补衣视频",
+          "url": "https://www.youtube.com/watch?v=plrmII86LMM"
+        },
+        {
+          "title": "Sarah 手绣针法图库",
+          "url": "https://www.embroidery.rocksea.org/reference/picture-dictionary/"
+        },
+        {
+          "title": "V&amp;A 基础刺绣针法图示",
+          "url": "https://media.vam.ac.uk/media/documents/legacy_documents/file_upload/55229_file.pdf"
+        },
+        {
+          "title": "十字绣初学者图文指南",
+          "url": "https://www.re-imagining.org/wp-content/uploads/2020/07/Cross-stitch.-A-beginners-guide.pdf"
+        }
+      ]
     },
     {
       "name": "拼布杯垫",
       "size": "4–9 格方块",
       "level": "入门",
-      "learn": "缝份、对格、包边"
+      "learn": "缝份、对格、包边",
+      "links": [
+        {
+          "title": "Janome 四片拼布杯垫图文教程",
+          "url": "https://www.janome.com/inspire/projects/easy-four-patch-coasters/"
+        },
+        {
+          "title": "四片拼布杯垫视频教程",
+          "url": "https://www.youtube.com/watch?v=ZwIhiu54UQk"
+        }
+      ]
     },
     {
       "name": "平结手绳 / 植物吊篮",
       "size": "按腕围 / 盆径",
       "level": "入门",
-      "learn": "平结、张力、收尾"
+      "learn": "平结、张力、收尾",
+      "links": [
+        {
+          "title": "Macrame 平结图文步骤",
+          "url": "https://macrameforbeginners.com/square-knot-tutorial-macrame-knot-guide/"
+        },
+        {
+          "title": "平结手绳制作步骤",
+          "url": "https://www.shopgiraa.com/blogs/news/how-to-make-a-macrame-bracelet"
+        },
+        {
+          "title": "Domestika 平结图解",
+          "url": "https://www.domestika.org/en/blog/7790-macrame-tutorial-how-to-tie-a-square-knot-step-by-step"
+        }
+      ]
     },
     {
       "name": "针毡小物",
       "size": "5×5 cm 起",
       "level": "入门",
-      "learn": "垂直刺、分层塑形、装配件"
+      "learn": "垂直刺、分层塑形、装配件",
+      "links": [
+        {
+          "title": "针毡初学视频",
+          "url": "https://www.youtube.com/watch?v=baccjU-Ha4g"
+        },
+        {
+          "title": "针毡新手项目视频集合",
+          "url": "https://thefelthub.com/beginner-needle-felting-video-tutorials-start-with-confidence/"
+        },
+        {
+          "title": "Erindale 入门针毡教程",
+          "url": "https://erindaletapestrystudio.com/tutorials/tutorials-needlefelting/"
+        }
+      ]
     }
   ],
   "materials": [
@@ -652,6 +1008,214 @@ export const weavingPlan = {
       "area": "羊毛毡",
       "core": "羊毛条、专用毡针、泡沫垫；湿毡另备温水与皂液",
       "later": "多针握把，熟悉单针后再添"
+    }
+  ],
+  "images": [
+    {
+      "src": "/weaving/fig-1.jpg",
+      "caption": "棒针针法与样片"
+    },
+    {
+      "src": "/weaving/fig-2.jpg",
+      "caption": "钩针起针与短针"
+    },
+    {
+      "src": "/weaving/fig-3.jpg",
+      "caption": "钩针图解符号"
+    },
+    {
+      "src": "/weaving/fig-4.jpg",
+      "caption": "刺绣针法样卡"
+    },
+    {
+      "src": "/weaving/fig-5.jpg",
+      "caption": "拼布拼接与压线"
+    },
+    {
+      "src": "/weaving/fig-6.jpg",
+      "caption": "羊毛毡塑形"
+    },
+    {
+      "src": "/weaving/fig-7.jpg",
+      "caption": "圈织脖套"
+    },
+    {
+      "src": "/weaving/fig-8.jpg",
+      "caption": "插肩毛衣育克"
+    }
+  ],
+  "resources": [
+    {
+      "title": "棒针入门围巾图文与逐步视频",
+      "url": "https://nimble-needles.com/patterns/how-to-knit-a-scarf-for-beginners/",
+      "group": "围巾与披肩"
+    },
+    {
+      "title": "Craft Yarn Council 新手流苏围巾图解 PDF",
+      "url": "https://www.craftyarncouncil.com/sites/default/files/discover/K62_CYC_Discover-Time-for-Knit-Level-1-Scarf-With-Fringe.pdf",
+      "group": "围巾与披肩"
+    },
+    {
+      "title": "钩针罗纹围巾免费图文与视频",
+      "url": "https://offthebeatenhook.com/long-scarf-free-crochet-pattern/",
+      "group": "围巾与披肩"
+    },
+    {
+      "title": "钩针罗纹围巾分段视频",
+      "url": "https://www.youtube.com/watch?v=8-TAriLCPLE",
+      "group": "围巾与披肩"
+    },
+    {
+      "title": "Tin Can Knits Flax 插肩毛衣图解与教程",
+      "url": "https://blog.tincanknits.com/2013/10/25/lets-knit-a-sweater/",
+      "group": "毛衣"
+    },
+    {
+      "title": "Flax 毛衣视频第 1 部分",
+      "url": "https://www.youtube.com/watch?v=B-D2kFUUhtI",
+      "group": "毛衣"
+    },
+    {
+      "title": "Flax 毛衣视频第 2 部分",
+      "url": "https://www.youtube.com/watch?v=WlEOT6WKp-8",
+      "group": "毛衣"
+    },
+    {
+      "title": "Purl Soho 插肩毛衣免费图解",
+      "url": "https://www.purlsoho.com/create/2022/01/18/lightweight-raglan-pullover-in-new-colors/",
+      "group": "毛衣"
+    },
+    {
+      "title": "Purl Soho 插肩毛衣视频答疑与技法",
+      "url": "https://www.purlsoho.com/create/zoom-knit-lightweight-raglan-pullover/",
+      "group": "毛衣"
+    },
+    {
+      "title": "方片毯免费图解与视频",
+      "url": "https://www.thepurpleponcho.com/granny-square-blanket/",
+      "group": "钩针作品"
+    },
+    {
+      "title": "钩针帽免费图解与视频",
+      "url": "https://www.marchingnorth.com/everyday-crochet-beanie-top-down-brimless/",
+      "group": "钩针作品"
+    },
+    {
+      "title": "钩针开衫图解与视频",
+      "url": "https://wilmade.com/my-first-cardigan/",
+      "group": "钩针作品"
+    },
+    {
+      "title": "MoMA 衣物修补图文 PDF",
+      "url": "https://www.moma.org/momaorg/shared/pdfs/docs/learn/courses/loved-clothes-last.pdf",
+      "group": "修补与刺绣"
+    },
+    {
+      "title": "刺子绣补衣视频",
+      "url": "https://www.youtube.com/watch?v=plrmII86LMM",
+      "group": "修补与刺绣"
+    },
+    {
+      "title": "Sarah 手绣针法图库",
+      "url": "https://www.embroidery.rocksea.org/reference/picture-dictionary/",
+      "group": "修补与刺绣"
+    },
+    {
+      "title": "V&amp;A 基础刺绣针法图示",
+      "url": "https://media.vam.ac.uk/media/documents/legacy_documents/file_upload/55229_file.pdf",
+      "group": "修补与刺绣"
+    },
+    {
+      "title": "十字绣初学者图文指南",
+      "url": "https://www.re-imagining.org/wp-content/uploads/2020/07/Cross-stitch.-A-beginners-guide.pdf",
+      "group": "修补与刺绣"
+    },
+    {
+      "title": "Janome 四片拼布杯垫图文教程",
+      "url": "https://www.janome.com/inspire/projects/easy-four-patch-coasters/",
+      "group": "拼布与布艺"
+    },
+    {
+      "title": "四片拼布杯垫视频教程",
+      "url": "https://www.youtube.com/watch?v=ZwIhiu54UQk",
+      "group": "拼布与布艺"
+    },
+    {
+      "title": "Macrame 平结图文步骤",
+      "url": "https://macrameforbeginners.com/square-knot-tutorial-macrame-knot-guide/",
+      "group": "编绳"
+    },
+    {
+      "title": "平结手绳制作步骤",
+      "url": "https://www.shopgiraa.com/blogs/news/how-to-make-a-macrame-bracelet",
+      "group": "编绳"
+    },
+    {
+      "title": "Domestika 平结图解",
+      "url": "https://www.domestika.org/en/blog/7790-macrame-tutorial-how-to-tie-a-square-knot-step-by-step",
+      "group": "编绳"
+    },
+    {
+      "title": "针毡初学视频",
+      "url": "https://www.youtube.com/watch?v=baccjU-Ha4g",
+      "group": "羊毛毡"
+    },
+    {
+      "title": "针毡新手项目视频集合",
+      "url": "https://thefelthub.com/beginner-needle-felting-video-tutorials-start-with-confidence/",
+      "group": "羊毛毡"
+    },
+    {
+      "title": "Erindale 入门针毡教程",
+      "url": "https://erindaletapestrystudio.com/tutorials/tutorials-needlefelting/",
+      "group": "羊毛毡"
+    },
+    {
+      "title": "Craft Yarn Council 学习中心",
+      "url": "https://craftyarncouncil.com/",
+      "group": "公开资源"
+    },
+    {
+      "title": "Craft Yarn Council 钩针课件 PDF",
+      "url": "https://media.craftyarncouncil.com/files/teach/D003_CYCCrochetLessonPlan_1.pdf",
+      "group": "公开资源"
+    },
+    {
+      "title": "Sarah’s Hand Embroidery 刺绣图库",
+      "url": "https://www.embroidery.rocksea.org/",
+      "group": "公开资源"
+    },
+    {
+      "title": "中国丝绸博物馆 手工刺绣课堂",
+      "url": "https://www.chinasilkmuseum.com/ngcxg/info_11.aspx?itemid=26363",
+      "group": "公开资源"
+    },
+    {
+      "title": "Anchorage Museum CoLab Embroidery",
+      "url": "https://www.anchoragemuseum.org/programs/for-educators/online-resources/colab-embroidery/",
+      "group": "公开资源"
+    }
+  ],
+  "miscResources": [
+    {
+      "title": "Craft Yarn Council 学习中心",
+      "url": "https://craftyarncouncil.com/"
+    },
+    {
+      "title": "Craft Yarn Council 钩针课件 PDF",
+      "url": "https://media.craftyarncouncil.com/files/teach/D003_CYCCrochetLessonPlan_1.pdf"
+    },
+    {
+      "title": "Sarah’s Hand Embroidery 刺绣图库",
+      "url": "https://www.embroidery.rocksea.org/"
+    },
+    {
+      "title": "中国丝绸博物馆 手工刺绣课堂",
+      "url": "https://www.chinasilkmuseum.com/ngcxg/info_11.aspx?itemid=26363"
+    },
+    {
+      "title": "Anchorage Museum CoLab Embroidery",
+      "url": "https://www.anchoragemuseum.org/programs/for-educators/online-resources/colab-embroidery/"
     }
   ]
 }
