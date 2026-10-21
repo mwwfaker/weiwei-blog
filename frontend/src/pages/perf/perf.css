@@ -756,3 +756,19 @@
   .perf-list { flex: none; max-height: none; }
   .perf-review { max-height: none; }
 }
+/* ---- 窄屏：收起「派生列」，而不是让人横滑 ------------------------------------------
+   这张「按队列 / 按员工」的表有 10 列，其中 计件量、标准时长、实际时长、审核效率
+   全是**算出来的**；要填的只有 AHT、审核量、三薪日三列，剩下两列是钱。
+   手机上把它收起来就不用横滑了——横滑在这儿本来就难受：没有滚动条提示，
+   手指落在输入框上还会被输入框吃掉手势。1024 以下就收，平板横屏也铺不下 10 列。 */
+@media (max-width: 1024px) {
+  .perf-grid .col-derived { display: none; }
+}
+
+/* 万一还有要横滑的表，至少让滚动条看得见、拖得动（默认的 thin 只有 4–5px，很难抓） */
+.perf-list::-webkit-scrollbar { height: 10px; }
+.perf-list::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 24%, transparent);
+}
+.perf-list::-webkit-scrollbar-track { background: transparent; }

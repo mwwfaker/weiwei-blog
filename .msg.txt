@@ -1,24 +1,21 @@
-﻿fix(perf): 手机上不再「锁一屏」，顶栏跟着滚走，把整屏高度让给内容
+﻿fix(perf): 窄屏收起「派生列」，那张表不再需要横滑
 
-绩效页是照「桌面工具」做的：.perf-tool 固定 100dvh，顶栏、标签、筛选常驻，
-只有最里面那块内容自己滚。手机上这套行不通——顶栏两行 + 导出按钮行 + 只读提示
-+ 标签 + 筛选就吃掉近一半屏幕，剩下那点高度里还要再内滚一次，员工名单只露出三行。
+反馈的是「按队列」视图里那张员工表滑不动。查下来容器本身没问题
+（.perf-list overflowX=auto，程序化 scrollLeft 能滚），难受的是交互：
+表里铺满了输入框，手指落在上面手势会被输入框吃掉，而且没有滚动条提示。
 
-改成手机上整条链解开（只在 ≤760 生效，桌面仍是锁一屏的工具布局）：
+根本原因还是这张表有 10 列，其中 4 列是算出来的。改成不用滑：
 
-  .perf-tool       height:auto + min-height:100dvh + overflow:visible
-  .perf-body       flex:none + overflow:visible
-  面板 section      flex:none + overflow:visible
-  .perf-picker     max-height:none
-  .perf-picker-list / .perf-split-body / .perf-review   去掉内滚
-  .perf-list       max-height:none（保留横向滚动，宽表还是要横滑）
+  · 模板给 计件量 / 标准时长 / 实际时长 / 审核效率 打了 .col-derived
+    （用显式类而不是 nth-child——三薪日是 v-if，列序号会移位）
+  · ≤1024 隐藏 .col-derived：填数据只需要 AHT / 审核量 / 三薪日 三列，
+    剩下两列是钱；派生列本来就是「填完才有值」的
+  · tfoot 里对应的格子一并标记，避免 colspan 错位
+  · 万一还有要横滑的表，滚动条给到 10px（默认 thin 只有 4–5px，抓不住）
 
-那串 flex:1 + min-height:0 本来是为「占满剩余高度」设的，外层解锁后会塌成 0，
-所以逐个改成按内容定高。
-
-实测 390×844：员工名单从「露出 3 人」变成整页连续列出 13 人 + 选中摘要 + 重置按钮
-+ 各队列表格；390×2200 的长截图确认整页流动、没有裁断。顶栏随页面一起滚走。
+实测（按队列视图）：420px 下表宽 390 = 容器 390；560px 下 524 = 524；
+830px 下 778 = 778 —— 三档都不再需要横滑。
 
 验证：verify:all（14 项 + 歌词 23 / 绩效 120 / OCR 41 / 日记导入 60）、
 test:render（13 条路由 + 7 个组件分支 + 1 个关闭动画探针）、build 全绿。
-PerfPage 的样式 chunk 36.89 kB（gzip 7.03），首屏 CSS 不变。
+PerfPage 样式 chunk 37.17 kB（gzip 7.09）。

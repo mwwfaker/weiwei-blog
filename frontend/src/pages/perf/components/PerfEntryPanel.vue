@@ -201,10 +201,10 @@ function resetTripleCount() {
                     <th class="num input-col">实际 AHT</th>
                     <th class="num input-col">审核量</th>
                     <th v-if="showTriple" class="num input-col triple-col">其中三薪日</th>
-                    <th v-if="showTriple" class="num">计件量</th>
-                    <th class="num">标准时长</th>
-                    <th class="num">实际时长</th>
-                    <th class="num">审核效率</th>
+                    <th v-if="showTriple" class="num col-derived">计件量</th>
+                    <th class="num col-derived">标准时长</th>
+                    <th class="num col-derived">实际时长</th>
+                    <th class="num col-derived">审核效率</th>
                     <th class="num">审核工资</th>
                     <th class="num">本月合计</th>
                   </tr>
@@ -227,10 +227,10 @@ function resetTripleCount() {
                       <input type="number" step="1" class="perf-cell" :value="row.entry?.tripleCount || ''" placeholder="0"
                         @input="setCell(row.member.id, 'tripleCount', $event.target.value)" />
                     </td>
-                    <td v-if="showTriple" class="num">{{ row.numbers ? row.numbers.pieceCount.toLocaleString('en-US') : '—' }}</td>
-                    <td class="num muted">{{ row.numbers ? hoursText(row.numbers.standardSeconds) + ' h' : '—' }}</td>
-                    <td class="num muted">{{ row.numbers ? hoursText(row.numbers.actualSeconds) + ' h' : '—' }}</td>
-                    <td class="num" :class="{ good: row.numbers && row.numbers.actualSeconds > 0 && row.numbers.standardSeconds / row.numbers.actualSeconds >= 1 }">
+                    <td v-if="showTriple" class="num col-derived">{{ row.numbers ? row.numbers.pieceCount.toLocaleString('en-US') : '—' }}</td>
+                    <td class="num muted col-derived">{{ row.numbers ? hoursText(row.numbers.standardSeconds) + ' h' : '—' }}</td>
+                    <td class="num muted col-derived">{{ row.numbers ? hoursText(row.numbers.actualSeconds) + ' h' : '—' }}</td>
+                    <td class="num col-derived" :class="{ good: row.numbers && row.numbers.actualSeconds > 0 && row.numbers.standardSeconds / row.numbers.actualSeconds >= 1 }">
                       {{ row.numbers && row.numbers.actualSeconds > 0 ? percent(row.numbers.standardSeconds / row.numbers.actualSeconds) : '—' }}
                     </td>
                     <td class="num total">{{ row.numbers ? '¥ ' + money(row.numbers.auditPay) : '—' }}</td>
@@ -241,10 +241,10 @@ function resetTripleCount() {
                   <tr>
                     <td>小计 · {{ activeQueue }}</td>
                     <td colspan="2" class="num">{{ (queueTotals.auditCount || 0).toLocaleString('en-US') }} 条</td>
-                    <td v-if="showTriple" colspan="2"></td>
-                    <td class="num">{{ queueTotals.standardHours.toFixed(2) }} h</td>
-                    <td class="num">{{ queueTotals.hours.toFixed(2) }} h</td>
-                    <td class="num">{{ percent(queueTotals.efficiency) }}</td>
+                    <td v-if="showTriple" colspan="2" class="col-derived"></td>
+                    <td class="num col-derived">{{ queueTotals.standardHours.toFixed(2) }} h</td>
+                    <td class="num col-derived">{{ queueTotals.hours.toFixed(2) }} h</td>
+                    <td class="num col-derived">{{ percent(queueTotals.efficiency) }}</td>
                     <td class="num">¥ {{ money(queueTotals.pay) }}</td>
                     <td class="num total">¥ {{ money(queueTotals.pay) }}</td>
                     </tr>
