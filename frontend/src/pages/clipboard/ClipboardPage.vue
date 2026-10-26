@@ -165,7 +165,7 @@ function saveCard() {
     })
   }
   editorOpen.value = false
-  showNotice(values.length > 1 ? `已保存为一组数据，共 ${values.length} 条` : '已保存为单条数据')
+  showNotice('已保存')
 }
 
 function removeCard(card) {
@@ -375,7 +375,7 @@ async function copyValue(value, key = value, message = '已复制，可以直接
 }
 
 function copyGroup(card) {
-  copyValue(card.values.join('\n'), `group-${card.id}`, '整组已复制，可以直接粘贴')
+  copyValue(card.values.join('\n'), `group-${card.id}`, '已复制全部，可以直接粘贴')
 }
 </script>
 
@@ -445,41 +445,37 @@ function copyGroup(card) {
           class="clipboard-card"
           :class="{ 'is-group': card.values.length > 1, 'is-dragging': draggingCardId === card.id }"
           :style="{ '--tile-hue': clipboardColorPalette[cardPaletteIndex(card)], '--card-delay': `${Math.min(Number(card.position || 0), 8) * 25}ms`, '--breath-delay': `${(Number(card.position || 0) % 5) * -1.15}s` }"
+          draggable="true"
+          @dragstart="startCardDrag($event, card)"
           @pointermove="trackCardGlow"
           @dragover.prevent
           @drop.stop="dropCard($event, card, columnIndex)"
           @dragend="endCardDrag"
         >
-          <div class="clipboard-card-art" aria-hidden="true">
-            <span class="clipboard-card-glow"></span>
-            <span class="clipboard-card-icon">{{ badgeOf(card) }}</span>
-            <span class="clipboard-card-state">{{ copiedKey === `group-${card.id}` ? '整组已复制 ✓' : (card.values.length > 1 ? `数据组 · ${card.values.length} 条` : '单条数据') }}</span>
-            <div class="clipboard-card-tools">
-              <button
-                v-if="card.values.length > 1"
-                type="button"
-                class="clipboard-group-copy"
-                :class="{ 'is-copied': copiedKey === `group-${card.id}` }"
-                :aria-label="`复制整组 ${card.values.length} 条数据`"
-                title="复制整组"
-                @click="copyGroup(card)"
-              >{{ copiedKey === `group-${card.id}` ? '✓' : '⧉' }}</button>
-              <button type="button" class="clipboard-drag-handle" draggable="true" aria-label="拖动调整位置" title="拖动排序" @dragstart="startCardDrag($event, card)">⠿</button>
-              <button type="button" aria-label="编辑数据" title="编辑" @click="openEdit(card)">✎</button>
-              <button type="button" aria-label="删除数据" title="删除" @click="removeCard(card)">×</button>
-            </div>
-          </div>
+          <!-- 第一组数据就是这张卡的标题：点它就复制第一条。 -->
+          <button
+            type="button"
+            class="clipboard-card-hero"
+            :class="{ 'is-copied': copiedKey === `${card.id}-0` }"
+            :title="`点击复制：${card.values[0]}`"
+            :aria-label="`复制标题：${card.values[0]}`"
+            @click="copyValue(card.values[0], `${card.id}-0`)"
+          >
+            <span class="clipboard-card-glow" aria-hidden="true"></span>
+            <span class="clipboard-card-icon" aria-hidden="true">{{ badgeOf(card) }}</span>
+            <span class="clipboard-card-title">{{ card.values[0] }}</span>
+          </button>
 
-          <div class="clipboard-values">
+          <div v-if="card.values.length" class="clipboard-values">
             <template v-for="(value, valueIndex) in card.values" :key="`${card.id}-${valueIndex}`">
               <span v-if="valueIndex" class="clipboard-link" aria-hidden="true"></span>
               <button
                 type="button"
                 class="clipboard-value"
-                :class="{ 'is-title': valueIndex === 0, 'is-copied': copiedKey === `${card.id}-${valueIndex}` }"
+                :class="{ 'is-copied': copiedKey === `${card.id}-${valueIndex}` }"
                 :style="{ '--value-hue': clipboardValueHue(card, valueIndex) }"
                 :title="`点击复制：${value}`"
-                :aria-label="`复制${valueIndex === 0 ? '标题：' : ''}${value}`"
+                :aria-label="`复制：${value}`"
                 @click="copyValue(value, `${card.id}-${valueIndex}`)"
               >
                 <span class="clipboard-value-text">{{ value }}</span>
@@ -487,6 +483,22 @@ function copyGroup(card) {
               </button>
             </template>
           </div>
+
+          <footer class="clipboard-card-foot">
+            <div class="clipboard-card-tools">
+              <button
+                v-if="card.values.length > 1"
+                type="button"
+                class="clipboard-group-copy"
+                :class="{ 'is-copied': copiedKey === `group-${card.id}` }"
+                :aria-label="`复制全部 ${card.values.length} 条`"
+                title="复制全部"
+                @click="copyGroup(card)"
+              >{{ copiedKey === `group-${card.id}` ? '✓' : '⧉' }}</button>
+              <button type="button" aria-label="编辑数据" title="编辑" @click="openEdit(card)">✎</button>
+              <button type="button" aria-label="删除数据" title="删除" @click="removeCard(card)">×</button>
+            </div>
+          </footer>
         </article>
         </div>
       </div>
@@ -519,7 +531,7 @@ function copyGroup(card) {
           </label>
           <div v-if="parsedValues().length" class="clipboard-preview">
             <span class="clipboard-preview-icon">{{ parsedValues().length > 1 ? '▤' : '↗' }}</span>
-            <span>{{ parsedValues().length > 1 ? `将保存为一组，共 ${parsedValues().length} 条` : '将保存为单条数据' }}</span>
+            <span>共 {{ parsedValues().length }} 条</span>
             <span class="clipboard-preview-sheet">{{ activeSheet?.name }}</span>
           </div>
           <div class="clipboard-dialog-actions">

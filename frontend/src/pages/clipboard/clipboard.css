@@ -250,17 +250,35 @@
 .clipboard-card:hover .clipboard-card-icon { filter: drop-shadow(0 4px 10px rgba(8, 8, 16, .26)); }
 .clipboard-card.is-dragging { opacity: .38; }
 
-.clipboard-card-art {
+/* 卡片标题：第一组数据就是标题，点它复制第一条。 */
+.clipboard-card-hero {
   position: relative;
+  width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 11px;
-  padding: 13px 14px;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--clip-line) 70%, transparent);
+  border-radius: 0;
+  text-align: left;
+  color: var(--clip-ink);
+  cursor: pointer;
   background:
     radial-gradient(90% 160% at 8% 0%, hsl(var(--tile-hue) 55% 50% / .06), transparent 62%),
     color-mix(in srgb, var(--panel-raised) 82%, transparent);
+  transition: background-color .2s ease;
+}
+.clipboard-card-hero:hover .clipboard-card-title { color: var(--accent); }
+.clipboard-card-hero.is-copied { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.clipboard-card-title {
+  position: relative; z-index: 1;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-family: var(--serif); font-size: 13px; font-weight: 600; line-height: 1.45;
+  letter-spacing: .01em;
+  word-break: break-word;
 }
 .clipboard-card-glow {
   position: absolute; left: 30px; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px;
@@ -272,56 +290,56 @@
 }
 .clipboard-card-icon {
   position: relative; z-index: 1;
-  width: 42px; height: 42px; display: grid; place-items: center;
-  border-radius: 13px;
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border-radius: 12px;
   border: 1px solid hsl(var(--tile-hue) 46% 58% / .15);
   background: hsl(var(--tile-hue) 38% 38% / .06);
-  font-size: 19px; line-height: 1;
+  font-size: 17px; line-height: 1;
   opacity: .86;
   filter: saturate(.85) brightness(.92) drop-shadow(0 3px 8px rgba(8, 8, 16, .22));
   animation: clipboardFloat 7s ease-in-out infinite;
 }
-.clipboard-card-state {
-  position: relative; z-index: 1;
-  font-size: 10.5px;
-  letter-spacing: .06em;
-  color: hsl(var(--tile-hue) 32% 64%);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: opacity .2s ease;
-}
-/* 卡片很窄，悬停时右上角会浮出工具条；这时让「数据组 · N 条」退场，别和按钮叠字。 */
-.clipboard-card:hover .clipboard-card-state { opacity: 0; }
 
+/* 卡片底栏：平时只是一条很淡的分隔，鼠标进来才把 复制全部 / 编辑 / 删除 滑进来。
+   高度一直留着，所以不会因为按钮出现把下面的卡片顶动。 */
+.clipboard-card-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  padding: 0 6px;
+  border-top: 1px solid transparent;
+  background: transparent;
+  transition: border-color .22s ease, background-color .22s ease;
+}
+.clipboard-card:hover .clipboard-card-foot,
+.clipboard-card:focus-within .clipboard-card-foot {
+  border-top-color: color-mix(in srgb, var(--clip-line) 55%, transparent);
+  background: color-mix(in srgb, var(--paper) 22%, transparent);
+}
 .clipboard-card-tools {
-  position: absolute; top: 8px; right: 8px; z-index: 2;
   display: flex; align-items: center; gap: 1px;
-  padding: 2px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--panel) 72%, transparent);
-  backdrop-filter: blur(6px);
   opacity: 0;
-  transform: translateY(-3px);
-  transition: opacity .2s ease, transform .2s ease;
+  transform: translateY(3px);
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s ease;
 }
 .clipboard-card:hover .clipboard-card-tools,
-.clipboard-card:focus-within .clipboard-card-tools { opacity: 1; transform: none; }
+.clipboard-card:focus-within .clipboard-card-tools {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
 .clipboard-card-tools button {
-  width: 23px; height: 23px;
-  border: 0; border-radius: 7px;
+  width: 22px; height: 22px;
+  border: 0; border-radius: 6px;
   background: transparent; color: var(--clip-muted);
   font-size: 11px; line-height: 1; cursor: pointer;
   transition: color .18s ease, background-color .18s ease;
 }
 .clipboard-card-tools button:hover { color: var(--clip-ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .clipboard-card-tools button:last-child:hover { color: #f28b9b; }
-.clipboard-card-tools .clipboard-group-copy { font-size: 12px; color: hsl(var(--tile-hue) 70% 76%); }
+.clipboard-card-tools .clipboard-group-copy { font-size: 12px; color: hsl(var(--tile-hue) 60% 72%); }
 .clipboard-card-tools .clipboard-group-copy.is-copied { color: #76d9ae; }
-.clipboard-card-tools .clipboard-drag-handle { cursor: grab; font-size: 14px; }
-.clipboard-card-tools .clipboard-drag-handle:active { cursor: grabbing; }
 
-.clipboard-values { display: flex; flex-direction: column; padding: 9px 9px 11px; }
+.clipboard-values { display: flex; flex-direction: column; padding: 7px 8px 8px; }
 .clipboard-value {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 18px;
@@ -342,10 +360,6 @@
   border-color: hsl(var(--value-hue) 80% 74% / .5);
   background: color-mix(in srgb, var(--panel-raised) 82%, transparent);
 }
-.clipboard-value.is-title {
-  border-color: hsl(var(--value-hue) 82% 76% / .26);
-  background: color-mix(in srgb, hsl(var(--value-hue) 50% 50%) 11%, transparent);
-}
 .clipboard-value.is-copied {
   border-color: #76d9aeaa;
   background: #76d9ae12;
@@ -358,7 +372,6 @@
   font-size: 12px; line-height: 1.5;
   word-break: break-word;
 }
-.clipboard-value.is-title .clipboard-value-text { font-weight: 600; }
 .clipboard-value-copy { color: var(--clip-muted); font-size: 11px; text-align: center; }
 .clipboard-value:hover .clipboard-value-copy { color: var(--clip-ink); }
 .clipboard-value.is-copied .clipboard-value-copy { color: #76d9ae; }
