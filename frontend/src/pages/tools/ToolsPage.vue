@@ -3,11 +3,18 @@
 //
 // 以前「绩效计算器」孤零零挂在「更多」里，以后每加一个工具就要多占一格菜单。
 // 现在工具都从这里进：加新工具 = 在 tools 数组里加一项，并给它建一个页面。
+// 只列真正做完了的工具——「规划中」的占位卡已经删了，它们只会让页面显得空而假。
 import InnerPageHeader from '@/modules/page/InnerPageHeader.vue'
 import { go } from '@/app/usePageNav'
 
 /** 工具清单。`id` 必须同时是路由名（app/routes.js）。 */
 const tools = [
+  {
+    id: 'clipboard',
+    name: '快捷复制',
+    note: '按工作表整理常用内容；导入一条是单卡，多条自动成组，点击即可复制。',
+    tag: '已上线',
+  },
   {
     id: 'perf',
     name: '绩效计算器',
@@ -15,9 +22,6 @@ const tools = [
     tag: '已上线',
   },
 ]
-
-/** 预留位：让页面看起来是「会长大的工具箱」，而不是只有一个按钮的空白页。 */
-const planned = ['图片批处理', '文本对比', '二维码生成']
 </script>
 
 <template>
@@ -38,15 +42,6 @@ const planned = ['图片批处理', '文本对比', '二维码生成']
         <span class="tools-card-note">{{ tool.note }}</span>
         <span class="tools-card-go">打开 ↗</span>
       </button>
-
-      <div v-for="name in planned" :key="name" class="tools-card is-planned">
-        <span class="tools-card-top">
-          <span class="tools-card-name">{{ name }}</span>
-          <span class="tools-card-tag">规划中</span>
-        </span>
-        <span class="tools-card-note">还没做，先占个位置。</span>
-        <span class="tools-card-go">敬请期待</span>
-      </div>
     </div>
   </section>
 </template>

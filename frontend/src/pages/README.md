@@ -15,13 +15,14 @@
 | --- | --- | --- |
 | 首页 | `/` | `home/` |
 | 关于我 | `/about` | `about/` |
-| 学习路线 | `/study` | `study/`（金融计划 + 手工编织两套内容） |
+| 学习路线 | `/study` | `study/`（金融计划 + 围巾编织两份计划，共用一个页面） |
 | 文章宇宙 | `/articles` | `articles/` |
 | 日记 | `/diary` | `diary/` |
 | 相册 | `/gallery` | `gallery/` |
 | 音乐收藏 | `/music` | `music/` |
 | 留言板 | `/messages` | `messages/` |
 | 工具箱 | `/tools` | `tools/`（工具类页面都从这里进） |
+| 快捷复制 | `/clipboard` | `clipboard/`（整屏工具页，数据只在本机） |
 | 创作管理 | `/admin` | `admin/` |
 | 绩效计算器 | `/perf` | `perf/`（独立小项目，见它自己的 README） |
 | 账号 | `/account` | `account/` |

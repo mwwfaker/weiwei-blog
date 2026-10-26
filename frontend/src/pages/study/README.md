@@ -1,23 +1,26 @@
 # 学习路线
 
-路由 `/study`。把《金融学系统自学路线》结构化呈现，并记录本机学习进度。
+路由 `/study`。把一份份学习文档结构化呈现，并记录本机学习进度。
+现在有两份计划：金融学系统自学路线、围巾编织学习大全。
 
 ## 为什么这一页是异步加载的
 
-课程数据约 300 kB，跟着首屏包一起下载没必要。`app/pageRegistry.js` 里用
+两份计划的数据加起来约 350 kB，跟着首屏包一起下载没必要。`app/pageRegistry.js` 里用
 `defineAsyncComponent` 按需加载它，`delay: 140` 让热缓存下不会闪一下「正在展开学习路线…」。
 
 ## 文件
 
 | 文件 | 内容 |
 | --- | --- |
-| `StudyPage.vue` | 页面本体：阶段/课程呈现、筛选与搜索、展开收起、进度 |
-| `data/studyPlan.js` | 29 门课 / 5 个阶段的结构化数据，由原始文档生成 |
+| `StudyPage.vue` | 页面本体：学习库、阶段/课程呈现、筛选与搜索、展开收起、进度 |
+| `data/studyPlans.js` | **计划库**：一个数组，页面只从这里取计划 |
+| `data/studyPlan.js` | 金融学：29 门课 / 5 个阶段的结构化数据 |
+| `data/scarfPlan.js` | 围巾编织：17 个学习单元 / 6 个阶段，含视频与图解链接 |
 
 ## 进度存在哪
 
-`localStorage` 的 `weiwei-blog-study-progress`，读写走 `services/storage.js`
-（它保证数据损坏或超配额时不会白屏）。
+`localStorage` 的 `weiwei-blog-study-progress:<计划 id>`，读写走 `services/storage.js`
+（它保证数据损坏或超配额时不会白屏）。按计划分开存，切换计划不会串进度。
 
 ## 为什么不拆得更碎
 
@@ -46,26 +49,20 @@ scoped 会给每条选择器加一个属性选择器（`.study-hero` → `.study
 的 `transition` 也压过了那一层。
 
 **这是「不要写 `<style scoped>`」这条规矩的真正理由**——不只是风格问题，
-它会让 `styles/` 里的覆盖层**静默失效**，而且不报错、看不出来。
-
-要收拾的话有两条路，都涉及视觉变化，所以没有擅自做：
-
-1. 把这一页的样式搬进 `styles/`（或像绩效页那样放 `study.css` 由组件 `import`）——
-   这样圆角会**统一成 22px**，页面看起来会变；
-2. 保留 scoped，但把 `border-radius` / `transition` 那几条从这一页删掉，
-   让统一层真正接管——同样是视觉变化。
-
-新组件不要照抄这里的写法。
-
+它会让 `styles/` 里的覆盖层**静默失效**，而且不报错、看不出来。新组件不要照抄这里的写法。
 
 ## 当前的两份计划
 
 | 计划 | 数据 | 版面 |
 | --- | --- | --- |
-| 金融学系统自学路线 | `data/studyPlan.js` | `StudyPage.vue` 内的通用「课程 + 阶段」版面 |
-| 手工编织与纤维手作 | `data/weavingPlan.js` | `components/WeavingPlanView.vue`（技法地图 / 40 周路线 / 项目库 / 材料工具） |
+| 金融学系统自学路线 | `data/studyPlan.js` | 通用「课程 + 阶段」版面 |
+| 围巾编织学习大全 | `data/scarfPlan.js` | 同一套通用版面 |
 
-深链接：`#/study?plan=finance`、`#/study?plan=weaving`。
+深链接：`#/study?plan=finance`、`#/study?plan=scarf`（id 从 `studyPlans` 里找，加计划不用改路由）。
 
-**加一份新计划**：把文档给站主 → 在 `data/` 出结构化数据 + 在 `components/` 写这一份的定制版面 →
-在 `StudyPage.vue` 加一个 `v-else-if` 分支与学习库卡片。
+**加一份新计划**：把文档给站主 → 在 `data/` 按 `studyPlan.js` 的结构出数据 →
+在 `studyPlans.js` 里加一项。学习库卡片和深链接会自动长出来，
+不需要新写组件、也不用改 `StudyPage.vue` 的模板。
+
+计划里可选的两块：`weeklyNote`（每周节奏那句说明）、`order.foundationTitle`（地基那一栏的标题）；
+`pythonTimeline` 只有金融计划有，缺了就不渲染那栏，别的计划不必硬造。

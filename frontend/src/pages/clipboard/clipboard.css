@@ -1,0 +1,430 @@
+/* 快捷复制（/clipboard）。
+   整屏工具页，视觉骨架和绩效计算器一致：顶栏（品牌 + 统计 + 返回）、分类标签条、
+   下面的卡片面板。样式由页面自己 import，跟着异步 chunk 走，不进首屏包。
+   按要求不做屏幕适配，只保证桌面宽度下的版面。 */
+
+.clipboard-workbench {
+  --clip-ink: var(--ink);
+  --clip-muted: var(--muted);
+  --clip-line: var(--line);
+  --clip-panel: color-mix(in srgb, var(--panel) 88%, transparent);
+  min-height: 100dvh;
+  padding-bottom: 44px;
+  color: var(--clip-ink);
+  background:
+    radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 46%),
+    var(--paper);
+}
+
+/* ---------- 顶栏 ---------- */
+.clipboard-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 clamp(16px, 3vw, 34px);
+  border-bottom: 1px solid var(--clip-line);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(18px);
+}
+.clipboard-bar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.clipboard-mark {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+  border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent); font-size: 16px;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.clipboard-bar-copy { display: grid; gap: 2px; line-height: 1.1; }
+.clipboard-bar-copy strong { font-family: var(--serif); font-size: 14.5px; font-weight: 600; letter-spacing: .01em; }
+.clipboard-bar-copy small { font-size: 10px; letter-spacing: .06em; color: var(--clip-muted); }
+
+.clipboard-search {
+  display: flex; align-items: center; gap: 7px;
+  width: min(320px, 30vw); height: 34px; margin-left: 10px; padding: 0 12px;
+  border: 1px solid var(--clip-line); border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 52%, transparent);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.clipboard-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.clipboard-search span { color: var(--clip-muted); font-size: 14px; line-height: 1; }
+.clipboard-search input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+  color: var(--clip-ink); font-size: 12px;
+}
+.clipboard-search input::placeholder { color: var(--clip-muted); opacity: .85; }
+
+.clipboard-bar-right { display: flex; align-items: center; gap: 14px; flex: none; }
+.clipboard-stat { font-size: 11px; color: var(--clip-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clipboard-local { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--clip-muted); white-space: nowrap; }
+.clipboard-local i {
+  width: 6px; height: 6px; border-radius: 50%; background: #75c9a1;
+  box-shadow: 0 0 10px #75c9a188;
+}
+.clipboard-btn {
+  height: 32px; padding: 0 14px;
+  border: 1px solid var(--clip-line); border-radius: 9px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 11.5px; cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, transform .2s ease;
+}
+.clipboard-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--clip-line)); transform: translateY(-1px); }
+
+/* ---------- 分类标签条 ---------- */
+.clipboard-content { width: min(1680px, calc(100% - 48px)); margin: 0 auto; padding-top: 14px; }
+.clipboard-tabsbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--clip-line); border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 74%, transparent);
+}
+.clipboard-tabs {
+  display: flex; align-items: center; gap: 4px;
+  min-width: 0; overflow-x: auto; scrollbar-width: none;
+}
+.clipboard-tabs::-webkit-scrollbar { display: none; }
+.clipboard-tab {
+  display: flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 13px; flex: none;
+  border: 1px solid transparent; border-radius: 9px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 12px; cursor: pointer; white-space: nowrap;
+  transition: color .2s ease, background-color .2s ease, border-color .2s ease;
+}
+.clipboard-tab small {
+  padding: 1px 5px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  font-size: 9px; font-variant-numeric: tabular-nums;
+}
+.clipboard-tab:hover { color: var(--clip-ink); }
+.clipboard-tab[draggable="true"] { cursor: grab; }
+.clipboard-tab.active {
+  color: var(--clip-ink);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.clipboard-tab.active small { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+.clipboard-tab.is-dragging { opacity: .4; }
+.clipboard-tab.is-drop-target {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.clipboard-add-sheet {
+  width: 30px; height: 30px; flex: none;
+  border: 1px dashed var(--clip-line); border-radius: 9px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 15px; line-height: 1; cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.clipboard-add-sheet:hover { color: var(--accent); border-color: var(--accent); }
+
+.clipboard-tab-actions { margin-left: auto; display: flex; align-items: center; gap: 9px; flex: none; }
+.clipboard-hint { font-size: 10px; color: var(--clip-muted); white-space: nowrap; opacity: .85; }
+.clipboard-icon-action {
+  width: 30px; height: 30px;
+  border: 1px solid var(--clip-line); border-radius: 9px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 13px; line-height: 1; cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.clipboard-icon-action:hover { color: #f28b9b; border-color: #f28b9b66; }
+.clipboard-primary {
+  display: inline-flex; align-items: center;
+  height: 32px; padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent); border-radius: 9px;
+  background: linear-gradient(105deg, color-mix(in srgb, var(--accent) 82%, #b98bff), color-mix(in srgb, var(--accent-dark) 92%, #5b3fa8));
+  color: #fff; font-size: 11.5px; font-weight: 650;
+  cursor: pointer; white-space: nowrap;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.clipboard-primary:hover { transform: translateY(-1px); box-shadow: 0 11px 26px color-mix(in srgb, var(--accent) 30%, transparent); }
+.clipboard-primary span { margin-right: 5px; font-size: 13px; }
+.clipboard-secondary {
+  height: 32px; padding: 0 14px;
+  border: 1px solid var(--clip-line); border-radius: 9px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 11.5px; cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.clipboard-secondary:hover { color: var(--clip-ink); border-color: color-mix(in srgb, var(--ink) 26%, transparent); }
+
+/* ---------- 卡片网格 ---------- */
+.clipboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(282px, 1fr));
+  align-items: start;
+  gap: 14px;
+  padding: 16px 0 10px;
+}
+.clipboard-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, hsl(var(--tile-hue) 80% 70%) 18%, var(--clip-line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 12px 28px #0000001c;
+  animation: clipboardAppear .36s both;
+  animation-delay: var(--card-delay);
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease, opacity .2s ease;
+}
+.clipboard-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, hsl(var(--tile-hue) 82% 72%) 46%, var(--clip-line));
+  box-shadow: 0 18px 34px #0000002e;
+}
+.clipboard-card.is-dragging { opacity: .38; }
+
+.clipboard-card-art {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--clip-line) 70%, transparent);
+  background:
+    radial-gradient(90% 160% at 8% 0%, hsl(var(--tile-hue) 78% 62% / .22), transparent 62%),
+    color-mix(in srgb, var(--panel-raised) 66%, transparent);
+}
+.clipboard-card-glow {
+  position: absolute; left: 30px; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 40% 36%, hsl(var(--tile-hue) 88% 74% / .55), transparent 68%);
+  filter: blur(4px);
+  animation: clipboardBreathe 5.8s ease-in-out infinite;
+}
+.clipboard-card-icon {
+  position: relative; z-index: 1;
+  width: 42px; height: 42px; display: grid; place-items: center;
+  border-radius: 13px;
+  border: 1px solid hsl(var(--tile-hue) 82% 74% / .38);
+  background: hsl(var(--tile-hue) 60% 52% / .16);
+  font-size: 19px; line-height: 1;
+  filter: drop-shadow(0 4px 10px rgba(8, 8, 16, .28));
+  animation: clipboardFloat 7s ease-in-out infinite;
+}
+.clipboard-card-state {
+  position: relative; z-index: 1;
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: hsl(var(--tile-hue) 62% 78%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clipboard-card-tools {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  display: flex; align-items: center; gap: 1px;
+  padding: 2px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.clipboard-card:hover .clipboard-card-tools,
+.clipboard-card:focus-within .clipboard-card-tools { opacity: 1; transform: none; }
+.clipboard-card-tools button {
+  width: 23px; height: 23px;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 11px; line-height: 1; cursor: pointer;
+  transition: color .18s ease, background-color .18s ease;
+}
+.clipboard-card-tools button:hover { color: var(--clip-ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.clipboard-card-tools button:last-child:hover { color: #f28b9b; }
+.clipboard-card-tools .clipboard-group-copy { font-size: 12px; color: hsl(var(--tile-hue) 70% 76%); }
+.clipboard-card-tools .clipboard-group-copy.is-copied { color: #76d9ae; }
+.clipboard-card-tools .clipboard-drag-handle { cursor: grab; font-size: 14px; }
+.clipboard-card-tools .clipboard-drag-handle:active { cursor: grabbing; }
+
+.clipboard-values { display: flex; flex-direction: column; padding: 9px 9px 11px; }
+.clipboard-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  min-height: 37px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--paper) 30%, transparent);
+  color: var(--clip-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+.clipboard-value:hover {
+  transform: translateY(-1px);
+  border-color: hsl(var(--value-hue) 80% 74% / .5);
+  background: color-mix(in srgb, var(--panel-raised) 82%, transparent);
+}
+.clipboard-value.is-title {
+  border-color: hsl(var(--value-hue) 82% 76% / .26);
+  background: color-mix(in srgb, hsl(var(--value-hue) 50% 50%) 11%, transparent);
+}
+.clipboard-value.is-copied {
+  border-color: #76d9aeaa;
+  background: #76d9ae12;
+  box-shadow: inset 0 0 0 1px #76d9ae22;
+}
+.clipboard-value-text {
+  min-width: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 12px; line-height: 1.5;
+  word-break: break-word;
+}
+.clipboard-value.is-title .clipboard-value-text { font-weight: 600; }
+.clipboard-value-copy { color: var(--clip-muted); font-size: 11px; text-align: center; }
+.clipboard-value:hover .clipboard-value-copy { color: var(--clip-ink); }
+.clipboard-value.is-copied .clipboard-value-copy { color: #76d9ae; }
+
+/* 组内数据之间的短线：一眼看出「这几条是一起的」。 */
+.clipboard-link {
+  position: relative;
+  align-self: center;
+  width: 1px; height: 9px;
+  margin: 1px 0;
+  background: color-mix(in srgb, hsl(var(--tile-hue) 70% 70%) 55%, transparent);
+}
+.clipboard-link::after {
+  content: '';
+  position: absolute; left: 50%; bottom: -1px;
+  width: 3px; height: 3px; margin-left: -1.5px;
+  border-radius: 50%;
+  background: hsl(var(--tile-hue) 76% 72% / .7);
+}
+
+/* ---------- 空状态 / 页脚 ---------- */
+.clipboard-empty {
+  min-height: 340px;
+  margin-top: 16px;
+  display: grid; place-content: center; justify-items: center; gap: 12px;
+  border: 1px dashed var(--clip-line); border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+  color: var(--clip-muted); font-size: 12px;
+}
+.clipboard-empty p { margin: 0; }
+.clipboard-empty-mark {
+  width: 58px; height: 58px; display: grid; place-items: center;
+  border-radius: 18px; color: var(--accent); font-size: 24px;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  animation: clipboardBreathe 5.8s ease-in-out infinite;
+}
+.clipboard-footnote {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 14px 2px 0;
+  border-top: 1px solid var(--clip-line);
+  font-size: 10px; color: var(--clip-muted);
+}
+
+/* ---------- 弹窗 ---------- */
+.clipboard-overlay {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center;
+  padding: 18px;
+  background: #07060ccc;
+  backdrop-filter: blur(14px);
+}
+.clipboard-dialog {
+  position: relative;
+  width: min(520px, 100%);
+  padding: 26px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--clip-line));
+  border-radius: 18px;
+  background: var(--panel-raised);
+  box-shadow: 0 30px 100px #0008;
+}
+.clipboard-dialog-close {
+  position: absolute; right: 13px; top: 11px;
+  width: 30px; height: 30px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--clip-muted);
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.clipboard-dialog-close:hover { color: var(--clip-ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.clipboard-kicker { margin: 0 0 9px; color: var(--accent); font-size: 9px; font-weight: 600; letter-spacing: .18em; }
+.clipboard-dialog h2 { margin: 0; font-family: var(--serif); font-size: 21px; font-weight: 600; }
+.clipboard-dialog-copy { margin: 8px 0 16px; font-size: 11.5px; line-height: 1.7; color: var(--clip-muted); }
+.clipboard-field { display: grid; gap: 7px; margin-top: 12px; }
+.clipboard-field > span { display: flex; justify-content: space-between; color: var(--clip-ink); font-size: 10.5px; }
+.clipboard-field small { color: var(--clip-muted); }
+.clipboard-field textarea,
+.clipboard-field input {
+  width: 100%; padding: 10px 11px;
+  border: 1px solid var(--clip-line); border-radius: 9px; outline: none;
+  background: color-mix(in srgb, var(--paper) 48%, transparent);
+  color: var(--clip-ink); font-size: 12px; line-height: 1.6;
+  resize: vertical;
+}
+.clipboard-field textarea:focus,
+.clipboard-field input:focus {
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.clipboard-preview {
+  min-height: 34px; margin-top: 10px; padding: 0 9px;
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--clip-line); border-radius: 8px;
+  color: var(--clip-muted); font-size: 9.5px;
+}
+.clipboard-preview-icon { color: var(--accent); font-size: 14px; }
+.clipboard-preview-sheet { margin-left: auto; }
+.clipboard-dialog-actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- 提示 ---------- */
+.clipboard-toast {
+  position: fixed; z-index: 100; left: 50%; bottom: 40px; transform: translateX(-50%);
+  padding: 9px 15px;
+  border: 1px solid var(--clip-line); border-radius: 10px;
+  background: var(--panel-raised); color: var(--clip-ink);
+  box-shadow: 0 12px 35px #0005;
+  font-size: 11.5px; white-space: nowrap;
+}
+.clipboard-toast-enter-active,
+.clipboard-toast-leave-active { transition: opacity .18s, transform .18s; }
+.clipboard-toast-enter-from,
+.clipboard-toast-leave-to { opacity: 0; transform: translate(-50%, 7px); }
+.clipboard-modal-enter-active,
+.clipboard-modal-leave-active { transition: opacity .18s; }
+.clipboard-modal-enter-active .clipboard-dialog,
+.clipboard-modal-leave-active .clipboard-dialog { transition: transform .2s, opacity .2s; }
+.clipboard-modal-enter-from,
+.clipboard-modal-leave-to { opacity: 0; }
+.clipboard-modal-enter-from .clipboard-dialog,
+.clipboard-modal-leave-to .clipboard-dialog { transform: translateY(10px) scale(.985); }
+
+/* ---------- 动效 ---------- */
+@keyframes clipboardAppear {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes clipboardBreathe {
+  0%, 100% { transform: scale(.94); opacity: .72; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes clipboardFloat {
+  0%, 100% { transform: translateY(1px) rotate(-2deg); }
+  50% { transform: translateY(-2px) rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clipboard-workbench *,
+  .clipboard-workbench *::before,
+  .clipboard-workbench *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

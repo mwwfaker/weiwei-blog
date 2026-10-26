@@ -25,6 +25,14 @@ const PerfPage = defineAsyncComponent({
   loadingComponent: { name: 'PerfLoading', render: () => h('div', { class: 'study-loading' }, '正在打开绩效管理…') },
 })
 
+// 快捷复制同样是「按需加载的工具页」：卡片、表格、弹窗三块加一份 CSS，
+// 首屏用不到，跟着异步 chunk 一起走。
+const ClipboardPage = defineAsyncComponent({
+  loader: () => import('@/pages/clipboard/ClipboardPage.vue'),
+  delay: 140,
+  loadingComponent: { name: 'ClipboardLoading', render: () => h('div', { class: 'study-loading' }, '正在打开快捷复制…') },
+})
+
 /**
  * 页面 id → 页面组件。
  *
@@ -43,6 +51,7 @@ export const pageComponents = {
   messages: MessagesPage,
   admin: AdminPage,
   perf: PerfPage,
+  clipboard: ClipboardPage,
   account: AccountPage,
   tools: ToolsPage,
 }

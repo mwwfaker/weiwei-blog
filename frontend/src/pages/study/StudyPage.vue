@@ -4,7 +4,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { studyPlans } from './data/studyPlans'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
-import WeavingPlanView from './components/WeavingPlanView.vue'
 // Imported (not globally registered) so the directive is available in any app that mounts this
 // component, including the render test.
 import { useCountUp, vReveal } from '@/composables/motion'
@@ -19,20 +18,16 @@ function openPlan(id) {
   view.value = 'plan'
 }
 
-function openWeaving() {
-  view.value = 'weaving'
-}
-
 function backToLibrary() {
   view.value = 'library'
 }
 
-// 深链接：`#/study?plan=weaving` 直接打开某份计划（书签/分享用）。
+// 深链接：`#/study?plan=scarf` 直接打开某份计划（书签/分享用）。
+// id 全部从 studyPlans 里找，加计划不用再改这里。
 onMounted(() => {
   const match = /plan=([\w-]+)/.exec(window.location.hash)
   if (!match) return
-  if (match[1] === 'weaving') view.value = 'weaving'
-  else if (match[1] === 'finance') view.value = 'plan'
+  if (studyPlans.some((item) => item.id === match[1])) openPlan(match[1])
 })
 
 // ---- plan library -----------------------------------------------------------
@@ -65,6 +60,13 @@ function switchPlan(id) {
   coreOnly.value = false
   expanded.value = {}
   loadProgress()
+  // 页头四个统计是在 setup 时按当前计划算的，换计划要跟着重算，
+  // 否则会一直停在上一次的数字上（29 门课 / 1200–1800 小时）。
+  coursesCount.run()
+  hoursLow.run()
+  hoursHigh.run()
+  stageTotal.run()
+  resourceTotal.run()
 }
 
 const isDone = (code) => Boolean(done.value[code])
@@ -85,12 +87,14 @@ function resetProgress() {
 // ---- stage tabs -------------------------------------------------------------
 // 阶段标签从课程数据里长出来，而不是写死：「预科 / 本科核心 / …」是这份计划的说法，
 // 换一份学习计划就不一定长这样。
-const stages = plan.stages
+const stages = computed(() => plan.stages)
 const stageTabs = computed(() => {
-  const labels = [...new Set(plan.courses.map((course) => course.stage))]
+  // 用 stageLabel：详细课程里没有 stage 字段，取错了整排阶段会退化成一个空标签。
+  const labels = [...new Set(plan.courses.map((course) => course.stageLabel))]
   return labels.map((label, index) => ({
     key: label,
-    tag: label,
+    // 角标不重复阶段名：卡片上「准备 / 准备」是原来看起来最怪的一处。
+    tag: `STAGE ${String(index + 1).padStart(2, '0')}`,
     meta: plan.stages[index] || plan.stages[plan.stages.length - 1],
   }))
 })
@@ -146,11 +150,12 @@ function clearFilters() {
 }
 
 // ---- stat count-ups ---------------------------------------------------------
-const coursesCount = useCountUp(plan.courses.length, { duration: 900 })
-const hoursLow = useCountUp(plan.totals.hoursLow, { duration: 1400 })
-const hoursHigh = useCountUp(plan.totals.hoursHigh, { duration: 1600 })
-const stageTotal = useCountUp(stages.length, { duration: 800 })
-const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + course.resources.length, 0), { duration: 1200 })
+// 传函数而不是数字：换计划时数字要跟着新计划走，run() 里会重新取值。
+const coursesCount = useCountUp(() => plan.courses.length, { duration: 900 })
+const hoursLow = useCountUp(() => plan.totals.hoursLow, { duration: 1400 })
+const hoursHigh = useCountUp(() => plan.totals.hoursHigh, { duration: 1600 })
+const stageTotal = useCountUp(() => stages.value.length, { duration: 800 })
+const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum + course.resources.length, 0), { duration: 1200 })
 </script>
 
 <template>
@@ -170,16 +175,10 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
       </header>
 
       <div class="study-library-grid">
-        <button class="study-card" @click="openPlan('finance')">
+        <button v-for="item in studyPlans" :key="item.id" class="study-card" @click="openPlan(item.id)">
           <span class="study-card-kicker">CURATED</span>
-          <strong>金融学系统自学路线</strong>
-          <small>29 门课程 · 5 个阶段 · 完整资源</small>
-          <span class="study-card-go">打开 ↗</span>
-        </button>
-        <button class="study-card" @click="openWeaving">
-          <span class="study-card-kicker">CURATED</span>
-          <strong>手工编织与纤维手作</strong>
-          <small>7 大技法 · 40 周路线 · 13 个项目</small>
+          <strong>{{ item.name }}</strong>
+          <small>{{ item.plan.courses.length }} {{ item.unit || '门课程' }} · {{ item.plan.stages.length }} 个阶段 · 完整资源</small>
           <span class="study-card-go">打开 ↗</span>
         </button>
         <div class="study-card study-card-add">
@@ -189,8 +188,6 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
       </div>
       <p class="study-library-hint">每份计划都有自己的进度记录，互不干扰。</p>
     </section>
-
-    <WeavingPlanView v-else-if="view === 'weaving'" @back="backToLibrary" />
 
     <template v-else>
     <nav class="study-plan-bar" aria-label="学习计划">
@@ -312,7 +309,7 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
         </template>
       </div>
       <div class="study-foundation">
-        <strong>最不能跳过的「地基六门」</strong>
+        <strong>{{ plan.order.foundationTitle || '最不能跳过的「地基六门」' }}</strong>
         <span v-for="name in plan.order.foundation" :key="name">{{ name }}</span>
       </div>
     </section>
@@ -429,7 +426,7 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
           <div class="section-kicker">WEEKLY RHYTHM <span></span></div>
           <h2>工作党可执行的每周模板</h2>
         </div>
-        <p class="study-hint">每周 8–12 小时，工作日看视频，周末做题与实战。</p>
+        <p class="study-hint">{{ plan.weeklyNote || '每周 8–12 小时，工作日看视频，周末做题与实战。' }}</p>
       </div>
       <div class="study-week">
         <div v-for="(row, index) in plan.weeklyTemplate" :key="row.day" class="study-week-row" v-reveal="{ delay: index * 50 }">
@@ -447,7 +444,7 @@ const resourceTotal = useCountUp(plan.courses.reduce((sum, course) => sum + cour
         <h3>每门课的「毕业考试」规则</h3>
         <ul><li v-for="item in plan.graduationRules" :key="item">{{ item }}</li></ul>
       </div>
-      <div class="study-panel" v-reveal="{ delay: 120 }">
+      <div v-if="plan.pythonTimeline" class="study-panel" v-reveal="{ delay: 120 }">
         <h3>什么时候开始 Python</h3>
         <ul class="study-steps"><li v-for="item in plan.pythonTimeline" :key="item">{{ item }}</li></ul>
       </div>

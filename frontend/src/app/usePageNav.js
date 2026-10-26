@@ -45,7 +45,7 @@ export function resolvePageName(name, { onLegacyPublicDiary } = {}) {
   return 'applied'
 }
 
-export const isToolPage = computed(() => currentPage.value === 'perf')
+export const isToolPage = computed(() => ['perf', 'clipboard'].includes(currentPage.value))
 
 export { currentPage, moreOpen }
 export const go = setPage

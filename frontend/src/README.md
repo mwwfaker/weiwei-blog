@@ -24,7 +24,8 @@
 2. **跨组件状态 → `stores/`；只服务一个页面 → 跟着那个页面走。**
    页面组件里出现 `request(...)` 或 `localStorage` 就是放错位置了。
 3. **样式一律进 `styles/`**，不要写 `<style scoped>`。唯一例外是按需加载的页面
-   （`pages/perf/perf.css` 由组件自己 import，跟着异步 chunk 走、不进首屏包）。
+   （`pages/perf/perf.css`、`pages/clipboard/clipboard.css` 由组件自己 import，
+   跟着异步 chunk 走、不进首屏包）。
 
 ## 这些约束是自动检查的
 
