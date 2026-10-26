@@ -4,7 +4,7 @@
 // 数据结构没动（sheet = 分类工作表，card = 一组数据，values = 那一组里的几条）：
 // 一条数据就是一张卡片，多条自动成组；点任意一条直接写进剪贴板。
 // 所有数据只在 localStorage，不登录、不上传。
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { go } from '@/app/usePageNav'
 import {
   createClipboardId,
@@ -23,11 +23,15 @@ const draftSheetName = ref('')
 const draggingCardId = ref('')
 const draggingSheetId = ref('')
 const dropSheetId = ref('')
+const dropColumnIndex = ref(-1)
 const notice = ref('')
 const copiedKey = ref('')
 const query = ref('')
+const clipboardContentElement = ref(null)
+const gridWidth = ref(0)
 let noticeTimer = 0
 let copiedTimer = 0
+let gridResizeObserver
 
 const clipboardColorPalette = [270, 194, 332, 154, 31, 216, 175, 300]
 
@@ -42,6 +46,27 @@ const visibleCards = computed(() => {
 })
 const totalValues = computed(() => workspace.value.cards.reduce((sum, card) => sum + card.values.length, 0))
 
+// 列宽固定 170px，列数跟着容器宽度长；卡片按「当前最矮的一列」往下填，
+// 所以一列长短不齐也不会在中间留下大洞。拖到某一列会把列位（0–1 的比例）记进卡片，
+// 换窗口宽度时比例不变，卡片不会突然跳到别的列。
+const CLIPBOARD_COLUMN_WIDTH = 170
+const CLIPBOARD_COLUMN_GAP = 12
+const gridColumnCount = computed(() => Math.max(1, Math.floor((gridWidth.value + CLIPBOARD_COLUMN_GAP) / (CLIPBOARD_COLUMN_WIDTH + CLIPBOARD_COLUMN_GAP))))
+const cardColumns = computed(() => {
+  const columns = Array.from({ length: gridColumnCount.value }, () => [])
+  const heights = columns.map(() => 0)
+  for (const card of visibleCards.value) {
+    const savedPlacement = card.columnPlacement
+    const columnIndex = typeof savedPlacement === 'number' && Number.isFinite(savedPlacement)
+      ? Math.max(0, Math.min(columns.length - 1, Math.round(savedPlacement * Math.max(0, columns.length - 1))))
+      : heights.indexOf(Math.min(...heights))
+    columns[columnIndex].push(card)
+    // 估高只用于「填哪一列」：新卡头 + 每条数据两行，按条数线性估就够准。
+    heights[columnIndex] += 104 + card.values.length * 46 + CLIPBOARD_COLUMN_GAP
+  }
+  return columns
+})
+
 watch(workspace, (value) => {
   try {
     value.activeSheetId = activeSheetId.value
@@ -52,9 +77,19 @@ watch(workspace, (value) => {
 }, { deep: true })
 watch(activeSheetId, (id) => { workspace.value.activeSheetId = id })
 
+onMounted(() => {
+  const container = clipboardContentElement.value
+  if (!container) return
+  gridWidth.value = container.clientWidth
+  if (typeof ResizeObserver === 'undefined') return
+  gridResizeObserver = new ResizeObserver(([entry]) => { gridWidth.value = entry.contentRect.width })
+  gridResizeObserver.observe(container)
+})
+
 onBeforeUnmount(() => {
   window.clearTimeout(noticeTimer)
   window.clearTimeout(copiedTimer)
+  gridResizeObserver?.disconnect()
 })
 
 function showNotice(message) {
@@ -97,6 +132,14 @@ function badgeOf(card) {
   if (/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(first)) return '✉️'
   if (/^[\d\s+\-()]{7,}$/.test(first)) return '📞'
   return String.fromCodePoint(first.codePointAt(0)).toUpperCase()
+}
+
+/** 悬停光斑跟着指针走：把指针位置写成卡片的 CSS 变量，::after 用它画圆。 */
+function trackCardGlow(event) {
+  const element = event.currentTarget
+  const rect = element.getBoundingClientRect()
+  element.style.setProperty('--pointer-x', `${event.clientX - rect.left}px`)
+  element.style.setProperty('--pointer-y', `${event.clientY - rect.top}px`)
 }
 
 function saveCard() {
@@ -154,6 +197,11 @@ function moveCard(card, targetCard) {
   showNotice('数据顺序已调整')
 }
 
+function setManualColumn(card, columnIndex) {
+  const lastColumn = Math.max(0, gridColumnCount.value - 1)
+  card.columnPlacement = lastColumn === 0 ? 0 : columnIndex / lastColumn
+}
+
 function moveSheet(sheetId, targetSheetId) {
   if (!sheetId || sheetId === targetSheetId) return
   const from = workspace.value.sheets.findIndex((sheet) => sheet.id === sheetId)
@@ -202,23 +250,75 @@ function dropOnSheet(event, sheet) {
   const card = workspace.value.cards.find((item) => item.id === payload.id)
   if (!card || card.sheetId === sheet.id) return
   card.sheetId = sheet.id
+  // 换分类后列位作废，否则它会按旧列号落进新分类的某一列。
+  delete card.columnPlacement
   card.position = Math.max(-1, ...workspace.value.cards.filter((item) => item.sheetId === sheet.id).map((item) => item.position)) + 1
   activeSheetId.value = sheet.id
   showNotice(`已移动到「${sheet.name}」`)
 }
 
-function dropCard(event, targetCard) {
+function dragOverColumn(event, columnIndex) {
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'move'
+  dropColumnIndex.value = columnIndex
+}
+
+function dragLeaveColumn(event, columnIndex) {
+  if (!event.currentTarget.contains(event.relatedTarget) && dropColumnIndex.value === columnIndex) {
+    dropColumnIndex.value = -1
+  }
+}
+
+/** 拖到某一列的空白处：按落点 Y 坐标插到对应卡片前面，并记住列位。 */
+function dropOnColumn(event, columnIndex) {
   event.preventDefault()
   const payload = dragPayload(event)
   const card = payload?.type === 'card' && workspace.value.cards.find((item) => item.id === payload.id)
-  if (card) moveCard(card, targetCard)
+  dropColumnIndex.value = -1
+  draggingCardId.value = ''
+  if (!card) return
+
+  const targetSheetId = activeSheetId.value
+  const sourceSheetId = card.sheetId
+  card.sheetId = targetSheetId
+  const siblings = [...event.currentTarget.querySelectorAll('.clipboard-card')]
+  const beforeElement = siblings.find((element) => element.dataset.cardId !== card.id
+    && event.clientY < element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2)
+  const beforeId = beforeElement?.dataset.cardId
+  const ordered = workspace.value.cards
+    .filter((item) => item.sheetId === targetSheetId && item.id !== card.id)
+    .sort((a, b) => a.position - b.position || String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+  const insertAt = beforeId ? ordered.findIndex((item) => item.id === beforeId) : ordered.length
+  ordered.splice(insertAt < 0 ? ordered.length : insertAt, 0, card)
+  ordered.forEach((item, index) => { item.position = index })
+  setManualColumn(card, columnIndex)
+
+  if (sourceSheetId !== targetSheetId) {
+    workspace.value.cards
+      .filter((item) => item.sheetId === sourceSheetId)
+      .sort((a, b) => a.position - b.position)
+      .forEach((item, index) => { item.position = index })
+  }
+  showNotice('卡片已放到此列')
+}
+
+function dropCard(event, targetCard, columnIndex) {
+  event.preventDefault()
+  const payload = dragPayload(event)
+  const card = payload?.type === 'card' && workspace.value.cards.find((item) => item.id === payload.id)
+  if (card) {
+    moveCard(card, targetCard)
+    setManualColumn(card, columnIndex)
+  }
   draggingCardId.value = ''
   dropSheetId.value = ''
+  dropColumnIndex.value = -1
 }
 
 function endCardDrag() {
   draggingCardId.value = ''
   dropSheetId.value = ''
+  dropColumnIndex.value = -1
 }
 
 function endSheetDrag() {
@@ -300,7 +400,7 @@ function copyGroup(card) {
       </div>
     </header>
 
-    <section class="clipboard-content">
+    <section ref="clipboardContentElement" class="clipboard-content">
       <div class="clipboard-tabsbar">
         <div class="clipboard-tabs" role="tablist" aria-label="数据分类">
           <button
@@ -328,15 +428,26 @@ function copyGroup(card) {
         </div>
       </div>
 
-      <div v-if="visibleCards.length" class="clipboard-grid">
+      <div v-if="visibleCards.length" class="clipboard-grid" :style="{ '--column-count': cardColumns.length }">
+        <div
+          v-for="(column, columnIndex) in cardColumns"
+          :key="columnIndex"
+          class="clipboard-column"
+          :class="{ 'is-drop-target': dropColumnIndex === columnIndex }"
+          @dragover="dragOverColumn($event, columnIndex)"
+          @dragleave="dragLeaveColumn($event, columnIndex)"
+          @drop.stop="dropOnColumn($event, columnIndex)"
+        >
         <article
-          v-for="card in visibleCards"
+          v-for="card in column"
           :key="card.id"
+          :data-card-id="card.id"
           class="clipboard-card"
           :class="{ 'is-group': card.values.length > 1, 'is-dragging': draggingCardId === card.id }"
-          :style="{ '--tile-hue': clipboardColorPalette[cardPaletteIndex(card)], '--card-delay': `${Math.min(Number(card.position || 0), 8) * 25}ms` }"
+          :style="{ '--tile-hue': clipboardColorPalette[cardPaletteIndex(card)], '--card-delay': `${Math.min(Number(card.position || 0), 8) * 25}ms`, '--breath-delay': `${(Number(card.position || 0) % 5) * -1.15}s` }"
+          @pointermove="trackCardGlow"
           @dragover.prevent
-          @drop.stop="dropCard($event, card)"
+          @drop.stop="dropCard($event, card, columnIndex)"
           @dragend="endCardDrag"
         >
           <div class="clipboard-card-art" aria-hidden="true">
@@ -377,6 +488,7 @@ function copyGroup(card) {
             </template>
           </div>
         </article>
+        </div>
       </div>
 
       <div v-else class="clipboard-empty">
