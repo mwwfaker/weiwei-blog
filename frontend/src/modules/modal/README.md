@@ -6,6 +6,16 @@
 | --- | --- | --- |
 | `ModalShell.vue` | 普通表单弹窗：背板 + 卡片 + 标题行 + 关闭按钮 | **整张卡片**（`base.css` 的 `.modal-card{max-height;overflow:auto}`） |
 | `ReadingSheet.vue` | 阅读弹窗：页眉固定 / 正文独立滚动 / 底部操作固定 | **只有正文**（`.reading-scroll`） |
+| `LoginRequiredDialog.vue` | 「这个工具要登录」：一段说明 + 「先逛逛 / 去登录」 | 不需要（内容很短） |
+| `ImportProblemDialog.vue` | 导入失败/部分失败的清单 | 卡片 |
+
+## `LoginRequiredDialog` 由谁驱动
+
+内容来自 `app/useGuard.js` 的 `loginPrompt`（模块级单例，路由守卫在组件树之外也能写它），
+`layouts/AppShell.vue` 只负责 `v-if` 挂载。所以**它没有 props 状态**，也不需要在这里判断登录。
+
+用它的是「特意来用某个工具」的入口（绩效计算器）；顺手点一下的写操作走 `requireLogin()`，
+是 toast + 跳页，不弹窗。判断标准见 `app/README.md`。
 
 九处表单弹窗原来各自抄了一遍 ModalShell 那套结构，其中四处漏了 `aria-label`、一处写错了关闭动作。
 

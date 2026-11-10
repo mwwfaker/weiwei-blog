@@ -8,6 +8,7 @@ import GalleryPage from '@/pages/gallery/GalleryPage.vue'
 import HomePage from '@/pages/home/HomePage.vue'
 import MessagesPage from '@/pages/messages/MessagesPage.vue'
 import MusicPage from '@/pages/music/MusicPage.vue'
+import NotFoundPage from '@/pages/notFound/NotFoundPage.vue'
 import ToolsPage from '@/pages/tools/ToolsPage.vue'
 
 // The study plan carries ~300 kB of course data. Loading it on demand keeps that out of the bundle
@@ -54,6 +55,7 @@ export const pageComponents = {
   clipboard: ClipboardPage,
   account: AccountPage,
   tools: ToolsPage,
+  notFound: NotFoundPage,
 }
 
 /** 未知 id 落到「关于我」——和之前 v-else 的行为一致。 */

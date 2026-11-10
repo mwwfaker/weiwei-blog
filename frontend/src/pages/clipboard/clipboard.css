@@ -27,9 +27,11 @@
   background:
     radial-gradient(38% 42% at 18% 28%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
     radial-gradient(32% 36% at 78% 62%, color-mix(in srgb, #6fb7d6 9%, transparent), transparent 72%);
-  filter: blur(24px);
   opacity: .55;
-  animation: clipboardAurora 22s ease-in-out infinite alternate;
+  /* 原来是 filter:blur(24px) + 22s 无限位移动画：一块 150% 视口大的层每帧重新模糊，
+     在集显/软件合成下直接把整页拖到 13fps。径向渐变自己就是柔的，blur 只是让它更散，
+     去掉之后视觉几乎一样，但这层不再需要每帧重绘。 */
+  transform: translate3d(0, 0, 0);
 }
 
 /* ---------- 顶栏 ---------- */
@@ -284,9 +286,9 @@
   position: absolute; left: 30px; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px;
   border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle at 40% 36%, hsl(var(--tile-hue) 52% 56% / .1), transparent 68%);
-  filter: blur(6px);
-  animation: clipboardBreathe 5.8s ease-in-out infinite;
-  animation-delay: var(--breath-delay, 0s);
+  /* 每张卡片一个 blur(6px) 的层 + 无限 scale/opacity：十几张卡一起动就是十几块
+     持续重绘的图层。光晕本身是装饰，改成静态的，卡片仍保留 hover 的抬升与描边。 */
+  opacity: .85;
 }
 .clipboard-card-icon {
   position: relative; z-index: 1;
@@ -503,11 +505,6 @@
 @keyframes clipboardFloat {
   0%, 100% { transform: translateY(1px) rotate(-2deg); }
   50% { transform: translateY(-2px) rotate(2deg); }
-}
-@keyframes clipboardAurora {
-  0% { transform: translate3d(-3%, -2%, 0) scale(1); }
-  50% { transform: translate3d(2%, 3%, 0) scale(1.06); }
-  100% { transform: translate3d(4%, -3%, 0) scale(1.02); }
 }
 @keyframes clipboardCardBreath {
   0%, 100% {

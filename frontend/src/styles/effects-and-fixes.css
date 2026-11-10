@@ -110,7 +110,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 
 
 /* ---- 8. 弹层与反馈 ------------------------------------------------------- */
-.modal-backdrop{backdrop-filter:blur(7px)}
+/* 全屏毛玻璃在弹窗上是**固定的大开销**：实测 7px / 4px / 2px 都一样慢（11–14fps），
+   只有整条去掉才回到 60fps。所以这里不模糊，改用更实的底色把页面压下去。 */
+.modal-backdrop{background:rgba(5,5,10,.82);backdrop-filter:none}
 .modal-card{animation:modalIn .4s cubic-bezier(.2,.9,.25,1) both;box-shadow:0 40px 100px -40px rgba(0,0,0,.6)}
 @keyframes modalIn{from{opacity:0;transform:translateY(18px) scale(.975)}to{opacity:1;transform:none}}
 .viewer-close,.modal-close{transition:transform .3s ease,color .3s ease}
@@ -219,3 +221,50 @@ body::before{inset:0}
 .app-shell.tool-mode body::before,
 body:has(.app-shell.tool-mode)::before{display:none}
 
+
+/* 「这个工具要登录」的对话框。
+   做成一张有层次的卡：顶部一道极细的高光、左上角一团淡强调色，
+   正文分三段（一句结论 / 三条要点 / 两个出口）——原来是一段灰字加两个挤在一起的按钮，
+   读起来像报错，不像在解释。 */
+.login-gate{
+  width:min(100%,520px);
+  padding:26px 26px 20px;
+  border-radius:26px;
+  border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));
+  background:
+    radial-gradient(122% 96% at 8% 0%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 62%),
+    var(--panel-raised);
+  box-shadow:0 34px 88px rgba(0,0,0,.34);
+  position:relative;overflow:hidden;
+}
+.login-gate::before{content:'';position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 70%,transparent),transparent)}
+.login-gate .modal-top{align-items:flex-start}
+.login-gate .modal-top h2{margin-top:4px;font-size:27px;letter-spacing:-.015em}
+.login-gate .section-kicker{color:color-mix(in srgb,var(--accent) 82%,var(--muted))}
+.login-gate-lead{margin:16px 0 0;font-size:15px;line-height:1.9;color:var(--ink)}
+.login-gate-list{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:10px}
+/* 要点用「relative + 绝对定位的 ✦」，不要用 grid/flex 做两栏：
+   <li> 里是「<b>标题</b> 正文」这样混着元素和纯文本的，grid 会把每个文本节点
+   都当成一个网格项，于是正文被塞进 14px 那一列、变成一字一行。 */
+.login-gate-list li{position:relative;padding-left:20px;font-size:12.5px;line-height:1.8;color:var(--muted)}
+.login-gate-list li::before{content:'✦';position:absolute;left:0;top:1px;font-size:10px;color:color-mix(in srgb,var(--accent) 78%,transparent)}
+.login-gate-list b{display:inline-block;margin-right:4px;color:var(--ink);font-weight:600}
+.login-gate-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+.login-gate-cancel{margin-right:auto;padding:9px 4px;border:0;background:transparent;color:var(--muted);font-size:12.5px;border-radius:10px;cursor:pointer;transition:color .25s ease}
+.login-gate-cancel:hover{color:var(--ink)}
+
+@media(max-width:760px){
+  .login-gate{width:100%;padding:20px 18px 16px;border-radius:20px}
+  .login-gate .modal-top h2{font-size:22px}
+  .login-gate-lead{font-size:14px}
+  .login-gate-list li{font-size:12px}
+}
+
+/* 弹窗盖住页面时，把背景里那些**一直在动**的东西停住。
+   原因见 app/useOverlay.js：.modal-backdrop 是铺满视口的 backdrop-filter，
+   后面每动一下它就得整屏重新模糊一次；实测弹窗期间从 30fps 掉到 11fps。
+   只管 .page-frame 里面的动画——弹窗自己在外壳上，入场动画不受影响。 */
+body.overlay-open::before{animation-play-state:paused}
+body.overlay-open .page-frame *,
+body.overlay-open .page-frame *::before,
+body.overlay-open .page-frame *::after{animation-play-state:paused!important}

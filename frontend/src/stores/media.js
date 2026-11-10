@@ -39,6 +39,11 @@ export const useMediaStore = defineStore('media', () => {
   /** 访客能看到的相册：只包含「装着公开照片」的那些（见 services/api.js）。 */
   const publicAlbums = ref([])
   const albumManager = ref(false)
+  /** 正在建相册：按钮要显示「创建中…」并禁掉，否则点了完全没反应（用户就是这么报的）。 */
+  const albumCreating = ref(false)
+  /** 刚建好的那本：弹窗不关，得让新行闪一下，否则看不出刚才那一下生效了。 */
+  const albumNewId = ref('')
+  let albumNewTimer
   const albumDraft = ref({ name: '', parentId: null })
   /** 正在编辑名字/描述的那本相册；null = 没开编辑窗。 */
   const albumEditor = ref(null)
@@ -54,6 +59,14 @@ export const useMediaStore = defineStore('media', () => {
    */
   const openAlbum = ref('all')
   const galleryPreview = ref(null)
+  /**
+   * 3D 照片墙开着没有。
+   *
+   * 它是 fixed 全屏层，所以必须挂在 `layouts/AppShell.vue` 上——相册页所在的
+   * `.page-content` 有入场动画留下的 `transform`（哪怕单位矩阵），会成为 fixed 的
+   * 包含块，把整屏层框成内容区大小（实测过：`x=190, y=64, w=1132`）。
+   */
+  const galleryField = ref(false)
   const mediaEditor = ref(null)
   const mediaDraft = ref({ title: '', description: '', albumId: null, visibility: 'PRIVATE' })
 
@@ -454,9 +467,12 @@ export const useMediaStore = defineStore('media', () => {
   }
 
   async function createAlbum(parentId = null) {
+    // 上一次还没回来就别再发一条：连点会建出两三个同名相册
+    if (albumCreating.value) return
     if (!requireLogin('新建相册')) return
     const name = albumDraft.value.name.trim()
     if (!name) return notify('请先给相册取个名字')
+    albumCreating.value = true
     try {
       const created = await request('/api/photo-albums', {
         token: auth.token,
@@ -465,8 +481,13 @@ export const useMediaStore = defineStore('media', () => {
       })
       albums.value.push({ ...created, mine: true })
       albumDraft.value.name = ''
+      // 新行高亮两秒：弹窗不关的话，用户得能看出「刚才那一下确实生效了」
+      albumNewId.value = String(created.id)
+      clearTimeout(albumNewTimer)
+      albumNewTimer = setTimeout(() => { albumNewId.value = '' }, 2400)
       notify(parentId == null ? `相册「${created.name}」建好了` : `子相册「${created.name}」建好了`)
     } catch (error) { notify(`相册没建成：${error.message}`) }
+    finally { albumCreating.value = false }
   }
 
   async function renameAlbum(album, rawName) {
@@ -633,8 +654,8 @@ export const useMediaStore = defineStore('media', () => {
   }
 
   return {
-    galleryItems, publicTracks, ownMedia, galleryPreview, mediaEditor, mediaDraft,
-    albums, publicAlbums, albumManager, albumDraft, albumEditor, albumEditDraft,
+    galleryItems, publicTracks, ownMedia, galleryPreview, galleryField, mediaEditor, mediaDraft,
+    albums, publicAlbums, albumManager, albumCreating, albumNewId, albumDraft, albumEditor, albumEditDraft,
     openAlbum, currentAlbum, currentChildren, rootAlbums, childrenOf,
     albumPhotos, loosePhotos, albumPreview, albumTotal, directCount,
     allPhotoCount, looseCount, visibleGallery, ownTracks, onThisDay,

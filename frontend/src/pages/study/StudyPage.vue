@@ -1,8 +1,10 @@
 <script setup>
 // 学习板块：把《金融学系统自学路线》结构化呈现，并记录本机学习进度。
 // 数据全部来自 data/studyPlan.js（由原始文档结构化而来），这里只负责呈现与交互。
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { studyPlans } from './data/studyPlans'
+import { lifeChapterLoaders } from './data/lifeChunks'
+import ModalShell from '@/modules/modal/ModalShell.vue'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
 // Imported (not globally registered) so the directive is available in any app that mounts this
 // component, including the render test.
@@ -34,7 +36,124 @@ onMounted(() => {
 // 学习页现在是「计划库 + 当前计划」：数据从 data/studyPlans.js 来，切换计划只换 plan 的内容，
 // 不重新挂载页面。以后加一份新学习计划 = 往数组里加一项（见 data/README.md）。
 const activeId = ref(studyPlans[0].id)
-const plan = reactive({ ...studyPlans[0].plan })
+// 开页时只拷第一份计划的字段（applyPlan 在下面定义，这里直接用它的键表）
+const plan = reactive({})
+Object.assign(plan, studyPlans[0].plan)
+// ---- 章节全文（「高性价比人生指南」用） -------------------------------------
+// 34 章原文合计 2.3 MB，不能进主包，也不能一次全下：lifeChapterLoaders（data/lifeChunks.js）
+// 把每一章变成一个独立的懒加载块，点开哪一章才取哪一章。
+const openChapter = ref(null)
+const chapterBusy = ref('')
+
+// ---- 书本布局（「高性价比人生指南」） ---------------------------------------
+// 那本书是 34 章、772 条，学生页把它当「课程」排版并不合适：它没有过关标准、没有实战任务，
+// 就是一条条建议。所以给它一套书页排版：左边目录，右边正文，点一章取一章。
+const bookChapterId = ref('')
+const bookChapter = ref(null)
+const bookLoading = ref(false)
+const activeItem = ref(-1)
+/** 书页工具条：滚过一屏才出现。 */
+const showBookBar = ref(false)
+const bookEl = ref(null)
+const bookItemsEl = ref(null)
+
+async function openBookChapter(chapter) {
+  if (bookLoading.value || bookChapterId.value === chapter.id) return
+  bookChapterId.value = chapter.id
+  bookChapter.value = null
+  activeItem.value = -1
+  const loader = lifeChapterLoaders[chapter.id]
+  if (!loader) return
+  bookLoading.value = true
+  try {
+    bookChapter.value = (await loader()).default
+    // 换章要回到这一章的开头。必须等 DOM 换完再滚，否则滚的还是上一章的高度，
+    // 看起来就像「切了目录但正文还停在最下面」。
+    await nextTick()
+    scrollToBook()
+  } finally {
+    bookLoading.value = false
+  }
+}
+
+/** 让书页顶端对齐视口（不是整页回到顶，封面就别再滚回去了）。 */
+function scrollToBook() {
+  if (typeof window === 'undefined') return
+  const el = bookEl.value
+  if (!el) return
+  const top = el.getBoundingClientRect().top + window.scrollY - 84
+  window.scrollTo({ top, behavior: 'smooth' })
+}
+
+/** 三级目录：跳到本章第 n 条。 */
+function jumpToItem(index) {
+  const list = bookItemsEl.value
+  const node = list?.children?.[index]
+  if (!node) return
+  const top = node.getBoundingClientRect().top + window.scrollY - 96
+  window.scrollTo({ top, behavior: 'smooth' })
+  activeItem.value = index
+}
+
+/**
+ * 读到第几条：靠滚动位置算，比 IntersectionObserver 稳（条目高度差很大）。
+ * 只在这一章真的挂上以后才监听。
+ */
+function measureActiveItem() {
+  const list = bookItemsEl.value
+  if (!list) return
+  const nodes = [...list.children]
+  let current = 0
+  for (let i = 0; i < nodes.length; i += 1) {
+    if (nodes[i].getBoundingClientRect().top <= 130) current = i
+    else break
+  }
+  activeItem.value = nodes.length ? current : -1
+  showBookBar.value = (window.scrollY || document.documentElement.scrollTop || 0) > 520
+}
+
+let itemScrollQueued = false
+function onItemScroll() {
+  if (itemScrollQueued) return
+  itemScrollQueued = true
+  requestAnimationFrame(() => { itemScrollQueued = false; measureActiveItem() })
+}
+
+watch(bookChapter, (chapter) => {
+  if (typeof window === 'undefined') return
+  if (chapter) window.addEventListener('scroll', onItemScroll, { passive: true })
+  else window.removeEventListener('scroll', onItemScroll)
+})
+onUnmounted(() => { if (typeof window !== 'undefined') window.removeEventListener('scroll', onItemScroll) })
+
+/** 书页的三个数字：章数、条数、分几组（不套「课时 0—0」那套课程口径）。 */
+const bookStats = computed(() => ({
+  chapters: plan.bookChapters?.length || 0,
+  items: plan.totalItems || 0,
+  parts: plan.stages?.length || 0,
+}))
+
+/** 当前章在目录里的位置，用来做「上一章 / 下一章」。 */
+const bookIndex = computed(() => (plan.bookChapters || []).findIndex((chapter) => chapter.id === bookChapterId.value))
+
+function stepChapter(delta) {
+  const list = plan.bookChapters || []
+  const next = list[bookIndex.value + delta]
+  if (next) openBookChapter(next)
+}
+
+async function readChapter(course) {
+  if (!course.chapter || chapterBusy.value) return
+  const loader = lifeChapterLoaders[course.chapter]
+  if (!loader) return
+  chapterBusy.value = course.code
+  try {
+    const mod = await loader()
+    openChapter.value = mod.default
+  } finally {
+    chapterBusy.value = ''
+  }
+}
 
 function progressKey() {
   return `${PROGRESS_KEY}:${activeId.value}`
@@ -49,11 +168,41 @@ const done = ref({})
 loadProgress()
 watch(done, (value) => writeStoredJson(progressKey(), { done: value, updatedAt: new Date().toISOString() }), { deep: true })
 
+/**
+ * 换计划时**先把上一份的字段全删掉**，再整份写进去。
+ *
+ * 原来是 `Object.assign(plan, next.plan)`：这份计划没有的字段会原样留着上一份的，
+ * 于是《学习库》里切到「高性价比人生指南」，下面还挂着金融学那份的周模板、进阶顺序、
+ * totals——看起来就是两门课串在了一起。字段是页面读过的全部键，缺了就当没有（v-if 为假）。
+ */
+const PLAN_FIELDS = ['meta', 'howToUse', 'importanceScale', 'stages', 'courses', 'order', 'totals',
+  'weeklyTemplate', 'weeklyNote', 'graduationRules', 'pythonTimeline', 'firstYearGoals', 'finalStandards',
+  'resourceNotes', 'resources', 'weeks', 'afterMain', 'foundationTitle', 'bookChapters', 'totalItems']
+
+/**
+ * 每份计划都有、但内容可以为空的那几块，给一份空默认值。
+ * 只靠 delete 是不够的：模板里有 `plan.finalStandards.intro` 这种直接取下一层的写法，
+ * 字段缺失就会抛错，换计划时整页停在原地。
+ */
+const PLAN_DEFAULTS = {
+  weeks: [], afterMain: [], weeklyTemplate: [], graduationRules: [], pythonTimeline: [],
+  firstYearGoals: [], finalStandards: { intro: '', items: [] }, resources: [], resourceNotes: [],
+  order: null, totals: null, bookChapters: [], totalItems: 0,
+}
+
+function applyPlan(next) {
+  for (const key of PLAN_FIELDS) delete plan[key]
+  Object.assign(plan, PLAN_DEFAULTS, next)
+}
+
 function switchPlan(id) {
   const next = studyPlans.find((item) => item.id === id)
   if (!next || id === activeId.value) return
   activeId.value = id
-  Object.assign(plan, next.plan)
+  applyPlan(next.plan)
+  // 换计划时把书页也合上，否则会留着上一份计划某一章的正文
+  bookChapterId.value = ''
+  bookChapter.value = null
   activeStage.value = '全部'
   query.value = ''
   statusFilter.value = 'all'
@@ -152,8 +301,11 @@ function clearFilters() {
 // ---- stat count-ups ---------------------------------------------------------
 // 传函数而不是数字：换计划时数字要跟着新计划走，run() 里会重新取值。
 const coursesCount = useCountUp(() => plan.courses.length, { duration: 900 })
-const hoursLow = useCountUp(() => plan.totals.hoursLow, { duration: 1400 })
-const hoursHigh = useCountUp(() => plan.totals.hoursHigh, { duration: 1600 })
+// 不是每份计划都有 totals（「高性价比人生指南」就没有 hoursLow/hoursHigh）：
+// 这里必须用可选链 + 兜底，否则换计划时这个 getter 会抛错，
+// 整个 switchPlan 中断，页面就停在「学习库」根本进不去。
+const hoursLow = useCountUp(() => plan.totals?.hoursLow ?? 0, { duration: 1400 })
+const hoursHigh = useCountUp(() => plan.totals?.hoursHigh ?? 0, { duration: 1600 })
 const stageTotal = useCountUp(() => stages.value.length, { duration: 800 })
 const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum + course.resources.length, 0), { duration: 1200 })
 </script>
@@ -196,7 +348,7 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
       <span class="study-plan-note">{{ activePlan?.note }}</span>
     </nav>
     <!-- ── 头部 ─────────────────────────────────────────────── -->
-    <section class="study-hero" v-reveal>
+    <section class="study-hero" :class="{ 'is-book': plan.meta.layout === 'book' }" v-reveal>
       <div class="study-hero-glow" aria-hidden="true"></div>
       <div class="study-hero-main">
         <div class="section-kicker">SELF-STUDY ROADMAP <span></span></div>
@@ -207,6 +359,19 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
         <p class="study-version">{{ plan.meta.version }}</p>
       </div>
       <div class="study-hero-stats">
+        <!-- 书没有「课时」这个概念，别拿课程的四个数字往上套（原来会显示「0—0 建议总投入」） -->
+        <template v-if="plan.meta.layout === 'book'">
+          <div class="study-stat" v-reveal="{ delay: 60 }">
+            <strong><span>{{ bookStats.chapters }}</span></strong><small>章</small>
+          </div>
+          <div class="study-stat" v-reveal="{ delay: 130 }">
+            <strong><span>{{ bookStats.items }}</span></strong><small>条</small>
+          </div>
+          <div class="study-stat wide" v-reveal="{ delay: 200 }">
+            <strong><span>{{ bookStats.parts }}</span></strong><small>组（保命 → 事业）</small>
+          </div>
+        </template>
+        <template v-else>
         <div class="study-stat" v-reveal="{ delay: 60 }">
           <strong><span>{{ coursesCount.value }}</span></strong><small>门课程</small>
         </div>
@@ -219,9 +384,11 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
         <div class="study-stat" v-reveal="{ delay: 270 }">
           <strong><span>{{ resourceTotal.value }}</span></strong><small>条学习资源</small>
         </div>
+        </template>
       </div>
     </section>
 
+    <div v-if="plan.meta.layout !== 'book'">
     <!-- ── 进度总览 ─────────────────────────────────────────── -->
     <section class="study-section" v-reveal>
       <div class="study-section-head">
@@ -295,7 +462,9 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
     </section>
 
     <!-- ── 主线顺序 ─────────────────────────────────────────── -->
-    <section class="study-section" v-reveal>
+    <!-- 只有金融学那份计划有 order（一张手写的主线顺序表）；别的计划没有就整块不出现，
+         否则 template 里 plan.order.chain 会在换计划时直接抛错。 -->
+    <section v-if="plan.order" class="study-section" v-reveal>
       <div class="study-section-head">
         <div>
           <div class="section-kicker">THE ORDER <span></span></div>
@@ -385,6 +554,11 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
               <div class="study-course-col">
                 <h4>核心知识点</h4>
                 <ul><li v-for="item in course.concepts" :key="item">{{ item }}</li></ul>
+                <button
+                  v-if="course.chapter"
+                  class="study-chapter-open"
+                  @click.stop="readChapter(course)"
+                >{{ chapterBusy === course.code ? '正在读取全文…' : `读这一章全文（${course.concepts.length} 条）↗` }}</button>
               </div>
               <div class="study-course-col">
                 <h4>过关标准</h4>
@@ -420,7 +594,7 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
     </section>
 
     <!-- ── 每周模板 ─────────────────────────────────────────── -->
-    <section class="study-section" v-reveal>
+    <section v-if="plan.weeklyTemplate.length" class="study-section" v-reveal>
       <div class="study-section-head">
         <div>
           <div class="section-kicker">WEEKLY RHYTHM <span></span></div>
@@ -439,20 +613,20 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
     </section>
 
     <!-- ── 规则 / 目标 / 画像 ───────────────────────────────── -->
-    <section class="study-section study-multi" v-reveal>
-      <div class="study-panel" v-reveal="{ delay: 40 }">
+    <section v-if="plan.graduationRules.length || plan.pythonTimeline.length || plan.firstYearGoals.length || plan.finalStandards.items.length" class="study-section study-multi" v-reveal>
+      <div v-if="plan.graduationRules.length" class="study-panel" v-reveal="{ delay: 40 }">
         <h3>每门课的「毕业考试」规则</h3>
         <ul><li v-for="item in plan.graduationRules" :key="item">{{ item }}</li></ul>
       </div>
-      <div v-if="plan.pythonTimeline" class="study-panel" v-reveal="{ delay: 120 }">
+      <div v-if="plan.pythonTimeline.length" class="study-panel" v-reveal="{ delay: 120 }">
         <h3>什么时候开始 Python</h3>
         <ul class="study-steps"><li v-for="item in plan.pythonTimeline" :key="item">{{ item }}</li></ul>
       </div>
-      <div class="study-panel" v-reveal="{ delay: 200 }">
+      <div v-if="plan.firstYearGoals.length" class="study-panel" v-reveal="{ delay: 200 }">
         <h3>第一年建议目标</h3>
         <ul><li v-for="item in plan.firstYearGoals" :key="item">{{ item }}</li></ul>
       </div>
-      <div class="study-panel accent" v-reveal="{ delay: 280 }">
+      <div v-if="plan.finalStandards.items.length" class="study-panel accent" v-reveal="{ delay: 280 }">
         <h3>最终毕业画像</h3>
         <p class="study-panel-intro">{{ plan.finalStandards.intro }}</p>
         <ul><li v-for="item in plan.finalStandards.items" :key="item">{{ item }}</li></ul>
@@ -460,7 +634,7 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
     </section>
 
     <!-- ── 资源 ─────────────────────────────────────────────── -->
-    <section class="study-section" v-reveal>
+    <section v-if="plan.resources.length || plan.resourceNotes.length" class="study-section" v-reveal>
       <div class="study-section-head">
         <div>
           <div class="section-kicker">WHERE TO LEARN <span></span></div>
@@ -479,9 +653,132 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
         <li v-for="note in plan.resourceNotes" :key="note">{{ note }}</li>
       </ul>
     </section>
+    </div>
+
+    <!-- ── 书本式计划 ───────────────────────────────────────────
+         「高性价比人生指南」不是课程表，是一本书：左边目录、右边正文，
+         一条一条顺着读。这里只做排版，不再加「过关标准 / 实战任务」那种课程化的东西。 -->
+    <div v-if="plan.meta.layout === 'book'" class="study-book" v-reveal>
+      <aside class="study-book-toc" aria-label="章节目录">
+        <div class="study-book-toc-head">
+          <span>目录</span>
+          <b>{{ plan.bookChapters.length }} 章 · {{ plan.totalItems }} 条</b>
+        </div>
+        <nav class="study-book-toc-list">
+          <template v-for="chapter in plan.bookChapters" :key="chapter.id">
+            <button
+              class="study-book-toc-item"
+              :class="{ active: bookChapterId === chapter.id }"
+              @click="openBookChapter(chapter)"
+            >
+              <b>{{ String(chapter.no).padStart(2, '0') }}</b>
+              <span>{{ chapter.title }}</span>
+              <em>{{ chapter.count }}</em>
+            </button>
+            <!-- 三级目录：当前这一章的每一条。读到第几条会跟着滚动高亮。 -->
+            <div v-if="chapter.id === bookChapterId && bookChapter" class="study-book-toc-items">
+              <button
+                v-for="(item, index) in bookChapter.items"
+                :key="index"
+                class="study-book-toc-sub"
+                :class="{ current: activeItem === index, seen: index < activeItem }"
+                @click="jumpToItem(index)"
+              >
+                <i>{{ index + 1 }}</i><span>{{ item.t }}</span>
+              </button>
+            </div>
+          </template>
+        </nav>
+      </aside>
+
+      <article class="study-book-page" ref="bookEl">
+        <div v-if="bookLoading" class="study-book-empty">正在取这一章…</div>
+        <div v-else-if="!bookChapter" class="study-book-empty">
+          <small>共 {{ plan.bookChapters.length }} 章 · {{ plan.totalItems }} 条</small>
+          <h2>从左边挑一章开始读</h2>
+          <p>每一条都写了成本、说人话、收益、证据等级和出处。顺着读就行，不需要做别的。</p>
+          <button class="button-primary" @click="openBookChapter(plan.bookChapters[0])">从第 1 章开始 →</button>
+        </div>
+        <template v-else>
+          <header class="study-book-head">
+            <div class="study-book-head-meta">
+              <span>第 {{ bookChapter.no }} 章</span>
+              <span class="study-book-head-sep" aria-hidden="true">/</span>
+              <span>{{ plan.bookChapters.length }} 章中第 {{ bookIndex + 1 }} 章</span>
+              <span class="study-book-head-sep" aria-hidden="true">·</span>
+              <span>{{ bookChapter.items.length }} 条</span>
+              <span class="study-book-head-sep" aria-hidden="true">·</span>
+              <span class="study-book-progress">读到第 {{ Math.max(1, activeItem + 1) }} 条</span>
+            </div>
+            <h2>{{ bookChapter.title }}</h2>
+            <div v-if="bookChapter.intro" class="study-book-intro">
+              <small>本章导读</small>
+              <p>{{ bookChapter.intro }}</p>
+            </div>
+          </header>
+
+          <ol class="study-book-items" ref="bookItemsEl">
+            <li v-for="(item, index) in bookChapter.items" :key="index" :class="{ current: activeItem === index }">
+              <h3><span class="study-book-num">{{ index + 1 }}</span>{{ item.t }}</h3>
+              <p v-if="item.cost"><b>成本</b><span>{{ item.cost }}</span></p>
+              <p v-if="item.plain" class="is-plain"><b>说人话</b><span>{{ item.plain }}</span></p>
+              <p v-if="item.benefit"><b>收益</b><span>{{ item.benefit }}</span></p>
+              <p v-if="item.note" class="is-note"><b>备注</b><span>{{ item.note }}</span></p>
+              <p v-if="item.source || item.evidence" class="study-book-src">
+                <span v-if="item.evidence" class="study-book-evidence">证据 {{ item.evidence }}</span>
+                <span v-if="item.source">{{ item.source }}</span>
+              </p>
+            </li>
+          </ol>
+
+          <nav class="study-book-nav" aria-label="翻章">
+            <button class="button-secondary" :disabled="bookIndex <= 0" @click="stepChapter(-1)">← 上一章</button>
+            <span>第 {{ bookIndex + 1 }} / {{ plan.bookChapters.length }} 章</span>
+            <button class="button-secondary" :disabled="bookIndex >= plan.bookChapters.length - 1" @click="stepChapter(1)">下一章 →</button>
+          </nav>
+        </template>
+      </article>
+    </div>
+
+    <!-- 读到深处时顶栏早就滚出去了，这里给一条常驻的小工具条：
+         回学习库、看进度、回本章开头。往下滑出现，回到顶部自动收起。
+         **必须 teleport 到 body**：`.study-book` 上有 v-reveal 的 translate，
+         会给 fixed 子元素造出包含块，工具条就会被摆到那块几万像素高的区域底部去。 -->
+    <Teleport to="body">
+      <div v-if="showBookBar && plan.meta.layout === 'book'" class="study-book-bar">
+        <button class="study-book-bar-back" @click="backToLibrary">← 学习库</button>
+        <span class="study-book-bar-pos">
+          第 {{ bookIndex + 1 }} / {{ plan.bookChapters.length }} 章
+          <template v-if="bookChapter"> · 第 {{ Math.max(1, activeItem + 1) }} / {{ bookChapter.items.length }} 条</template>
+        </span>
+        <button class="study-book-bar-top" @click="scrollToBook">↑ 回到本章开头</button>
+      </div>
+    </Teleport>
     </template>
   </div>
   </section>
+
+  <!-- 章节全文：「高性价比人生指南」的每一章原文，按需加载 -->
+  <ModalShell
+    v-if="openChapter"
+    card-class="study-chapter"
+    :kicker="`第 ${openChapter.no} 章 · ${openChapter.items.length} 条`"
+    :title="openChapter.title"
+    @close="openChapter = null"
+  >
+    <p v-if="openChapter.intro" class="study-chapter-intro">{{ openChapter.intro }}</p>
+    <ol class="study-chapter-list">
+      <li v-for="(item, index) in openChapter.items" :key="index">
+        <h4>{{ item.t }}</h4>
+        <p v-if="item.cost"><b>成本</b>{{ item.cost }}</p>
+        <p v-if="item.plain"><b>说人话</b>{{ item.plain }}</p>
+        <p v-if="item.benefit"><b>收益</b>{{ item.benefit }}</p>
+        <p v-if="item.evidence"><b>证据等级</b>{{ item.evidence }} 级</p>
+        <p v-if="item.note"><b>备注</b>{{ item.note }}</p>
+        <p v-if="item.source" class="study-chapter-source">{{ item.source }}</p>
+      </li>
+    </ol>
+  </ModalShell>
 </template>
 
 <style scoped>
@@ -824,5 +1121,95 @@ const resourceTotal = useCountUp(() => plan.courses.reduce((sum, course) => sum 
 .study-plan-note { margin-left: auto; font-size: 10.5px; color: var(--muted); }
 @media (max-width: 760px) {
   .study-plan-note { display: none; }
+}
+.study-chapter-open { margin-top: 10px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--accent); font-size: 11.5px; cursor: pointer; transition: background-color .22s ease, border-color .22s ease; }
+.study-chapter-open:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.study-chapter { width: min(100%, 820px); }
+.study-chapter-intro { margin: 0 0 14px; font-size: 13px; line-height: 1.9; color: var(--muted); }
+.study-chapter-list { margin: 0; padding: 0 0 0 18px; display: grid; gap: 18px; }
+.study-chapter-list > li { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.study-chapter-list > li:last-child { border-bottom: 0; }
+.study-chapter-list h4 { margin: 0 0 8px; font-family: var(--serif); font-size: 14.5px; line-height: 1.6; }
+.study-chapter-list p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.9; color: var(--ink); }
+.study-chapter-list b { display: inline-block; min-width: 4.5em; margin-right: 6px; font-weight: 600; font-size: 10.5px; letter-spacing: .06em; color: var(--accent); }
+.study-chapter-source { font-size: 10.5px !important; color: var(--muted) !important; word-break: break-word; }
+/* 书页的封面别那么爱发光：默认那层 80px 的紫色投影落在卡片下面，像一摊漏光。 */
+.study-hero.is-book { box-shadow: 0 24px 60px -34px color-mix(in srgb, var(--accent) 26%, transparent); }
+.study-hero.is-book .study-hero-glow { opacity: .32; }
+/* 书页常驻工具条：顶栏滚出去之后还能退出、还能知道读到哪 */
+.study-book-bar { position: fixed; left: 50%; bottom: 26px; z-index: 30; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass-strong, var(--panel)); box-shadow: 0 18px 40px -22px rgba(10, 6, 30, .8); animation: bookBarIn .28s ease both; }
+.study-book-bar-back, .study-book-bar-top { padding: 5px 12px; border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; transition: color .2s ease, background-color .2s ease; }
+.study-book-bar-back { color: var(--ink); }
+.study-book-bar-back:hover, .study-book-bar-top:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.study-book-bar-pos { font-size: 10.5px; letter-spacing: .06em; color: var(--muted); font-variant-numeric: tabular-nums; }
+@keyframes bookBarIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 560px) { .study-book-bar { bottom: 84px; gap: 6px; padding: 6px 8px 6px 12px; } .study-book-bar-pos { display: none; } }
+/* 三级目录：当前章的条目，跟着滚动高亮 */
+.study-book-toc-sub { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 7px; width: 100%; padding: 4px 8px 4px 26px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11.5px; line-height: 1.5; text-align: left; cursor: pointer; }
+.study-book-toc-sub i { font-style: normal; font-size: 9.5px; color: color-mix(in srgb, var(--muted) 70%, transparent); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.study-book-toc-sub span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.study-book-toc-sub:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--ink); }
+.study-book-toc-sub.seen i { color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.study-book-toc-sub.current { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--ink); }
+.study-book-toc-sub.current i { color: var(--accent); font-weight: 600; }
+.study-book-toc-items { margin: 2px 0 8px; padding-left: 6px; border-left: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); display: grid; gap: 1px; }
+.study-book-progress { color: var(--accent); }
+/* 当前正在读的那一条：左边一条细线，扫一眼就知道读到哪 */
+.study-book-items > li.current { position: relative; }
+.study-book-items > li.current::before { content: ""; position: absolute; left: -14px; top: 2px; bottom: 0; width: 2px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 45%, transparent); }
+/* 书本式计划：左目录（面板）+ 右正文（书页）。
+   这一份是「读」的，不是「刷进度」的：正文 15px / 行高 2.1，条目之间留白比课程卡大得多。 */
+.study-book { display: grid; grid-template-columns: 288px minmax(0, 1fr); gap: 44px; align-items: start; margin: 34px 0 90px; }
+.study-book-toc { position: sticky; top: 92px; max-height: calc(100vh - 130px); display: flex; flex-direction: column; padding: 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 62%, transparent); }
+.study-book-toc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 6px 10px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
+.study-book-toc-head span { font-size: 11px; letter-spacing: .22em; color: var(--accent); }
+.study-book-toc-head b { font-size: 10.5px; font-weight: 400; color: var(--muted); }
+.study-book-toc-list { overflow-y: auto; display: grid; gap: 1px; margin: 0 -4px; padding: 0 4px; }
+.study-book-toc-item { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: baseline; gap: 9px; width: 100%; padding: 7px 9px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); font-size: 12.5px; text-align: left; cursor: pointer; transition: background-color .18s ease, color .18s ease; }
+.study-book-toc-item b { font-size: 10px; font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+.study-book-toc-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.study-book-toc-item em { font-style: normal; font-size: 9.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.study-book-toc-item:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.study-book-toc-item.active { background: color-mix(in srgb, var(--accent) 17%, transparent); }
+.study-book-toc-item.active b, .study-book-toc-item.active span, .study-book-toc-item.active em { color: var(--accent); }
+.study-book-toc-item.active::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 2px; background: var(--accent); }
+.study-book-page { min-width: 0; max-width: 720px; }
+.study-book-empty { padding: 54px 0; color: var(--muted); }
+.study-book-empty small { font-size: 10.5px; letter-spacing: .16em; color: var(--accent); }
+.study-book-empty h2 { margin: 10px 0 12px; font-family: var(--serif); font-size: 27px; color: var(--ink); }
+.study-book-empty p { margin: 0 0 20px; font-size: 13.5px; line-height: 2; }
+.study-book-head { padding-bottom: 24px; margin-bottom: 30px; border-bottom: 1px solid var(--line); }
+.study-book-head-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 10.5px; letter-spacing: .1em; color: var(--muted); }
+.study-book-head-meta span:first-child { color: var(--accent); }
+.study-book-head-sep { opacity: .5; }
+.study-book-head h2 { margin: 10px 0 14px; font-family: var(--serif); font-size: 31px; line-height: 1.4; letter-spacing: .01em; }
+.study-book-intro { margin-top: 4px; padding: 14px 18px 16px; border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 0 12px 12px 0; background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.study-book-intro small { display: block; margin-bottom: 8px; font-size: 9.5px; letter-spacing: .18em; color: var(--accent); }
+.study-book-intro p { margin: 0; font-size: 12.8px; line-height: 1.95; color: var(--muted); }
+.study-book-items { margin: 0; padding: 0; list-style: none; display: grid; gap: 34px; }
+.study-book-items > li { padding-bottom: 30px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.study-book-items > li:last-child { border-bottom: 0; padding-bottom: 0; }
+.study-book-items h3 { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 6px; margin: 0 0 14px; font-family: var(--serif); font-size: 18.5px; font-weight: 500; line-height: 1.62; }
+.study-book-num { font-family: var(--sans, inherit); font-size: 11px; font-weight: 400; color: var(--muted); padding-top: 7px; font-variant-numeric: tabular-nums; }
+.study-book-items p { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; margin: 9px 0 0; font-size: 14px; line-height: 2.05; }
+.study-book-items p b { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; color: var(--accent); padding-top: 5px; }
+.study-book-items p span { min-width: 0; }
+.study-book-items .is-plain span { color: var(--ink); }
+.study-book-items .is-note,
+.study-book-items .is-note span { font-size: 12.8px; line-height: 1.95; color: var(--muted); }
+.study-book-src { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 14px !important; padding-top: 12px; border-top: 1px dashed color-mix(in srgb, var(--line) 70%, transparent); font-size: 10.8px !important; line-height: 1.85 !important; color: var(--muted); }
+.study-book-src span:last-child { flex: 1 1 260px; min-width: 0; word-break: break-word; opacity: .82; }
+.study-book-evidence { flex: 0 0 auto; padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-size: 10px; letter-spacing: .04em; }
+.study-book-nav { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 38px; padding-top: 22px; border-top: 1px solid var(--line); }
+.study-book-nav span { font-size: 11px; letter-spacing: .1em; color: var(--muted); }
+.study-book-nav button { min-width: 118px; }
+.study-book-nav button:disabled { opacity: .38; cursor: not-allowed; }
+@media (max-width: 1024px) { .study-book { grid-template-columns: 236px minmax(0, 1fr); gap: 28px; } .study-book-head h2 { font-size: 26px; } }
+@media (max-width: 760px) {
+  .study-book { display: block; }
+  .study-book-toc { position: static; max-height: none; margin-bottom: 28px; }
+  .study-book-toc-list { max-height: 260px; }
+  .study-book-items p { grid-template-columns: 1fr; gap: 2px; }
+  .study-book-items h3 { grid-template-columns: 20px minmax(0, 1fr); font-size: 17px; }
 }
 </style>

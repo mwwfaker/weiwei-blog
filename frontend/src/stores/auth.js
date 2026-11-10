@@ -17,6 +17,12 @@ export const useAuthStore = defineStore('auth', {
     // 会话状态是否已经确定。刷新页面后要异步问一次 Supabase 才知道登录没登录，
     // 在那之前 isLoggedIn 一律是 false —— 不能拿它判断「访客」，否则会把已登录的人误判成访客。
     ready: false,
+    /**
+     * 注册开关。当前是**暂停**状态：账号只给唯唯自己用，别人要用得先联系她。
+     * 改回 true 就恢复注册——账号页的注册表单是按这个标志在场的，没有别的地方要动。
+     */
+    registrationOpen: false,
+    registrationClosedNotice: '目前唯唯不给注册，需要注册请联系唯唯',
   }),
   getters: { isLoggedIn: (state) => Boolean(state.token && state.user) },
   actions: {
@@ -41,7 +47,15 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async login(email, password) { return this.authenticate('/api/auth/login', { email, password }) },
-    async register(email, password, displayName) { return this.authenticate('/api/auth/register', { email, password, displayName }) },
+    async register(email, password, displayName) {
+      // 页面上的注册入口已经挡住了，这里再挡一次：任何漏网的调用都不该真的往 Supabase 建账号。
+      // 关闭期**不抛 400 之类**的技术错误，直接用那句人话，调用方原样显示即可。
+      if (!this.registrationOpen) {
+        this.error = this.registrationClosedNotice
+        throw new Error(this.registrationClosedNotice)
+      }
+      return this.authenticate('/api/auth/register', { email, password, displayName })
+    },
     async restoreSession() {
       if (!backendConfigured) { this.ready = true; return null }
       try {

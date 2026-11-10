@@ -89,7 +89,7 @@ async function build() {
   }
   const reduced = typeof window.matchMedia === 'function'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25))
   renderer.autoClear = false
   renderer.setClearColor(0x05040c, 1)
 
@@ -216,7 +216,9 @@ async function build() {
     pointerRect = hostEl.getBoundingClientRect()
     const width = Math.max(1, Math.round(pointerRect.width))
     const height = Math.max(1, Math.round(pointerRect.height))
-    renderer.setSize(width, height, false)
+    // 渲染缓冲按 0.8 倍出图，再由 CSS 撑满（setSize 第三参数 false = 不改 style）。
+    // 这层是星云与星尘，降 20% 分辨率肉眼几乎看不出，软件合成下省掉近四成像素。
+    renderer.setSize(Math.round(width * 0.8), Math.round(height * 0.8), false)
     camera.aspect = width / height
     camera.updateProjectionMatrix()
     uniforms.uAspect.value = width / height
@@ -364,11 +366,19 @@ async function build() {
   let last = 0
   let firstFrame = true
 
+  // 30 帧封顶：这块画布是首页最贵的东西（一帧要渲染两遍场景，铺满整屏）。
+  // 场景本身转得很慢（0.05 rad/s），30 帧和 60 帧肉眼几乎没差，但 GPU 开销直接减半。
+  // 注意：跳帧时**不能**更新 `last`，否则 dt 会被白白吃掉，动画会变慢。
+  const MIN_FRAME_MS = 1000 / 30
+  let lastRenderAt = 0
+
   function tick(now) {
     raf = requestAnimationFrame(tick)
+    if (!visible || document.hidden) return
+    if (now - lastRenderAt < MIN_FRAME_MS) return
+    lastRenderAt = now
     const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000))
     last = now
-    if (!visible || document.hidden) return
 
     if (!reduced) clock += dt
     uniforms.uTime.value = clock

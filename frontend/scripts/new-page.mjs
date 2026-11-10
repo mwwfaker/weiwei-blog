@@ -117,7 +117,9 @@ ok(`pages/${id}/README.md`)
 // ---------------------------------------------------------------- 2. 改 routes.js
 {
   const before = fs.readFileSync(routesPath, 'utf8')
-  const anchor = "  { path: '/:pathMatch(.*)*', redirect: '/' },"
+  // catch-all 那一行是插入点：新路由必须排在它前面，否则永远匹配不到。
+  // 它现在带着 name: 'notFound'（404 页面），不再是 redirect。
+  const anchor = "  { path: '/:pathMatch(.*)*', name: 'notFound', component: NoopView },"
   if (!before.includes(anchor)) die('routes.js 里找不到 catch-all 那一行，手工加一下路由。')
   const after = before.replace(anchor, `  { path: '/${id}', name: '${id}', component: NoopView },\n${anchor}`)
   fs.writeFileSync(routesPath, after, 'utf8')

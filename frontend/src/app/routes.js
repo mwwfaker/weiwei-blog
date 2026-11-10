@@ -6,6 +6,8 @@
 // component is supplied anyway: a record without one makes vue-router log a warning on every match.
 const NoopView = { name: 'NoopView', render: () => null }
 
+// `meta.requiresAuth` 由 app/router.js 的守卫读：未登录的人被送到账号页（顺带弹一层说明）。
+// `gateName` 只是那句说明里的主语，别把文案写死在守卫里。
 export const routes = [
   { path: '/', name: 'home', component: NoopView },
   { path: '/about', name: 'about', component: NoopView },
@@ -17,9 +19,11 @@ export const routes = [
   { path: '/music', name: 'music', component: NoopView },
   { path: '/messages', name: 'messages', component: NoopView },
   { path: '/admin', name: 'admin', component: NoopView },
-  { path: '/perf', name: 'perf', component: NoopView },
+  { path: '/perf', name: 'perf', component: NoopView, meta: { requiresAuth: true, gateName: '绩效计算器' } },
   { path: '/account', name: 'account', component: NoopView },
   { path: '/tools', name: 'tools', component: NoopView },
   { path: '/clipboard', name: 'clipboard', component: NoopView },
-  { path: '/:pathMatch(.*)*', redirect: '/' },
+  // 未知地址不再是「静默跳回首页」：那样用户会以为链接有效，只是内容变了。
+  // 必须排在最后——vue-router 按顺序匹配。
+  { path: '/:pathMatch(.*)*', name: 'notFound', component: NoopView },
 ]

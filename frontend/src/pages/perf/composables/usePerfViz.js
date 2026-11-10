@@ -1,6 +1,7 @@
 // 「数据可视化」这一块的统计：排名、薪资构成、队列分布、矩阵、散点、相对均值。
 // 只读 computedAll / queueTotalsAll / queues 几份派生数据，不持有自己的状态。
 import { computed, ref } from 'vue'
+import { PERF_CONSTANTS, ahtOf } from '@/services/perf'
 import { money, percent } from './format.js'
 
 export function usePerfViz({ computedAll, queueTotalsAll, queues }) {
@@ -74,17 +75,55 @@ export function usePerfViz({ computedAll, queueTotalsAll, queues }) {
       })
   })
 
-  /** 队列分布：按审核量排序,取前几名。 */
+  /** 队列分布：按审核量排序,取前几名。表里还要 KPI / 标准AHT / 实际AHT / 完成度，一起带出去。 */
   const queueStats = computed(() => {
+    const kpiByName = new Map(queues.value.map((q) => [q.name, q.kpi]))
     const list = []
     for (const [name, bucket] of queueTotalsAll.value) {
       if (!bucket.auditCount) continue
-      list.push({ name, auditCount: bucket.auditCount, pay: bucket.pay, people: bucket.people, efficiency: bucket.efficiency })
+      list.push({
+        name,
+        kpi: kpiByName.get(name) || 0,
+        // 标准 AHT 由 KPI 推出来：ROUND(24480 ÷ KPI, 2)
+        standardAht: ahtOf(kpiByName.get(name), PERF_CONSTANTS),
+        auditCount: bucket.auditCount,
+        pay: bucket.pay,
+        people: bucket.people,
+        efficiency: bucket.efficiency,
+        actualAht: bucket.actualAht || 0,
+        completion: bucket.completion || 0,
+        standardHours: (bucket.standard || 0) / 3600,
+        actualHours: (bucket.actual || 0) / 3600,
+      })
     }
     list.sort((a, b) => b.auditCount - a.auditCount)
     const max = list.length ? list[0].auditCount : 0
-    return list.map((q) => ({ ...q, barPercent: max > 0 ? Math.max(3, (q.auditCount / max) * 100) : 0 }))
+    // 快慢对照要用同一把尺子量各队列的「实际 AHT」，否则短条长条没法横向比
+    const maxAht = list.reduce((m, q) => Math.max(m, q.actualAht || 0), 0) || 1
+    return list.map((q) => ({
+      ...q,
+      barPercent: max > 0 ? Math.max(3, (q.auditCount / max) * 100) : 0,
+      actualPct: Math.max(3, Math.min(100, ((q.actualAht || 0) / maxAht) * 100)),
+    }))
   })
+
+  /**
+   * 完成度最低的几个人。
+   *
+   * 和「薪资构成」「队列分布」用同一套横条：这一块不是排行榜，是「谁这个月明显没跟上」，
+   * 所以按完成度**从低到高**取前 8 个——拖后腿的先出现，才有用。
+   * 条宽直接用完成度本身（0–100%），不做「相对最高者」的缩放：进度条就该读成百分比。
+   */
+  const completionStats = computed(() => computedAll.value.rows
+    .filter((row) => row.result.auditCount > 0)
+    .map((row) => ({
+      id: row.member.id,
+      name: row.member.name || '（未命名）',
+      completion: row.result.completion,
+      barPercent: Math.max(2, Math.min(100, (row.result.completion || 0) * 100)),
+    }))
+    .sort((a, b) => a.completion - b.completion)
+    .slice(0, 8))
 
   /** 效率 × 完成度 散点。
    *  要点：轴上限用 90 分位而不是最大值——否则一个离群点会把其它点全压到角落。
@@ -224,6 +263,7 @@ export function usePerfViz({ computedAll, queueTotalsAll, queues }) {
     vizStats,
     payStacks,
     queueStats,
+    completionStats,
     vizScatter,
     deviations,
     vizMatrix,

@@ -12,6 +12,7 @@
 //   · 标签页切到后台时停笔；devicePixelRatio 封顶到 1.25（铺满全屏的画布在高分屏上按
 //     1.5 倍渲染等于多涂一倍多的像素，而粒子只有一个像素大，看不出差别）。
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { overlayOpen } from '@/app/useOverlay'
 
 const props = defineProps({
   playing: { type: Boolean, default: false },
@@ -25,8 +26,9 @@ const LINK_TIERS = 4
 const DOT_TIERS = 4
 /** 每个粒子最多连出几条线。播放时半径会变大，命中数按平方涨，这个上限保证开销有界。 */
 const MAX_LINKS_PER_PARTICLE = 5
-/** 目标帧率。粒子是缓慢漂移的，30 帧和 60 帧肉眼分辨不出，但省掉一半的重绘。 */
-const TARGET_FPS = 40
+/** 目标帧率。粒子是缓慢漂移的，30 帧和 60 帧肉眼分辨不出，但省掉一半的重绘。
+ *  这块画布铺满整个窗口、一直在最底层重绘，是全站最稳定的一笔开销，所以宁慢勿贵。 */
+const TARGET_FPS = 30
 
 const canvas = ref(null)
 let context
@@ -64,7 +66,7 @@ function resize() {
   canvas.value.style.width = `${width}px`
   canvas.value.style.height = `${height}px`
   context.setTransform(scale, 0, 0, scale, 0, 0)
-  const count = Math.min(132, Math.round((width * height) / 11000))
+  const count = Math.min(120, Math.round((width * height) / 14000))
   particles = Array.from({ length: count }, () => ({
     x: Math.random() * width,
     y: Math.random() * height,
@@ -109,7 +111,9 @@ function rebuildGrid(cell) {
 
 function draw(now) {
   if (!context) return
-  if (document.hidden) {
+  // 有弹窗盖着时也停笔：那块全屏毛玻璃会把它每一帧都重新模糊一遍，
+  // 而它本来就被压暗了、看不见。
+  if (document.hidden || overlayOpen()) {
     lastDrawAt = 0
     frame = requestAnimationFrame(draw)
     return

@@ -10,6 +10,7 @@ defineProps({
   vizStats: { type: Object, default: () => ({}) },
   payStacks: { type: Array, default: () => [] },
   queueStats: { type: Array, default: () => [] },
+  completionStats: { type: Array, default: () => [] },
   vizMatrix: { type: Object, default: () => ({ cols: [], rows: [], max: 0 }) },
   vizScatter: { type: Object, default: () => ({ empty: true }) },
   deviations: { type: Array, default: () => [] },
@@ -68,7 +69,37 @@ const rankBy = defineModel('rankBy', { type: String, default: 'total' })
         </div>
       </article>
 
-      <!-- 四、员工 × 队列 矩阵 -->
+      <!-- 四、快慢对照：和上面两张同一种横条，只是量的是「实际 AHT」 -->
+      <article class="viz-card">
+        <h4>快慢对照 <em>条越短越快,右边是审核效率</em></h4>
+        <div v-if="!queueStats.length" class="viz-empty">还没有队列数据</div>
+        <div v-else class="viz-rows">
+          <div v-for="q in queueStats.slice(0, 8)" :key="q.name" class="viz-row">
+            <span class="viz-name">{{ q.name }}</span>
+            <div class="viz-track">
+              <div class="viz-seg" :style="{ width: q.actualPct + '%', background: 'linear-gradient(90deg,#4aa8c0,#8b6ce0)' }" :title="'实际 AHT ' + q.actualAht.toFixed(2) + ' s ／ 标准 ' + q.standardAht.toFixed(2) + ' s'"></div>
+            </div>
+            <span class="viz-val">{{ q.actualAht ? q.actualAht.toFixed(1) : '—' }}s · {{ percent(q.efficiency) }}</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- 五、完成度：拖后腿的先出现 -->
+      <article class="viz-card">
+        <h4>完成度 <em>从低到高,只列前 8 个</em></h4>
+        <div v-if="!completionStats.length" class="viz-empty">还没有可统计的数据</div>
+        <div v-else class="viz-rows">
+          <div v-for="row in completionStats" :key="row.id" class="viz-row">
+            <span class="viz-name">{{ row.name }}</span>
+            <div class="viz-track">
+              <div class="viz-seg" :style="{ width: row.barPercent + '%', background: 'linear-gradient(90deg,#e0a13f,#46b06a)' }"></div>
+            </div>
+            <span class="viz-val">{{ percent(row.completion) }}</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- 六、员工 × 队列 矩阵 -->
       <article class="viz-card wide">
         <h4>员工 × 队列 矩阵 <em>颜色越深审核量越大,一眼看出谁在哪个队列上</em></h4>
         <div v-if="!vizMatrix.rows.length" class="viz-empty">还没有数据</div>

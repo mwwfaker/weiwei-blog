@@ -31,7 +31,11 @@ export const vReveal = {
         entry.target.classList.add(VISIBLE_CLASS)
         observer.unobserve(entry.target)
       }
-    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 })
+      // threshold 必须是 0：这一条被 v-reveal 用在大容器上（比如把 34 章全包住的
+      // .study-section，高 36000px）。按 0.05 算，要有 1800px 进入视口才算「相交」，
+      // 而视口本身只有 900px —— 那块内容永远停在 opacity:0，往下滑一片空白。
+      // 用 0 表示「露出一点就算到了」，同时仍靠 rootMargin 把触发点压到视口下方一点。
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0 })
 
     observer.observe(el)
     el.__revealObserver = observer

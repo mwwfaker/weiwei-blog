@@ -17,6 +17,8 @@ const props = defineProps({
   queueTotalsAll: { type: Map, default: () => new Map() },
   activeMember: { type: Object, default: null },
   memberSummary: { type: Object, default: null },
+  /** 当前这个人已经填了几个队列（PerfPage 数出来的）。 */
+  memberFilled: { type: Number, default: 0 },
   memberQueueRows: { type: Array, default: () => [] },
   queueRows: { type: Array, default: () => [] },
   queueTotals: { type: Object, default: () => ({}) },
@@ -114,7 +116,10 @@ function resetTripleCount() {
               <span>审核量 <b>{{ (memberSummary?.auditCount || 0).toLocaleString('en-US') }}</b></span>
               <span>审核效率 <b>{{ percent(memberSummary?.efficiency) }}</b></span>
               <span>完成度 <b>{{ percent(memberSummary?.completion) }}</b></span>
-              <span>月实际工时 <b>{{ (memberSummary?.actualHours || 0).toFixed(2) }} h</b></span>
+              <span>标准时长 <b>{{ hoursText(memberSummary?.standardSeconds) }} h</b></span>
+              <span>实际时长 <b>{{ (memberSummary?.actualHours || 0).toFixed(2) }} h</b></span>
+              <span>三薪日 <b>{{ (memberSummary?.tripleCount || 0).toLocaleString('en-US') }}</b> 条</span>
+              <span>已完成 <b>{{ memberFilled }}</b> / {{ memberQueueRows.length }} 个队列</span>
               <span>合计 <b class="hl">¥ {{ money(memberSummary?.total || 0) }}</b></span>
             </div>
             <!-- 重置只针对当前选中的这个人；清哪些字段、保留什么都由 PerfPage 决定并确认 -->
@@ -188,6 +193,8 @@ function resetTripleCount() {
               <strong>{{ activeQueue }}</strong>
               <span>KPI <b>{{ activeQueueConfig?.kpi || '—' }}</b></span>
               <span>标准 AHT <b>{{ activePrice.standardAht || '—' }}</b></span>
+              <!-- 队列实际 AHT：按审核量加权，见 PerfPage 的 queueTotalsFor -->
+              <span>队列实际 AHT <b>{{ queueTotals.actualAht ? queueTotals.actualAht.toFixed(2) : '—' }}</b></span>
               <span>单价 <b>{{ price(activePrice.unitPrice) }}</b></span>
               <span>审核效率 <b>{{ percent(queueTotals.efficiency) }}</b></span>
               <span>已填 <b>{{ filledCount }}</b> / {{ members.length }}</span>
@@ -240,16 +247,31 @@ function resetTripleCount() {
                 <tfoot>
                   <tr>
                     <td>小计 · {{ activeQueue }}</td>
-                    <td colspan="2" class="num">{{ (queueTotals.auditCount || 0).toLocaleString('en-US') }} 条</td>
-                    <td v-if="showTriple" colspan="2" class="col-derived"></td>
+                    <!-- 这一格必须是「按审核量加权的实际 AHT」，不是各人 AHT 的算术平均：
+                         一个人审 1 条、一个人审 9000 条，平均 AHT 会把前者算成一半的权重。 -->
+                    <td class="num col-derived">{{ queueTotals.actualAht ? queueTotals.actualAht.toFixed(2) : '—' }}</td>
+                    <td class="num">{{ (queueTotals.auditCount || 0).toLocaleString('en-US') }} 条</td>
+                    <td v-if="showTriple" class="num col-derived">{{ (queueTotals.tripleCount || 0).toLocaleString('en-US') }}</td>
+                    <td v-if="showTriple" class="num col-derived"></td>
                     <td class="num col-derived">{{ queueTotals.standardHours.toFixed(2) }} h</td>
                     <td class="num col-derived">{{ queueTotals.hours.toFixed(2) }} h</td>
                     <td class="num col-derived">{{ percent(queueTotals.efficiency) }}</td>
                     <td class="num">¥ {{ money(queueTotals.pay) }}</td>
                     <td class="num total">¥ {{ money(queueTotals.pay) }}</td>
-                    </tr>
+                  </tr>
                 </tfoot>
               </table>
+            </div>
+
+            <!-- 队列画像：表格里只能看到「一列一列」，这排是「一眼看整条队列」的那组数 -->
+            <div class="perf-breakdown">
+              <div><small>审核量合计</small><strong>{{ (queueTotals.auditCount || 0).toLocaleString('en-US') }} 条</strong></div>
+              <div><small>人均审核量</small><strong>{{ Math.round(queueTotals.perPerson || 0).toLocaleString('en-US') }} 条</strong></div>
+              <div><small>标准总时长</small><strong>{{ (queueTotals.standardHours || 0).toFixed(2) }} h</strong></div>
+              <div><small>实际总时长</small><strong>{{ (queueTotals.hours || 0).toFixed(2) }} h</strong></div>
+              <div><small>队列实际 AHT</small><strong>{{ queueTotals.actualAht ? queueTotals.actualAht.toFixed(2) : '—' }} s</strong></div>
+              <div><small>平均完成度</small><strong>{{ percent(queueTotals.completion) }}</strong></div>
+              <div class="grand"><small>审核工资</small><strong>¥ {{ money(queueTotals.pay) }}</strong></div>
             </div>
           </template>
         </div>

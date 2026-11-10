@@ -5,7 +5,11 @@
 // 现在工具都从这里进：加新工具 = 在 tools 数组里加一项，并给它建一个页面。
 // 只列真正做完了的工具——「规划中」的占位卡已经删了，它们只会让页面显得空而假。
 import InnerPageHeader from '@/modules/page/InnerPageHeader.vue'
+import { askLogin } from '@/app/useGuard'
 import { go } from '@/app/usePageNav'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 /** 工具清单。`id` 必须同时是路由名（app/routes.js）。 */
 const tools = [
@@ -22,6 +26,23 @@ const tools = [
     tag: '已上线',
   },
 ]
+
+/**
+ * 要登录才能打开的工具。
+ *
+ * 只有绩效计算器：它读写的是账号里的绩效数据。快捷复制是纯本机的（内容存在浏览器里），
+ * 访客也能用，所以不在这里。
+ */
+const requiresLogin = new Set(['perf'])
+
+/** 未登录时**先弹窗说清楚**，而不是直接把人送到登录页——他是特意来用这个工具的。 */
+function openTool(tool) {
+  if (requiresLogin.has(tool.id) && !auth.isLoggedIn) {
+    askLogin(tool.name)
+    return
+  }
+  go(tool.id)
+}
 </script>
 
 <template>
@@ -34,10 +55,10 @@ const tools = [
     />
 
     <div class="tools-grid">
-      <button v-for="tool in tools" :key="tool.id" class="tools-card" @click="go(tool.id)">
+      <button v-for="tool in tools" :key="tool.id" class="tools-card" @click="openTool(tool)">
         <span class="tools-card-top">
           <span class="tools-card-name">{{ tool.name }}</span>
-          <span class="tools-card-tag">{{ tool.tag }}</span>
+          <span class="tools-card-tag">{{ requiresLogin.has(tool.id) && !auth.isLoggedIn ? '需登录' : tool.tag }}</span>
         </span>
         <span class="tools-card-note">{{ tool.note }}</span>
         <span class="tools-card-go">打开 ↗</span>

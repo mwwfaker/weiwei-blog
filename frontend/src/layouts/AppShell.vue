@@ -9,17 +9,20 @@ import { THEME_KEY } from '@/app/theme'
 import { disposeToast, useToast } from '@/app/useToast'
 import { bindRouter, currentPage, go, isToolPage, moreOpen, resolvePageName } from '@/app/usePageNav'
 import { useScrollChrome } from '@/app/useScrollChrome'
+import { dismissLogin, loginPrompt } from '@/app/useGuard'
 import ArticleEditorDialog from '@/modules/article/ArticleEditorDialog.vue'
 import ArticleImportDialog from '@/modules/article/ArticleImportDialog.vue'
 import ArticleReaderDialog from '@/modules/article/ArticleReaderDialog.vue'
 import DiaryEditorDialog from '@/modules/diary/DiaryEditorDialog.vue'
 import DiaryImportDialog from '@/modules/diary/DiaryImportDialog.vue'
 import ImportProblemDialog from '@/modules/modal/ImportProblemDialog.vue'
+import LoginRequiredDialog from '@/modules/modal/LoginRequiredDialog.vue'
 import DiaryReaderDialog from '@/modules/diary/DiaryReaderDialog.vue'
 import GalleryViewer from '@/modules/media/GalleryViewer.vue'
 import AlbumManagerDialog from '@/modules/media/AlbumManagerDialog.vue'
 import AlbumEditorDialog from '@/modules/media/AlbumEditorDialog.vue'
 import PhotoMoveDialog from '@/modules/media/PhotoMoveDialog.vue'
+import PhotoOrbit from '@/modules/media/PhotoOrbit.vue'
 import PhotoUploadDialog from '@/modules/media/PhotoUploadDialog.vue'
 import MediaEditorDialog from '@/modules/media/MediaEditorDialog.vue'
 import AudioEngine from '@/modules/music/AudioEngine.vue'
@@ -163,6 +166,15 @@ onUnmounted(() => {
       @remove="articles.remove"
     />
 
+    <!-- 3D 照片墙：fixed 全屏，必须挂在外壳上（相册页的 .page-content 有 transform，
+         fixed 会被框成内容区大小）。开关在 media store，相册页只负责打开它。 -->
+    <PhotoOrbit
+      v-if="media.galleryField"
+      :photos="media.galleryItems"
+      @close="media.galleryField = false"
+      @preview="media.galleryPreview = $event"
+    />
+
     <GalleryViewer
       v-if="media.galleryPreview"
       :photo="media.galleryPreview"
@@ -178,6 +190,13 @@ onUnmounted(() => {
     <DiaryImportDialog v-if="diaries.importDialog" @close="diaries.importDialog = false" />
     <ArticleImportDialog v-if="articles.importDialog" @close="articles.importDialog = false" />
     <ImportProblemDialog />
+    <LoginRequiredDialog
+      v-if="loginPrompt"
+      :action="loginPrompt.action"
+      :reason="loginPrompt.reason"
+      @close="dismissLogin()"
+      @login="dismissLogin(); go('account')"
+    />
     <ProfileEditorDialog v-if="profile.profileDialog" @close="profile.profileDialog = false" />
   </div>
 </template>

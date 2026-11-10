@@ -15,6 +15,7 @@
 | `PhotoDepthViewer.vue` | `modules/media/` | 立体浏览：照片 → 可拖动的点云（在看图里就地切换） |
 | `PhotoInfoPanel.vue` | `modules/media/` | 拍摄参数（EXIF）+ 主色 |
 | `PhotoSlideshow.vue` | `modules/media/` | 电影感播放（页面内挂载，不是外壳） |
+| `PhotoOrbit.vue` | `modules/media/` | 3D 照片墙：全部照片摆在地上转（**外壳挂载**，开关在 `media.galleryOrbit`） |
 | `PhotoPlayDialog.vue` | `modules/media/` | 照片工坊：马赛克拼图、字符画 |
 | `PhotoMoveDialog.vue` | `modules/media/` | 「移到相册」：一张或一批（外壳挂载） |
 | `AlbumEditorDialog.vue` | `modules/media/` | 编辑一本相册的名字与描述（外壳挂载） |
@@ -108,6 +109,24 @@
 - **✦ 立体浏览**：把照片按深度摊成点云、可拖动换视角。它是**浮雕/视差级的 2.5D**，
   不是能走进去的真实 3D；模型 18–26 MB，首次点要下（之后缓存）。细节见
   `modules/media/README.md` 的「立体浏览」一节（那里记着两个必须记住的坑）。
+
+## 3D 照片墙
+
+首页工具条和相册内工具条的「✦ 3D 照片墙」打开 `modules/media/PhotoOrbit.vue`：
+**整屏接管的照片场**（照站主给的那条「生命的年轮」视频做的）。照片从窗口四边穿过去、
+一圈一圈摊开、各在各的景深上；底色跟全站主题走（夜里深空、白天纸白）。
+
+- **永远摆全部照片**（`media.galleryItems`），不跟着当前相册走。
+- 照片**保留原生比例不裁**，大小差得很开（这就是深度的来源）。
+- 顶栏一排操作：巡航 / 散开 / 换摆法（年轮 · 星云）/ 打乱 / 远近 / 回中心 / 回相册；
+  底部年份胶囊可筛选。位置变化都带 0.82s 过渡，是「滑过去」不是瞬移。
+- 开关在 `media.galleryField`，由 `layouts/AppShell.vue` 挂载——它是 `position: fixed` 全屏，
+  放进这一页会被 `.page-content` 的 `transform` 框成内容区大小。
+
+**这一块前后改了四版**，别走回去：全屏深色「幕布」→ 带边框的小卡片 → 纸白照片场 →
+**现在这个跟主题走 + 一排可操作**的版本。要改就照视频/站主的反馈改结构，别自己发挥。
+
+实现与踩过的坑（指针捕获、stage 挡住点击、确定性布局、为什么不用 three.js）见 `modules/media/README.md`。
 
 ## 电影感播放
 

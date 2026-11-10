@@ -7,13 +7,40 @@
 
 | 文件 | 干什么 |
 | --- | --- |
-| `routes.js` | 路由表（页面 id ↔ 路径）。单独成文件，静态检查和测试可以直接 import 它而不需要构造浏览器 history。 |
-| `router.js` | 用 `routes.js` 创建 hash 路由实例。 |
+| `routes.js` | 路由表（页面 id ↔ 路径）。单独成文件，静态检查和测试可以直接 import 它而不需要构造浏览器 history。`meta.requiresAuth` 标记「要登录的页面」。 |
+| `router.js` | 用 `routes.js` 创建 hash 路由实例，并装上**路由守卫**（见下）。 |
 | `navigation.js` | 侧边栏两组导航项（主导航 / 「更多」），以及 `pageLabel()`。页面 id 同时是路由名。 |
-| `pageRegistry.js` | 页面 id → 页面组件。`study` 与 `perf` 在这里按需加载（它们各自带几百 kB）。 |
+| `pageRegistry.js` | 页面 id → 页面组件。`study` / `perf` / `clipboard` 在这里按需加载（它们各自带几百 kB）。 |
 | `usePageNav.js` | 当前页面 id、「更多」菜单开关、`go()` 跳转、`resolvePageName()`。 |
 | `useToast.js` | 全局轻提示 `notify()`。 |
-| `useGuard.js` | `requireLogin(action)`：未登录时提示并把人带到登录页。 |
+| `useGuard.js` | `requireLogin(action)`（写内容时的轻提示 + 跳登录页）与 `askLogin(action, reason)`（工具类页面的弹窗）。 |
+
+## 路由守卫：`/perf` 要登录
+
+只有带 `meta.requiresAuth` 的路由会被拦，目前只有 `/perf`：
+
+```
+router.beforeEach → 未登录？→ askLogin(...) → 跳到 /account
+```
+
+两个必须记住的点：
+
+- **要等 `auth.ready`。** Supabase 的会话是异步恢复的，刷新页面时第一次导航发生在它答复之前。
+  不 `await auth.restoreSession()` 就直接判 `isLoggedIn`，会把已登录的人当访客踢去登录页。
+- **拦下来要说明原因。** 手动敲地址的人会以为自己进错了，所以守卫带上 `gateName`，
+  由 `app/useGuard.js` 的 `loginPrompt` 把理由显示在那层弹窗里。
+
+`ssr-smoke` 用的是 `routes.js` 自己建的 router，**不经过这里**，所以渲染冒烟测不到守卫；
+要验守卫得在浏览器里打开 `#/perf`（未登录时应落到 `#/account` 并弹窗）。
+
+## `requireLogin` 与 `askLogin` 别混用
+
+| | 用在哪 | 表现 |
+| --- | --- | --- |
+| `requireLogin(action)` | 写内容的入口（写文章、上传照片、导入日记、移动照片…） | 一句 toast + 直接跳账号页 |
+| `askLogin(action, reason)` | 工具类页面（绩效计算器） | 弹一层对话框，说清为什么，由用户自己决定去不去登录 |
+
+判断标准：用户是**顺手点了一下**，还是**特意来用这个工具**。后者直接甩到登录页会让他以为点错了。
 | `useScrollChrome.js` | 下滑收起导航的状态机（rAF 节流 + 迟滞 + 冷却）。 |
 | `theme.js` | 主题的 provide/inject key。`@vueuse` 的 `useDark` 实例只在外壳里建一次。 |
 | `ids.js` | `localId()` / `isLocalId()`：区分「本机草稿」和「服务器记录」。 |

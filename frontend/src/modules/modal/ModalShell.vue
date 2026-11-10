@@ -6,7 +6,10 @@
 //
 // 阅读类弹窗（文章 / 日记）有自己的页眉排版（日期在左上、关闭按钮在右上），
 // 用 `bare` 跳过默认标题行，由调用方自己排。
-defineProps({
+import { onBeforeUnmount, onMounted } from 'vue'
+import { holdOverlay, releaseOverlay } from '@/app/useOverlay'
+
+const props = defineProps({
   kicker: { type: String, default: '' },
   title: { type: String, default: '' },
   /** kicker 后面那条小横线。 */
@@ -20,7 +23,26 @@ defineProps({
   as: { type: String, default: 'section' },
   closeLabel: { type: String, default: '关闭' },
 })
-defineEmits(['close'])
+const emit = defineEmits(['close'])
+void props
+
+/**
+ * Esc 也能关。九个弹窗原来只能点右上角的 ×、或者点背板，
+ * 键盘用户（以及在弹窗里打字打到一半的人）没有出口。
+ */
+function onKeydown(event) {
+  if (event.key === 'Escape') emit('close')
+}
+// 浮层一开就告诉全站：背景那些一直在动的东西可以停了。
+// 这块毛玻璃铺满视口，后面每动一下它就要重新模糊一遍——不停的话弹窗期间只有十来帧。
+onMounted(() => {
+  holdOverlay()
+  if (typeof window !== 'undefined') window.addEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => {
+  releaseOverlay()
+  if (typeof window !== 'undefined') window.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <template>

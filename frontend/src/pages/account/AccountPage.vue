@@ -12,8 +12,17 @@ const library = useLibraryStore()
 
 const authMode = ref('login')
 const authForm = ref({ email: '', password: '', displayName: '' })
+/** 点「创建一个」时如果注册是关着的，这段说明留在表单里，而不是一闪而过的 toast。 */
+const registerNotice = ref('')
 
 function switchMode() {
+  // 注册暂停期间，点「创建一个」只把话说清楚，不切表单：
+  // 切过去再在下面写一行「不能注册」是最糟的——用户会先以为自己能填。
+  if (authMode.value === 'login' && !auth.registrationOpen) {
+    registerNotice.value = auth.registrationClosedNotice
+    return
+  }
+  registerNotice.value = ''
   authMode.value = authMode.value === 'login' ? 'register' : 'login'
   auth.error = ''
 }
@@ -66,13 +75,18 @@ async function authenticate() {
           {{ auth.error.includes('localhost') || auth.error.includes('fetch') ? '账号服务暂时连接不上，请检查网络后重试。' : auth.error }}
         </p>
 
+        <p v-if="registerNotice" class="register-closed" role="status">
+          <strong>暂时不开放注册</strong>
+          {{ registerNotice }}
+        </p>
+
         <button class="button-primary account-submit" :disabled="auth.busy">
           {{ auth.busy ? '正在验证…' : authMode === 'login' ? '登录账号 ↗' : '创建账号 ↗' }}
         </button>
         <button class="button-text account-switch" type="button" @click="switchMode">
           {{ authMode === 'login' ? '还没有账号？创建一个' : '已有账号？返回登录' }}
         </button>
-        <small class="account-note">密码经过加密后保存。创建账号后，你可以逐篇决定哪些日记公开。</small>
+        <small class="account-note">密码经过加密后保存。登录后，你可以逐篇决定哪些日记公开。</small>
       </form>
     </div>
   </section>

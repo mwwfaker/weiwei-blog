@@ -28,6 +28,10 @@ const canEdit = computed(() => Boolean(media.currentAlbum?.mine))
 const slideshowPhotos = computed(() => (atHome.value ? media.galleryItems : media.visibleGallery))
 const slideshow = ref(null) // null = 没在播；数字 = 从第几张开始
 
+// 3D 照片墙是**fixed 全屏层**，挂在 `layouts/AppShell.vue` 上，开关在 `media.galleryField`：
+// 这一页所在的 `.page-content` 有入场动画留下的 transform，会把 fixed 层框成内容区大小。
+// 这一页只负责把它打开。照片永远给**全部**（`galleryItems`），不跟着当前相册走。
+
 /** 一张照片都没有、也一本相册都没有时才显示空状态：有盒子就该让盒子摆出来。 */
 const homeIsEmpty = computed(() => !media.galleryItems.length && !media.rootAlbums.length)
 /** 一级相册自己的照片为空、但下面有子相册：这时该说的话和「一张都没有」不一样。 */
@@ -66,6 +70,7 @@ function onPicked(event) {
         <span>{{ media.rootAlbums.length }} 本相册 · {{ media.loosePhotos.length }} 张散落在外面</span>
         <div class="album-home-tools">
           <button v-if="slideshowPhotos.length" class="album-manage" @click="slideshow = 0">▶ 电影感播放</button>
+          <button v-if="media.galleryItems.length" class="album-manage" @click="media.galleryField = true">✦ 3D 照片墙</button>
           <button v-if="auth.isLoggedIn" class="album-manage" @click="media.albumManager = true">管理相册</button>
         </div>
       </div>
@@ -120,6 +125,7 @@ function onPicked(event) {
         <div class="album-detail-tools">
           <span class="album-detail-meta">{{ media.visibleGallery.length }} 张照片</span>
           <button v-if="media.visibleGallery.length" class="album-detail-edit" @click="slideshow = 0">▶ 播放</button>
+          <button v-if="media.galleryItems.length" class="album-detail-edit" @click="media.galleryField = true">✦ 3D 照片墙</button>
           <button v-if="canEdit" class="album-detail-edit" @click="media.openAlbumEditor(media.currentAlbum)">编辑相册</button>
         </div>
       </header>
@@ -146,3 +152,4 @@ function onPicked(event) {
     />
   </section>
 </template>
+

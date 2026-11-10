@@ -24,8 +24,9 @@
 | 工具箱 | `/tools` | `tools/`（工具类页面都从这里进） |
 | 快捷复制 | `/clipboard` | `clipboard/`（整屏工具页，数据只在本机） |
 | 创作管理 | `/admin` | `admin/` |
-| 绩效计算器 | `/perf` | `perf/`（独立小项目，见它自己的 README） |
-| 账号 | `/account` | `account/` |
+| 绩效计算器 | `/perf` | `perf/`（独立小项目，**要登录**，见它自己的 README） |
+| 账号 | `/account` | `account/`（登录；注册当前暂停） |
+| 404 | `/:pathMatch(.*)*` | `notFound/`（**唯一一个没有导航入口的页面**） |
 
 > 「公开日记」没有独立文件夹：它是日记页里的第二个标签，由 `diaries.diaryTab` 控制。
 > 老的 `#/public-diary` 链接仍然能打开（见 `src/app/README.md`）。

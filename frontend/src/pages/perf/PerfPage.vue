@@ -219,10 +219,10 @@ const filteredQueues = computed(() => {
   return queues.value.filter((item) => item.name.toLowerCase().includes(q))
 })
 
-/** 每个队列的当月小计，用于左侧队列列表上显示金额。 */
+/** 每个队列的当月小计，用于左侧队列列表上显示金额，「数据可视化」的两张表也读它。 */
 const queueTotalsAll = computed(() => {
   const out = new Map()
-  for (const queue of queues.value) out.set(queue.name, { pay: 0, auditCount: 0, people: 0, standard: 0, actual: 0 })
+  for (const queue of queues.value) out.set(queue.name, { pay: 0, auditCount: 0, people: 0, standard: 0, actual: 0, available: 0, tripleCount: 0 })
   for (const row of computedAll.value.rows) {
     for (const line of row.result.lines) {
       const bucket = out.get(line.entry.queue)
@@ -231,16 +231,25 @@ const queueTotalsAll = computed(() => {
       bucket.auditCount += line.numbers.auditCount
       bucket.standard += line.numbers.standardSeconds
       bucket.actual += line.numbers.actualSeconds
+      bucket.tripleCount += line.numbers.tripleCount
+      // 「有效可用时长」= (月要求工时 + 加班) × 0.85 − 抽调。完成度的分母，
+      // 一个人一个值，按他在这个队列上的行累加。
+      bucket.available += ((Number(row.member.requiredHours) + Number(row.member.overtimeHours)) * constants.value.factor - Number(row.member.transferHours)) * 3600
       if (line.numbers.auditCount) bucket.people += 1
     }
   }
-  for (const bucket of out.values()) bucket.efficiency = bucket.actual > 0 ? bucket.standard / bucket.actual : 0
+  for (const bucket of out.values()) {
+    bucket.efficiency = bucket.actual > 0 ? bucket.standard / bucket.actual : 0
+    // 队列实际 AHT：按审核量加权（Σ实际时长 ÷ Σ审核量），不是各人 AHT 的算术平均
+    bucket.actualAht = bucket.auditCount > 0 ? bucket.actual / bucket.auditCount : 0
+    bucket.completion = bucket.available > 0 ? bucket.standard / bucket.available : 0
+  }
   return out
 })
 
 // ---- 数据可视化：统计口径都在 usePerfViz 里 --------------------------------
 const {
-  rankBy, rankOptions, ranked, vizStats, payStacks, queueStats, vizScatter, deviations, vizMatrix,
+  rankBy, rankOptions, ranked, vizStats, payStacks, queueStats, completionStats, vizScatter, deviations, vizMatrix,
 } = usePerfViz({ computedAll, queueTotalsAll, queues })
 
 // ---- 导出 ------------------------------------------------------------------
@@ -325,25 +334,45 @@ function queueRowsFor(queueName) {
   })
 }
 
-/** 一个队列的小计；同一个式子给视图和导出用。 */
+/**
+ * 一个队列的小计；同一个式子给视图和导出用。
+ *
+ * `actualAht` 是**整条队列**的实际 AHT：按审核量加权（Σ实际时长 ÷ Σ审核量），
+ * 不是把每个人的 AHT 算术平均。「审了 1 条的人」和「审了 9000 条的人」权重一样的话，
+ * 这个数字会被个别极端值带走，跟审核效率也对不上。
+ */
 function queueTotalsFor(rows) {
   let auditCount = 0
   let standard = 0
   let actual = 0
   let pay = 0
+  let tripleCount = 0
+  let available = 0
+  let filled = 0
   for (const row of rows) {
     if (!row.numbers) continue
     auditCount += row.numbers.auditCount
     standard += row.numbers.standardSeconds
     actual += row.numbers.actualSeconds
     pay += row.numbers.auditPay
+    tripleCount += row.numbers.tripleCount
+    available += ((Number(row.member?.requiredHours) + Number(row.member?.overtimeHours)) * constants.value.factor - Number(row.member?.transferHours)) * 3600
+    if (row.numbers.auditCount) filled += 1
   }
   return {
     auditCount,
+    tripleCount,
     standardHours: standard / 3600,
     hours: actual / 3600,
     efficiency: actual > 0 ? standard / actual : 0,
     pay,
+    // 队列实际 AHT（秒/条）
+    actualAht: auditCount > 0 ? actual / auditCount : 0,
+    // 人均审核量：只按「真的填了数据的人」平摊，否则空着的人会把人均拉低一半
+    perPerson: filled > 0 ? auditCount / filled : 0,
+    // 平均完成度：Σ标准时长 ÷ Σ有效可用时长，权重是各人自己的工时，不是人头
+    completion: available > 0 ? standard / available : 0,
+    filled,
   }
 }
 
@@ -467,6 +496,7 @@ const { trackCursor } = usePerfAura({ toolRef, auraRef })
           :queue-totals-all="queueTotalsAll"
           :active-member="activeMember"
           :member-summary="memberSummary"
+          :member-filled="memberFilled"
           :member-queue-rows="memberQueueRows"
           :queue-rows="queueRows"
           :queue-totals="queueTotals"
@@ -523,6 +553,7 @@ const { trackCursor } = usePerfAura({ toolRef, auraRef })
           :viz-stats="vizStats"
           :pay-stacks="payStacks"
           :queue-stats="queueStats"
+          :completion-stats="completionStats"
           :viz-matrix="vizMatrix"
           :viz-scatter="vizScatter"
           :deviations="deviations"
