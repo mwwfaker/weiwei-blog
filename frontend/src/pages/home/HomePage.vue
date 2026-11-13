@@ -50,8 +50,19 @@ const dayCount = computed(() => daysSinceBirth())
 const useScene = computed(() => !music.lowPower)
 
 const tip = ref(null)
+/**
+ * 没有 WebGL 就别去碰 three：它创建上下文失败时会**自己往控制台报错**（try/catch 拦不住
+ * 那几行日志），而且那份代码有 700KB。这里在挂载前探一次，探不到就直接走 CSS 星空。
+ */
+function hasWebGL() {
+  if (typeof document === 'undefined') return false
+  try {
+    const canvas = document.createElement('canvas')
+    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+  } catch { return false }
+}
 /** WebGL 起不来时（禁用 GPU、老设备、隐私模式）就退回 CSS 星空，别留一块黑画布盖着。 */
-const sceneFailed = ref(false)
+const sceneFailed = ref(!hasWebGL())
 
 function startDiary() {
   go('diary')
@@ -61,9 +72,9 @@ function startDiary() {
 
 <template>
   <DayGlass v-if="!isDark" />
-  <section v-else class="world">
+  <section v-else class="world" :class="{ 'is-sky-only': sceneFailed }">
     <HeroScene
-      v-if="useScene"
+      v-if="useScene && !sceneFailed"
       :key="isDark ? 'night' : 'day'"
       class="world-scene"
       :entries="heroEntries"

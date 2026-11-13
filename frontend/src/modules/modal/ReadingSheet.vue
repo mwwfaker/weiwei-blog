@@ -16,9 +16,43 @@
 // 全屏看图（`modules/media/GalleryViewer.vue`）复用的是同一份。
 //
 // 版面（head / 正文 / actions 三个插槽）与外观各归各，日记和文章各有自己的样式节。
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useDustClose } from '@/composables/useDustClose'
 import DustBurst from './DustBurst.vue'
+
+/**
+ * 打开阅读层时锁住页面滚动。
+ *
+ * 不锁的话：背景那张长页面还在滚，弹出层盖在上面，滚轮/触屏却滚的是下面——
+ * 关掉之后回到的不是原来那一段。这里把它锁住，并补上滚动条宽度，
+ * 避免「锁的一瞬间整页往右跳 15px」。
+ */
+let lock = null
+onMounted(() => {
+  if (typeof document === 'undefined') return
+  const body = document.body
+  const root = document.documentElement
+  const gap = window.innerWidth - root.clientWidth
+  // html 和 body 都要锁：这个站真正在滚的是 html（body 是 overflow:clip），
+  // 只锁 body 的话滚轮还是能把底下的长页面推走（实测能推动 59px）。
+  lock = {
+    bodyOverflow: body.style.overflow,
+    rootOverflow: root.style.overflow,
+    bodyPadding: body.style.paddingRight,
+  }
+  body.style.overflow = 'hidden'
+  root.style.overflow = 'hidden'
+  if (gap > 0) body.style.paddingRight = `${gap}px`
+})
+onUnmounted(() => {
+  if (typeof document === 'undefined' || !lock) return
+  const body = document.body
+  const root = document.documentElement
+  body.style.overflow = lock.bodyOverflow
+  root.style.overflow = lock.rootOverflow
+  body.style.paddingRight = lock.bodyPadding
+  lock = null
+})
 
 const props = defineProps({
   cardClass: { type: [String, Array, Object], default: '' },

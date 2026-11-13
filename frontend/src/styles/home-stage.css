@@ -146,8 +146,8 @@
   flex-direction: column;
   justify-content: center;
   gap: clamp(18px, 2.6vw, 30px);
-  min-height: 100svh;
-  padding: 110px 0;
+  min-height: 78svh;
+  padding: 72px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 /* 每章到达视口时淡入上移（v-reveal）。原来的 reveal 只有 16px 位移，
@@ -423,5 +423,33 @@
 /* ===== 2026-11-13 体检：节奏与可读性 ===================================
    1) 章节之间原本留了近一整屏空白，滚动起来发飘 —— 收一档。
    2) 日记摘要的小字在深底上偏暗，提到对比度更高的灰紫。 */
-.world-chapter { margin-top: clamp(56px, 7vh, 96px); }
-.world-diary small { color: color-mix(in srgb, var(--ink) 62%, transparent); }
+.world-chapter { margin-top: clamp(40px, 4.6vh, 64px); }
+.world-diary small { color: color-mix(in srgb, var(--ink) 78%, transparent); }
+
+/* 没有 WebGL 时（禁用 GPU / 旧设备 / 隐私模式）只剩 CSS 星空，右边会空一大块。
+   补一个印章式的「唯唯园」，让这个版本看起来是「设计好的」，而不是「渲染失败」。 */
+.world.is-sky-only .world-sky::after {
+  content: '唯唯园';
+  position: absolute;
+  right: 5vw;
+  top: 24%;
+  font-family: var(--serif);
+  font-size: clamp(72px, 13vw, 240px);
+  line-height: 1;
+  letter-spacing: .12em;
+  color: color-mix(in srgb, var(--ink) 9%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+.world.is-sky-only .world-sky::before {
+  content: '';
+  position: absolute;
+  right: -6vw;
+  top: 4%;
+  width: 46vw;
+  height: 46vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%);
+  filter: blur(40px);
+  opacity: .55;
+}
