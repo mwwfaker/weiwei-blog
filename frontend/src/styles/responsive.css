@@ -227,3 +227,21 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .to-top-enter-active, .to-top-leave-active { transition: opacity .2s ease, transform .2s ease; }
 .to-top-enter-from, .to-top-leave-to { opacity: 0; transform: translateY(10px); }
 @media (max-width: 560px) { .back-to-top { left: 14px; bottom: 84px; width: 38px; height: 38px; } }
+
+/* 手机上切主题时顶栏会「跳一下」：白天首页那条规则把 .topbar 改成 absolute + top:8px，
+   夜里是 relative + top:0 —— 同一块导航在两套主题里位置不一样。
+   屏幕小的时候不玩这套「导航压进光场」，两套主题统一成 absolute/top:0，
+   位置和高度就都一致了；内容区的避让由各有各的 padding-top 负责。 */
+@media (max-width: 760px) {
+  /* 选择器要写成 (0,4,0)：上面那条 `:root:not(.dark) .home-mode .topbar{top:8px}` 就是这个权重，
+     同权重的规则后写的才赢。两边都列出来，深浅主题落在同一个 top 上。 */
+  :root.dark .home-mode .topbar,
+  :root:not(.dark) .home-mode .topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9;
+  }
+  .home-mode .main-area { position: relative; }
+}
