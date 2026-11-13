@@ -70,6 +70,76 @@ function scrollTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// ---- 详情地址 ⇄ 抽屉 -------------------------------------------------------
+// 文章/日记原来是纯抽屉，地址停在列表页：不能分享、刷新就丢、后退也不是关掉它。
+// 现在详情有自己的地址（#/articles/:id、#/diary/:id），两边双向同步：
+//   · 地址有 id → 打开对应抽屉（刷新、分享链接、前进后退都走这条）
+//   · 点了文章/日记 → push 一个详情地址（这样后退就等于关掉）
+//   · 关闭按钮 → 地址换回列表
+const DETAIL_ROUTES = ['articleDetail', 'diaryDetail']
+
+function articleById(id) {
+  return articles.articles.find((item) => String(item.id) === String(id)) || null
+}
+function diaryById(id) {
+  return [...diaries.diaries, ...diaries.publicDiaries].find((item) => String(item.id) === String(id)) || null
+}
+
+function openFromRoute() {
+  if (route.name === 'articleDetail' && !articles.selectedArticle) {
+    const found = articleById(route.params.id)
+    if (found) articles.selectedArticle = found
+  }
+  if (route.name === 'diaryDetail' && !diaries.selectedDiary) {
+    const found = diaryById(route.params.id)
+    if (found) diaries.openReader(found, 'right')
+  }
+}
+
+watch(() => route.params.id, openFromRoute, { immediate: true })
+// 还要盯着路由名：刷新详情页时，params 在导航完成前就已经就位，
+// 光看 params 会在「名字还没变成 detail」的那一刻空跑一次，之后再没人来补。
+watch(() => route.name, () => openFromRoute(), { immediate: true })
+// 访客刷新详情页时，列表可能还在路上：等列表到了再补一次。
+watch(() => [articles.articles.length, diaries.diaries.length, diaries.publicDiaries.length], openFromRoute)
+
+watch(
+  () => articles.selectedArticle,
+  (article) => {
+    if (article && route.name !== 'articleDetail') {
+      router.push({ name: 'articleDetail', params: { id: String(article.id) } })
+    }
+  },
+)
+
+watch(
+  () => diaries.selectedDiary,
+  (entry) => {
+    if (entry && route.name !== 'diaryDetail') {
+      router.push({ name: 'diaryDetail', params: { id: String(entry.id) } })
+    }
+  },
+)
+
+// 离开详情（浏览器后退、或点了别的页）→ 把抽屉收掉
+watch(
+  () => route.name,
+  (name, old) => {
+    if (!DETAIL_ROUTES.includes(old) || DETAIL_ROUTES.includes(name)) return
+    if (articles.selectedArticle) articles.selectedArticle = null
+    if (diaries.selectedDiary) diaries.selectedDiary = null
+  },
+)
+
+function closeArticleReader() {
+  articles.selectedArticle = null
+  if (route.name === 'articleDetail') router.replace({ name: 'articles' })
+}
+
+function closeDiaryReader() {
+  diaries.selectedDiary = null
+  if (route.name === 'diaryDetail') router.replace({ name: 'diary' })
+}
 const { scrolled } = useScrollChrome({
   onViewportChange: () => {
     moreOpen.value = false
@@ -176,7 +246,7 @@ onUnmounted(() => {
     <DiaryReaderDialog
       v-if="diaries.selectedDiary"
       :entry="diaries.selectedDiary"
-      @close="diaries.selectedDiary = null"
+      @close="closeDiaryReader"
       @edit="diaries.openEdit"
       @export="diaries.exportOne"
     />
@@ -184,7 +254,7 @@ onUnmounted(() => {
     <ArticleReaderDialog
       v-if="articles.selectedArticle"
       :article="articles.selectedArticle"
-      @close="articles.selectedArticle = null"
+      @close="closeArticleReader"
       @edit="articles.edit"
       @remove="articles.remove"
     />

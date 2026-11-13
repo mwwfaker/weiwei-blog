@@ -13,6 +13,11 @@ export const routes = [
   { path: '/about', name: 'about', component: NoopView },
   { path: '/study', name: 'study', component: NoopView },
   { path: '/articles', name: 'articles', component: NoopView },
+  // 文章 / 日记的详情页。
+  // 它们不是独立版式：外壳仍然渲染列表页，抽屉由地址决定开不开。
+  // 这样链接能分享、刷新能停在原处、浏览器后退等于关掉抽屉。
+  { path: '/articles/:id', name: 'articleDetail', component: NoopView, meta: { page: 'articles' } },
+  { path: '/diary/:id', name: 'diaryDetail', component: NoopView, meta: { page: 'diary' } },
   { path: '/diary', name: 'diary', component: NoopView },
   { path: '/public-diary', name: 'publicDiary', component: NoopView },
   { path: '/gallery', name: 'gallery', component: NoopView },

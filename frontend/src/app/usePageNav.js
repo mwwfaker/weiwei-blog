@@ -35,6 +35,15 @@ export function closeMoreMenu() {
  */
 export function resolvePageName(name, { onLegacyPublicDiary } = {}) {
   if (typeof name !== 'string') return 'ignored'
+  // 详情路由复用列表页的版式：只是抽屉开着，页面本身还是 articles / diary。
+  if (name === 'articleDetail') {
+    currentPage.value = 'articles'
+    return 'applied'
+  }
+  if (name === 'diaryDetail') {
+    currentPage.value = 'diary'
+    return 'applied'
+  }
   if (name === 'publicDiary') {
     currentPage.value = 'diary'
     onLegacyPublicDiary?.()

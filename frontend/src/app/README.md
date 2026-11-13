@@ -61,3 +61,20 @@ router.beforeEach → 未登录？→ askLogin(...) → 跳到 /account
 
 「公开日记」已经并进「日记」页当第二个标签。`resolvePageName()` 在遇到 `publicDiary` 时会把页面
 切到 `diary`、把标签切到 `public`，然后把地址替换成 `#/diary`。所以旧链接仍然能打开。
+
+## 详情型地址（`meta.page`）
+
+文章与日记的「抽屉」不是独立版式，但需要能被分享和刷新，所以它们有自己的地址：
+
+```
+/articles/:id   name: articleDetail   meta: { page: 'articles' }
+/diary/:id      name: diaryDetail     meta: { page: 'diary' }
+```
+
+规则：**带 `meta.page` 的路由复用那个页面的组件**，不必在 `pageComponents` 里再登记一份。
+`usePageNav.resolvePageName` 负责把 `articleDetail → articles` 映射过去（外壳按页面 id 渲染），
+第 [3] 项检查会验证 `meta.page` 指向的页面确实存在。
+
+抽屉与地址的双向同步在 `layouts/AppShell.vue`：地址有 id 就开抽屉（含刷新、分享、前进后退），
+点开内容就 `push` 详情地址（于是后退等于关闭），点 `×` 就 `replace` 回列表。
+加新的「详情型地址」时照这套来，别在页面里各写一份。

@@ -173,8 +173,15 @@ const registryBlock = registrySource.match(/export const pageComponents = \{([\s
 const registered = new Set(registryBlock ? [...registryBlock[1].matchAll(/^\s*'?([A-Za-z][\w-]*)'?\s*:/gm)].map((m) => m[1]) : [])
 if (!registryBlock) fail('app/pageRegistry.js 里找不到 pageComponents')
 
+// 详情类路由（#/articles/:id）复用列表页的组件：`meta.page` 写明实际渲染哪个页面。
+// 这类路由不该在 pageComponents 里再登记一份，但要检查它指向的页面确实存在。
+const routePageOf = new Map([...routesSource.matchAll(/path:\s*'[^']*'[^}]*?name:\s*'([^']+)'[^}]*?meta:\s*\{[^}]*?page:\s*'([^']+)'/g)].map((m) => [m[1], m[2]]))
 const unrouted = [...pageIds].filter((id) => !routeNames.has(id)).sort()
-const unregistered = [...routeNames].filter((name) => !registered.has(name) && name !== 'publicDiary').sort()
+const unregistered = [...routeNames].filter((name) => {
+  if (registered.has(name) || name === 'publicDiary') return false
+  const page = routePageOf.get(name)
+  return !(page && registered.has(page))
+}).sort()
 const unusedRoutes = [...routeNames].filter((name) => !pageIds.has(name)).sort()
 if (unrouted.length) fail(`有页面 id 但没有对应路由: ${unrouted.join(', ')}`)
 if (unregistered.length) fail(`有路由但页面注册表里没有组件: ${unregistered.join(', ')}`)

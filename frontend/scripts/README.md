@@ -81,3 +81,7 @@ npm run new:page -- stats "数据看板" --primary  # 进主导航
   装依赖才能跑的自检，最后一定没人跑。
 - **放在 `frontend/scripts/` 而不是仓库根目录。** 它们检查的都是前端，工作目录统一是 `frontend`，
   相对路径直接从 `../src/` 开始写。
+
+第 [3] 项里，「详情型路由」用 `meta: { page: 'articles' }` 声明它渲染哪个页面，不必在
+`pageComponents` 再登记一份；脚本会检查 `meta.page` 指向的页面**确实已注册**。
+这样 `#/articles/:id` 这类路由既能通过检查，也不会让注册表里出现同义重复的键。
