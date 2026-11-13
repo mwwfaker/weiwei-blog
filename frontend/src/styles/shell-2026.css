@@ -1,4 +1,4 @@
-﻿/* 2026 全站换壳：悬浮顶栏 + 通栏内容 + 底部胶囊 dock + 页面液态转场。
+/* 2026 全站换壳：悬浮顶栏 + 通栏内容 + 底部胶囊 dock + 页面液态转场。
  *
  * 这一份接在 index.css 的 import 列表**最后**，它要压过 base / editorial / polish 里
  * 对 .main-area、.topbar、.sidebar、卡片、按钮的既有规则。新增样式文件只能接在末尾。
@@ -295,16 +295,6 @@
 .topbar-links button:hover { color: var(--ink); }
 .topbar-links button.active { color: var(--ink); border-bottom-color: var(--ink); }
 .topbar-actions { gap: 10px; }
-.topbar-theme {
-  display: grid; place-items: center;
-  width: 32px; height: 32px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: none;
-  color: var(--ink);
-  font-size: 14px;
-  cursor: pointer;
-}
 .nav-more-panel {
   position: fixed;
   top: 74px;

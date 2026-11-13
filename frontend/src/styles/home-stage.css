@@ -354,7 +354,6 @@
 .home-mode .topbar-links button { color: rgba(232,226,250,.62); }
 .home-mode .topbar-links button:hover { color: #fff; }
 .home-mode .topbar-links button.active { color: #fff; border-bottom-color: rgba(255,255,255,.7); }
-.home-mode .topbar-theme { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: #f6f3ff; }
 .home-mode .world-intro { padding-top: 150px; }
 .home-mode .world-intro { padding-top: 96px; }
 
@@ -405,7 +404,6 @@
 :root:not(.dark) .home-mode .topbar-more { color: var(--muted); }
 :root:not(.dark) .home-mode .topbar-links button:hover,
 :root:not(.dark) .home-mode .topbar-links button.active { color: var(--ink); border-bottom-color: var(--ink); }
-:root:not(.dark) .home-mode .topbar-theme { border-color: var(--line); background: none; color: var(--ink); }
 
 /* ---------- 夜里首页的入场：等启动页淡出后逐行升起 ---------- */
 .world-intro > * { animation: worldRise 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both; }

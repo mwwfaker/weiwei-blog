@@ -268,3 +268,14 @@ body.overlay-open::before{animation-play-state:paused}
 body.overlay-open .page-frame *,
 body.overlay-open .page-frame *::before,
 body.overlay-open .page-frame *::after{animation-play-state:paused!important}
+
+/* 关于页图片上那句小话：原来挂着 backdrop-filter: blur(8px)（全站性能那一轮定的规矩是
+   小元素也尽量别用），而且四角与图片的 8px 圆角对不上，看着像贴上去的另一块东西。
+   改成实底 + 与圆角呼应，四条边距统一 14px。 */
+.about-image > span {
+  left: 14px;
+  bottom: 14px;
+  border-radius: 10px;
+  backdrop-filter: none;
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, .7);
+}
