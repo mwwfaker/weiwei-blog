@@ -423,3 +423,18 @@
 @media (prefers-reduced-motion: reduce) {
   .glass-field::after, .glass-copy > *, .glass-pane, .glass-chip { animation: none; }
 }
+
+/* 白天首页整块要铺满屏幕：它原来是 .main-area 里的一个普通块，
+   而 .main-area 在 ≥1500px 上是 max-width:1512 居中的，于是左右各留 204px 的
+   页面底色——和这块渐变放在一起就是一条明显的「色差带」。
+   这里让它突破容器宽度（100vw + 负 margin），内层 .glass-inner 仍然是 1180 居中。 */
+.glass-home {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* 光靠 100vw 不够：`.page-frame` 是 `overflow: clip`，会把超出 1512 的那部分裁掉，
+   于是左右仍然是页面底色。白天首页这一层不需要裁（页面本身 body 已 overflow:clip，
+   不会出现横向滚动条），所以单独放开。 */
+:root:not(.dark) .home-mode .page-frame { overflow: visible; }
