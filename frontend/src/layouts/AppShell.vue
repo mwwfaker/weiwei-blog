@@ -140,6 +140,27 @@ function closeDiaryReader() {
   diaries.selectedDiary = null
   if (route.name === 'diaryDetail') router.replace({ name: 'diary' })
 }
+// ---- 标签页标题 -------------------------------------------------------------
+// 之前所有页面共用 index.html 里那一个标题：开三个标签分不清、收藏夹里也是一堆同名。
+// 这里按当前页面（或打开的文章/日记）更新，改名不动任何版面。
+const BASE_TITLE = '唯唯园 · 把日子写成喜欢的样子'
+const PAGE_TITLES = {
+  home: BASE_TITLE, about: '关于我', study: '学习', articles: '文章', diary: '日记',
+  gallery: '相册', music: '音乐', messages: '留言板', admin: '创作管理',
+  account: '账号', tools: '工具箱', clipboard: '快捷复制', perf: '绩效计算器', notFound: '找不到这一页',
+}
+
+watch(
+  [currentPage, () => articles.selectedArticle, () => diaries.selectedDiary],
+  ([page, article, diary]) => {
+    if (typeof document === 'undefined') return
+    const detail = article?.title || diary?.title
+    if (detail) { document.title = `${detail} · 唯唯园`; return }
+    const label = PAGE_TITLES[page]
+    document.title = !label || label === BASE_TITLE ? BASE_TITLE : `${label} · 唯唯园`
+  },
+  { immediate: true },
+)
 const { scrolled } = useScrollChrome({
   onViewportChange: () => {
     moreOpen.value = false
