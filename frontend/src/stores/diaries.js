@@ -38,6 +38,8 @@ export const useDiariesStore = defineStore('diaries', () => {
   const search = ref('')
   const remotePublicDiaries = ref([])
   const publicDiariesLoaded = ref(false)
+  /** 「自己那一份」是否已经取过。admin 之类不碰日记页的入口靠它决定要不要补一次 refresh。 */
+  const ownLoaded = ref(false)
 
   const selectedDiary = ref(null)
   /**
@@ -132,6 +134,7 @@ export const useDiariesStore = defineStore('diaries', () => {
     if (auth.isLoggedIn) {
       try { own = (await request('/api/diaries', { token: auth.token })).map((entry) => ({ ...mapDiary(entry), mine: true })) }
       catch (error) { notify(`无法同步日记：${error.message}`) }
+      if (own) ownLoaded.value = true
     }
     // 本机草稿（旧版本在未登录时写的）不再自动上传，只留在当前浏览器里。
     const localDrafts = diaries.value.filter((entry) => isLocalId(entry.id)).map((entry) => ({ ...entry, mine: false, local: true }))
@@ -305,7 +308,7 @@ export const useDiariesStore = defineStore('diaries', () => {
   }
 
   return {
-    diaries, diaryTab, diaryScope, search, remotePublicDiaries, publicDiariesLoaded,
+    diaries, diaryTab, diaryScope, search, remotePublicDiaries, publicDiariesLoaded, ownLoaded,
     selectedDiary, selectedDiaryFrom, diaryDialog, draft, importReview, importDialog, importVisibility, importing, importSaved,
     filteredDiaries, publicDiaries, showMyDiary, homeShowsOwnDiaries, homeDiaries,
     emptyDraft, diaryPayload, mapDiary,

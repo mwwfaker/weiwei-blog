@@ -1,16 +1,24 @@
 <script setup>
 // 创作管理的四个数字。数据直接来自各 store，不再在页面里拼一个临时数组。
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { vReveal } from '@/composables/motion'
 import { useArticlesStore } from '@/stores/articles'
 import { useDiariesStore } from '@/stores/diaries'
 import { useMediaStore } from '@/stores/media'
 import { useMusicStore } from '@/stores/music'
+import { useAuthStore } from '@/stores/auth'
 
 const articles = useArticlesStore()
 const diaries = useDiariesStore()
 const media = useMediaStore()
 const music = useMusicStore()
+const auth = useAuthStore()
+
+// 创作管理不经过日记页，所以「自己的日记」可能一次都没取过 → 这里显示 0。
+// 进这一页时补一次；已取过就不重复请求。
+onMounted(() => {
+  if (auth.isLoggedIn && !diaries.ownLoaded) diaries.refresh()
+})
 
 const stats = computed(() => [
   { label: '文章', value: articles.articles.length, note: '文章和分类' },
