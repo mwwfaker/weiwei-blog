@@ -21,6 +21,12 @@ const profile = useProfileStore()
 
 const latest = computed(() => articles.articles.slice(0, 3))
 const recentDiaries = computed(() => diaries.homeDiaries)
+/**
+ * 日记数要和日记页同一口径：登录且看自己时数自己的，否则数公开的。
+ * 这里原来写死 `diaries.diaries.length`，白天首页那一栏永远是「日记 0 篇」——
+ * 夜里那套首页修过一次，这里是同一个 bug 的第二份拷贝。
+ */
+const diaryCount = computed(() => (diaries.homeShowsOwnDiaries ? diaries.diaries : diaries.publicDiaries).length)
 // 和夜里那套首页共用同一个来源（app/birthday.js），别再各算各的。
 const dayCount = computed(() => daysSinceBirth())
 
@@ -119,7 +125,7 @@ function startDiary() {
           <h2>去别处</h2>
         </header>
         <nav class="glass-doors" aria-label="其他页面">
-          <button class="glass-door" @click="go('diary')"><em>日记</em><small>{{ diaries.diaries.length }} 篇</small><i>↗</i></button>
+          <button class="glass-door" @click="go('diary')"><em>日记</em><small>{{ diaryCount }} 篇</small><i>↗</i></button>
           <button class="glass-door" @click="go('gallery')"><em>相册</em><small>{{ media.allPhotoCount }} 张</small><i>↗</i></button>
           <button class="glass-door" @click="go('music')"><em>音乐</em><small>{{ music.playableTracks.length }} 首</small><i>↗</i></button>
         </nav>
