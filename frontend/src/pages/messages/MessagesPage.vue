@@ -23,7 +23,7 @@ const guestbook = useGuestbookStore()
       <button class="button-primary">留下这句话 ↗</button>
     </form>
 
-    <div class="message-list">
+    <div v-if="guestbook.messages.length" class="message-list">
       <article v-for="(message, index) in guestbook.messages" :key="message.id" class="message-card">
         <span class="message-avatar">{{ message.name.slice(0, 1) }}</span>
         <div>
@@ -32,6 +32,12 @@ const guestbook = useGuestbookStore()
         </div>
         <span class="message-index">{{ String(index + 1).padStart(2, '0') }}</span>
       </article>
+    </div>
+
+    <!-- 还没有留言时不摆一排空位，直接说一句「你是第一个」 -->
+    <div v-else class="message-empty">
+      <span aria-hidden="true">✉</span>
+      <p>还没有人留言。你是第一个。</p>
     </div>
   </section>
 </template>

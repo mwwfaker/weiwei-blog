@@ -2,9 +2,11 @@ import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { readStoredJson, writeStoredJson } from '@/services/storage'
 import { notify } from '@/app/useToast'
-import { demoMessages } from '@/data/seed'
 
-const MESSAGES_KEY = 'weiwei-blog-messages-v1'
+// v2：不再用 demoMessages 垫底。新访客一进来看到三条「示例留言」，分不清真假；
+// 站主也要求把最初的三条和测试时那一条都清掉。换键之后旧数据不再被读出
+// （它还在 localStorage 里，没主动删——真要捞回来还能捞）。
+const MESSAGES_KEY = 'weiwei-blog-messages-v2'
 
 /**
  * 留言板。
@@ -17,7 +19,7 @@ const MESSAGES_KEY = 'weiwei-blog-messages-v1'
  * 别再把「只在某一个页面用到」的状态提前塞进全站 store。
  */
 export const useGuestbookStore = defineStore('guestbook', () => {
-  const messages = ref(readStoredJson(MESSAGES_KEY, null) || demoMessages)
+  const messages = ref(readStoredJson(MESSAGES_KEY, null) || [])
   watch(messages, (value) => writeStoredJson(MESSAGES_KEY, value), { deep: true })
   const messageDraft = ref({ name: '', content: '' })
 

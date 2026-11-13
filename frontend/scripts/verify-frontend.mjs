@@ -221,7 +221,6 @@ const KNOWN_UNSTYLED = new Set([
   'modules/media/MediaEditorDialog.vue → .visibility-field',
   'modules/music/MusicEditorDialog.vue → .visibility-field',
   'modules/music/MusicLibrary.vue → .danger-icon',
-  'pages/about/AboutPage.vue → .about-page',
   'pages/messages/MessagesPage.vue → .message-list',
 ])
 const scopedCssByFile = new Map()

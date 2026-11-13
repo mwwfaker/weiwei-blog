@@ -279,3 +279,89 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
   backdrop-filter: none;
   box-shadow: 0 10px 24px -16px rgba(0, 0, 0, .7);
 }
+
+/* ---------- 关于我（2026-11 重排） -------------------------------------- */
+.about-page { padding-bottom: 80px; }
+.about-card {
+  display: grid;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: stretch;
+  padding: clamp(18px, 2.4vw, 30px);
+  border-radius: 24px;
+}
+.about-image { height: clamp(300px, 46vh, 460px); border-radius: 18px; }
+.about-image img { transition: transform .9s cubic-bezier(.2,.7,.2,1); }
+.about-card:hover .about-image img { transform: scale(1.03); }
+.about-copy { padding: 6px 4px 4px; display: flex; flex-direction: column; }
+.about-copy h1 { margin: 10px 0 14px; }
+.about-lead { margin: 0 0 12px; font-size: 15px; line-height: 1.9; color: var(--ink); }
+.about-body { margin: 0 0 20px; font-size: 13.5px; line-height: 2.05; color: var(--muted); }
+.about-tags { margin: 0 0 22px; }
+.about-tags span {
+  padding: 6px 13px; border-radius: 999px; font-size: 11.5px;
+  border: 1px solid var(--line); color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+}
+.about-stats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px; margin: 0 0 24px; padding: 14px 0;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.about-stat {
+  display: grid; gap: 3px; padding: 6px 4px; border: 0; border-radius: 10px;
+  background: transparent; text-align: left; cursor: pointer;
+  transition: background-color .2s ease;
+}
+.about-stat:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.about-stat strong { font-family: var(--serif); font-size: clamp(20px, 2vw, 26px); font-weight: 500; color: var(--ink); line-height: 1; }
+.about-stat small { font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.about-copy .button-primary { align-self: flex-start; }
+
+.about-recent { margin-top: clamp(36px, 5vh, 64px); }
+.about-recent-head { position: relative; margin-bottom: 6px; }
+.about-recent-head h2 { margin: 6px 0 0; font-family: var(--serif); font-size: clamp(24px, 2.6vw, 32px); font-weight: 500; }
+.about-recent-more {
+  position: absolute; right: 0; bottom: 6px; padding: 0; border: 0; background: none;
+  font-size: 11.5px; letter-spacing: .06em; color: var(--muted); cursor: pointer;
+}
+.about-recent-more:hover { color: var(--accent); }
+.about-recent ul { list-style: none; margin: 0; padding: 0; }
+.about-recent li button {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr) 220px; gap: 18px; align-items: baseline;
+  width: 100%; padding: 16px 4px; border: 0; border-top: 1px solid var(--line);
+  background: transparent; text-align: left; cursor: pointer; transition: padding-left .22s ease;
+}
+.about-recent li button:hover { padding-left: 12px; }
+.about-recent time { font-size: 10.5px; letter-spacing: .12em; color: var(--muted); }
+.about-recent strong { font-family: var(--serif); font-size: 16.5px; font-weight: 500; color: var(--ink); }
+.about-recent small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 1024px) {
+  .about-card { grid-template-columns: 1fr; }
+  .about-image { height: 260px; }
+  .about-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .about-recent li button { grid-template-columns: 78px minmax(0, 1fr); }
+  .about-recent small { display: none; }
+}
+@media (max-width: 560px) {
+  .about-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .about-recent li button { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* 留言板的空状态：没有留言时不摆空卡片 */
+.message-empty {
+  display: grid; place-items: center; gap: 12px;
+  padding: 64px 20px; margin-top: 20px;
+  border: 1px dashed var(--line); border-radius: 18px;
+  color: var(--muted); text-align: center;
+}
+.message-empty span { font-size: 26px; opacity: .6; }
+.message-empty p { margin: 0; font-size: 13px; line-height: 1.9; }
+
+/* 留言卡片：轻微抬升 + 头像描边 + 序号更淡，读起来有层次但不抢戏 */
+.message-card { transition: border-color .22s ease, transform .22s ease, box-shadow .22s ease; }
+.message-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow: 0 16px 34px -26px rgba(10, 6, 30, .9); }
+.message-avatar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.message-index { opacity: .45; }
+.message-meta time { font-variant-numeric: tabular-nums; }
