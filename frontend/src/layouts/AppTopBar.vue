@@ -5,7 +5,7 @@
 //   · 首页有一套自己的「一行字」导航、内页是另一套玻璃胶囊 + 底部 dock——换个页面像换了个站；
 //   · dock 浮在内容上，窄屏还会压住最后一屏。
 // 现在只剩这一条：品牌、页面链接、「更多」、主题。
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { navigation, secondaryNavigation } from '@/app/navigation'
 import { closeMoreMenu, currentPage, go, moreOpen } from '@/app/usePageNav'
 import { useIsDark } from '@/app/theme'
@@ -17,6 +17,19 @@ const profile = useProfileStore()
 const isDark = useIsDark()
 
 const links = computed(() => navigation.filter((item) => item.id !== 'home'))
+
+// 切主题时左上角的标记转一圈：一个小反馈，告诉人「这一下生效了」。
+// 只转 620ms，转完把类摘掉，否则下次切换不会重播动画（同一个类不会重新触发 keyframes）。
+const spinning = ref(false)
+let spinTimer = 0
+watch(isDark, () => {
+  spinning.value = false
+  clearTimeout(spinTimer)
+  requestAnimationFrame(() => {
+    spinning.value = true
+    spinTimer = setTimeout(() => { spinning.value = false }, 620)
+  })
+})
 const moreButton = ref(null)
 const panelStyle = ref({})
 
@@ -62,7 +75,7 @@ onUnmounted(() => {
 <template>
   <header class="topbar" :class="{ 'is-condensed': condensed }">
     <button class="topbar-brand" aria-label="回到首页" @click="go('home')">
-      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span class="brand-mark" :class="{ 'is-spinning': spinning }" aria-hidden="true"><span></span><span></span><span></span></span>
       <span class="topbar-brand-copy"><strong>唯唯园</strong><small>WEIWEI'S LITTLE GARDEN</small></span>
     </button>
 

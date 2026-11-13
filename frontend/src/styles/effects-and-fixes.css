@@ -334,3 +334,14 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
 .message-avatar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, var(--line)); }
 .message-index { opacity: .45; }
 .message-meta time { font-variant-numeric: tabular-nums; }
+
+/* 切主题时左上角标记转一圈。基准角度是 -7deg（base.css 里那个歪着的方块），
+   所以转到 353deg 正好是一整圈后落回原位，不会「转完还歪一点」。 */
+.brand-mark.is-spinning { animation: brandMarkSpin .62s cubic-bezier(.34, .8, .3, 1) both; }
+@keyframes brandMarkSpin {
+  from { transform: rotate(-7deg); }
+  to { transform: rotate(353deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark.is-spinning { animation: none; }
+}
