@@ -579,6 +579,36 @@ const routes = [
     return (rows || []).map(articleView)
   }],
 
+  // ---- 留言板：全公开，谁都能读、谁都能写（不需要账号）----
+  ['GET', /^\/api\/messages$/, async () => {
+    const rows = unwrap(await supabase.from('guestbook_messages').select('*')
+      .order('created_at', { ascending: false }).limit(200))
+    return (rows || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      date: String(row.created_at || '').slice(0, 10),
+      createdAt: row.created_at,
+    }))
+  }],
+
+  ['POST', /^\/api\/messages$/, async ({ body }) => {
+    // 不 requireUser：这是匿名留言板。限长在客户端和 RLS 里各挡一次，
+    // 客户端是体验（早报错），RLS 是底线（绕过前端也写不进超长内容）。
+    const name = String(body.name || '').trim().slice(0, 30)
+    const content = String(body.content || '').trim().slice(0, 500)
+    if (!name || !content) throw new Error('昵称和留言都要填')
+    const rows = unwrap(await supabase.from('guestbook_messages').insert({ name, content }).select())
+    const row = Array.isArray(rows) ? rows[0] : rows
+    return {
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      date: String(row.created_at || '').slice(0, 10),
+      createdAt: row.created_at,
+    }
+  }],
+
   ['GET', /^\/api\/public\/media$/, async () => {
     const rows = unwrap(await supabase.from('media_assets').select('*')
       .eq('kind', 'IMAGE').eq('visibility', 'PUBLIC').order('created_at', { ascending: false }))

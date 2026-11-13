@@ -1,3 +1,23 @@
+## 2026 · 关于我只动版面；留言板搬进数据库（匿名可读可写）
+
+**关于我**：上一版加了「四个数字」和「最近在写」，站主说「我只是让你美化，不是让你再加这些内容」——
+那些数字在首页已经到处都是。所以撤掉两块内容，只留版面整理：两栏比例、图片圆角与悬停、
+引言/正文两级字号、标签描边。页面上的文字和原来一模一样。
+
+**留言板**：从「只存在本机」变成真的数据库。
+
+- 新表 `public.guestbook_messages`：`name`（1–30）、`content`（1–500）、`created_at`。
+- RLS：`select using (true)` + `insert with check (长度)`，`anon` 与 `authenticated` 都给
+  `grant select, insert`。**没有 update / delete 策略**，所以留言不能被改、不能被删。
+- 接口 `GET/POST /api/messages`，POST 不 `requireUser()`。
+- store 从 localStorage 改成 `request()`；页面加了加载中 / 失败重试 / 空状态三种形态。
+- 提示语从「留言已添加到预览」改成「留言已发布」。
+
+⚠️ **这份 schema 还没应用**：本机没有 `SUPABASE_ACCESS_TOKEN`。
+要生效得跑一次 `node supabase/apply.mjs`（带 token），或在 Supabase SQL Editor 里执行那段 SQL。
+没应用之前，留言板和以前一样读不到东西（接口会报表不存在）。
+
+---
 ## 2026 · 关于我重排 + 留言板清空
 
 **关于我**：还是最早那版两栏卡，右边只有一段话。重排成：

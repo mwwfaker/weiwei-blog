@@ -489,6 +489,38 @@ create policy weiwei_assets_models_update on storage.objects for update to authe
 --   where table_schema = 'public' and grantee in ('anon', 'authenticated', 'service_role')
 --   group by table_name, grantee order by table_name, grantee;
 
+-- ---------------------------------------------------------------- 留言板
+-- 全公开：谁都能读，**不需要账号**就能写。所以这张表没有 owner_id
+-- （留言属于谁不重要，也不需要「只能改自己的」这类规则）。
+-- 限长写进 check，靠 RLS 兜住：就算有人绕过前端直接打接口，也写不进超长内容。
+create table if not exists public.guestbook_messages (
+  id bigint generated always as identity primary key,
+  name text not null check (char_length(btrim(name)) between 1 and 30),
+  content text not null check (char_length(btrim(content)) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists guestbook_messages_created_idx
+  on public.guestbook_messages (created_at desc);
+
+alter table public.guestbook_messages enable row level security;
+
+-- 读：所有人（含匿名）
+drop policy if exists guestbook_read_all on public.guestbook_messages;
+create policy guestbook_read_all on public.guestbook_messages for select using (true);
+
+-- 写：所有人（含匿名）。with check 再挡一次空内容和超长
+drop policy if exists guestbook_insert_all on public.guestbook_messages;
+create policy guestbook_insert_all on public.guestbook_messages for insert
+  with check (
+    char_length(btrim(name)) between 1 and 30
+    and char_length(btrim(content)) between 1 and 500
+  );
+
+-- 没有 update / delete 策略 = 谁都不能改、不能删（站主要删留言得用 SQL / 后台）
+grant select, insert on public.guestbook_messages to anon, authenticated;
+grant usage, select on sequence public.guestbook_messages_id_seq to anon, authenticated;
+
 -- 让 PostgREST 立刻重读一次结构。少了这句，刚建好的表可能还会继续回
 -- "Could not find the table ... in the schema cache" 一段时间——前端看到的
 -- 就是「点了创建没反应，弹一句英文」，和真的没建表一模一样。
