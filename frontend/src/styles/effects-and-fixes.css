@@ -288,16 +288,19 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
 
 .about-card {
   display: grid;
-  grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+  grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
   gap: clamp(20px, 3vw, 40px);
   align-items: start;
   max-width: 1080px;
+  min-height: clamp(440px, 58vh, 600px);
   margin: 0 auto;
   padding: clamp(16px, 2vw, 24px);
   border-radius: 22px;
 }
 /* 两栏等高：图片跟着卡片高度走，右栏短一点也不会在左下角留一块空 */
-.about-image { height: clamp(280px, 34vh, 360px); border-radius: 16px; }
+/* 卡片撑到半个多视口高，图片跟着卡片走（cover，不拉伸变形） */
+.about-image { height: 100%; min-height: 300px; border-radius: 16px; }
+.about-image img { height: 100%; object-fit: cover; }
 .about-image img { height: 100%; object-fit: cover; }
 .about-image img { transition: transform .9s cubic-bezier(.2,.7,.2,1); }
 .about-card:hover .about-image img { transform: scale(1.03); }

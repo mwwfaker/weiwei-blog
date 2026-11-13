@@ -49,7 +49,11 @@ const music = useMusicStore()
 const profile = useProfileStore()
 const library = useLibraryStore()
 
-const isDark = useDark({ initialValue: 'dark' })
+// 默认白天主题（2026-11 站主定）。
+// 存储键也换了：站点以前默认深色，浏览器里存的 `vueuse-color-scheme: dark` 其实只是
+// 「当时的默认值」，不是谁的选择。沿用旧键会让所有人继续看到深色，所以换成 `weiwei-theme`，
+// 老值不再被读；之后用户手动切换的选择仍然会记住。
+const isDark = useDark({ initialValue: 'light', storageKey: 'weiwei-theme' })
 provide(THEME_KEY, isDark)
 
 // 主题一换，浏览器地址栏的颜色也要跟着换（index.html 里只处理了首屏那一次）。

@@ -22,12 +22,12 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
     <!-- 启动页：在 JS 与样式表到达之前就能画出来，所以必须是内联的。
-         主题读 localStorage 的 vueuse-color-scheme，和应用里的 useDark 用同一个键；
+         主题读 localStorage 的 weiwei-theme，和应用里的 useDark 用同一个键（2026-11 从 vueuse-color-scheme 换过来：旧键里的 dark 只是当年的默认值，不该继续生效）；
          夜里是星空 + 轨道，白天是玻璃 + 光扫过。app/boot.js 在挂载后把它收掉。 -->
     <script>
       (function () {
-        var saved = 'dark'
-        try { saved = localStorage.getItem('vueuse-color-scheme') || 'dark' } catch (error) { /* 隐私模式 */ }
+        var saved = 'light'
+        try { saved = localStorage.getItem('weiwei-theme') || 'light' } catch (error) { /* 隐私模式 */ }
         // 'auto' 跟随系统：启动页必须在应用挂载前就选对那一套，否则第一眼会是错的颜色。
         if (saved === 'auto') {
           saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
