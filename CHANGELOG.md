@@ -13,9 +13,8 @@
 - store 从 localStorage 改成 `request()`；页面加了加载中 / 失败重试 / 空状态三种形态。
 - 提示语从「留言已添加到预览」改成「留言已发布」。
 
-⚠️ **这份 schema 还没应用**：本机没有 `SUPABASE_ACCESS_TOKEN`。
-要生效得跑一次 `node supabase/apply.mjs`（带 token），或在 Supabase SQL Editor 里执行那段 SQL。
-没应用之前，留言板和以前一样读不到东西（接口会报表不存在）。
+✅ **schema 已于 2026-11-13 由站主在 Supabase SQL Editor 执行**。实测：
+匿名 GET 返回 200，超长内容写入被 RLS 拒绝（401 `row-level security policy`），页面空状态正常。
 
 ---
 ## 2026 · 关于我重排 + 留言板清空
