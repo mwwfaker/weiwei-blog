@@ -281,48 +281,43 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
 }
 
 /* ---------- 关于我（2026-11 版面整理） ----------------------------------
-   只动版面与字号：两栏比例、图片圆角与悬停、引言/正文两级字号、标签描边。
-   没有往页面上加内容——数字与「最近在写」那类东西首页已经有了。 */
-/* 整页垂直居中：卡片只有 500 高，顶对齐会在下面留一大片空 */
-.about-page { padding-bottom: 60px; min-height: calc(100vh - 210px); display: grid; align-content: center; }
+   只有三段字，卡片别铺满整屏：宽 960、两栏 42/58、图片 340 高。
+   整页不做垂直居中（那会让卡片浮在半空），跟其他内页一样从顶部排。 */
+/* 页面只有一张卡：给它一个跟视口走的高度，并在视口里垂直居中，
+   否则大屏上就是一条 350px 的细条贴在顶上，下面全空。 */
+
 .about-card {
   display: grid;
-  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
-  gap: clamp(24px, 4vw, 56px);
-  align-items: stretch;
-  padding: clamp(18px, 2.4vw, 30px);
-  border-radius: 24px;
+  grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+  gap: clamp(20px, 3vw, 40px);
+  align-items: start;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(16px, 2vw, 24px);
+  border-radius: 22px;
 }
-.about-image { height: clamp(280px, 40vh, 400px); border-radius: 18px; }
+/* 两栏等高：图片跟着卡片高度走，右栏短一点也不会在左下角留一块空 */
+.about-image { height: clamp(280px, 34vh, 360px); border-radius: 16px; }
+.about-image img { height: 100%; object-fit: cover; }
 .about-image img { transition: transform .9s cubic-bezier(.2,.7,.2,1); }
 .about-card:hover .about-image img { transform: scale(1.03); }
-/* 右栏文字量本来就不多：垂直居中 + 左侧一道细线，把两栏的关系交代清楚，
-   否则右边下半截空着，看起来像少了一块内容。 */
-.about-copy {
-  position: relative;
-  display: flex; flex-direction: column; justify-content: center;
-  padding: 6px 4px 6px clamp(18px, 2.4vw, 34px);
-  margin-left: clamp(0px, 1vw, 10px);
-}
-.about-copy::before {
-  content: ""; position: absolute; left: 0; top: 8%; bottom: 8%; width: 1px;
-  background: linear-gradient(180deg, transparent, var(--line) 18%, var(--line) 82%, transparent);
-}
-.about-copy h1 { margin: 10px 0 14px; }
-.about-lead { margin: 0 0 14px; font-size: 15.5px; line-height: 1.95; color: var(--ink); }
-.about-body { margin: 0 0 26px; font-size: 13.5px; line-height: 2.15; color: var(--muted); }
-.about-tags { margin: 0 0 28px; }
+.about-copy { align-self: stretch; padding: 8px 6px 8px 4px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+.about-copy h1 { margin: 8px 0 12px; }
+.about-lead { margin: 0 0 10px; font-size: 14.5px; line-height: 1.9; color: var(--ink); }
+.about-body { margin: 0 0 18px; font-size: 13px; line-height: 2.05; color: var(--muted); }
+.about-tags { margin: 0 0 20px; }
 .about-tags span {
-  padding: 6px 13px; border-radius: 999px; font-size: 11.5px;
+  padding: 5px 12px; border-radius: 999px; font-size: 11px;
   border: 1px solid var(--line); color: var(--muted);
   background: color-mix(in srgb, var(--panel) 70%, transparent);
 }
-.about-copy .button-primary { align-self: flex-start; }
+.about-copy .button-primary { align-self: flex-start; padding: 11px 18px; }
 @media (max-width: 1024px) {
-  .about-card { grid-template-columns: 1fr; }
-  .about-image { height: 260px; }
+  .about-card { grid-template-columns: 1fr; gap: 18px; max-width: 640px; }
+  .about-image { height: 240px; }
+  .about-copy { padding: 4px 2px 2px; }
 }
-/* 留言板：空状态 + 卡片轻微的层次（2026-11） */
+/* 留言板：空状态 + 卡片的层次（2026-11） */
 .message-empty {
   display: grid; place-items: center; gap: 12px;
   padding: 64px 20px; margin-top: 20px;
