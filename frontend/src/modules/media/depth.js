@@ -72,10 +72,14 @@ function getPipeline(backend, onProgress) {
         // 指向构建产物里的同源文件；漏了会在开发模式下退回 CDN（能用，但多一次跨域）
         if (ortWasmUrl && ortMjsUrl) ort.wasmPaths = { wasm: ortWasmUrl, mjs: ortMjsUrl }
       }
-      if (MODEL_HOST) {
-        env.remoteHost = MODEL_HOST
-        env.remotePathTemplate = MODEL_PATH_TEMPLATE
-      }
+      // 模型源：默认走国内镜像 hf-mirror.com（huggingface.co 在这边经常直连不通，
+      // 表现就是「立体浏览一直卡在连接」）。构建变量仍可覆盖成自托管的对象存储。
+      env.remoteHost = MODEL_HOST || 'https://hf-mirror.com'
+      env.remotePathTemplate = MODEL_PATH_TEMPLATE
+      // 下过一次就进浏览器缓存：第二次打开同一张照片不用再下 18–26 MB。
+      env.useBrowserCache = true
+      // 只有显式配置了自家存储才关掉远端缓存（对象存储没有 HF 的缓存语义）
+      if (MODEL_HOST) env.useBrowserCache = true
       return pipeline('depth-estimation', MODEL, {
         device: backend.device,
         dtype: backend.dtype,

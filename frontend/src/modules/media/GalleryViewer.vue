@@ -7,7 +7,8 @@
 // 关闭复用阅读弹窗那套「先定住一拍、再化作尘埃」的动效（composables/useDustClose.js），
 // 粒子层铺在图片原来的位置上。所以这个组件**必须自己把退场动画播完再 emit('close')**：
 // 外层一旦用 <Transition> 或立刻 v-if 摘掉它，效果根本来不及开始（两套动效也会打架）。
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { setOverlayCloser, clearOverlayCloser } from '@/app/overlayClose'
 import { useDustClose } from '@/composables/useDustClose'
 import DustBurst from '@/modules/modal/DustBurst.vue'
 import PhotoDepthViewer from '@/modules/media/PhotoDepthViewer.vue'
@@ -21,6 +22,38 @@ const emit = defineEmits(['close'])
 
 const media = useMediaStore()
 const auth = useAuthStore()
+
+// ---- 手机上滑不走：加一条「往下拖就关」 --------------------------------------
+// 原来只有右上角的 × 能退出，手机上手指最自然的动作（往下甩）完全没反应。
+// 这里在整块背板上跟踪纵向拖动，超过 90px 或速度够快就关；横向拖动不参与，
+// 免得和「左右滑看下一张」这类未来手势打架。
+// 让浏览器返回手势也走「化灰」这条路，而不是直接把大图摘掉
+onMounted(() => setOverlayCloser(() => requestClose()))
+onUnmounted(() => clearOverlayCloser())
+
+const dragY = ref(0)
+let dragStart = null
+
+function onTouchStart(event) {
+  if (event.touches.length !== 1) return
+  dragStart = { y: event.touches[0].clientY, x: event.touches[0].clientX, at: Date.now() }
+}
+
+function onTouchMove(event) {
+  if (!dragStart || event.touches.length !== 1) return
+  const dy = event.touches[0].clientY - dragStart.y
+  const dx = Math.abs(event.touches[0].clientX - dragStart.x)
+  if (dy > 0 && dy > dx) dragY.value = Math.min(dy, 220)
+}
+
+function onTouchEnd() {
+  if (!dragStart) return
+  const distance = dragY.value
+  const quick = Date.now() - dragStart.at < 260
+  dragStart = null
+  dragY.value = 0
+  if (distance > 90 || (quick && distance > 40)) requestClose()
+}
 
 const depthMode = ref(false)
 const infoOpen = ref(false)
@@ -41,8 +74,11 @@ const { closing, dustRect, dustCount, requestClose, DUST_HOLD_MS, DUST_MS } = us
   <div
     class="gallery-viewer"
     :class="{ 'is-dusting': closing }"
-    :style="{ '--dust-ms': DUST_MS + 'ms' }"
+    :style="{ '--dust-ms': DUST_MS + 'ms', '--drift': dragY + 'px' }"
     @click.self="requestClose"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend.passive="onTouchEnd"
   >
     <button class="viewer-close" aria-label="关闭大图" @click="requestClose">×</button>
     <button v-if="auth.isLoggedIn && props.photo.mine" class="viewer-delete" @click="media.remove(props.photo)">删除照片</button>
@@ -58,7 +94,7 @@ const { closing, dustRect, dustCount, requestClose, DUST_HOLD_MS, DUST_MS } = us
     <div v-if="depthMode" ref="depthStage" class="depth-stage">
       <PhotoDepthViewer :photo="props.photo" @close="depthMode = false" />
     </div>
-    <img v-else ref="frame" :src="props.photo.image" :alt="props.photo.caption" />
+    <img v-else ref="frame" :src="props.photo.image" :alt="props.photo.caption" :style="{ transform: dragY ? `translateY(${dragY * 0.6}px) scale(${1 - Math.min(dragY / 1600, 0.12)})` : '', transition: dragY ? 'none' : 'transform .25s ease' }" />
     <p v-if="props.photo.takenAt" class="viewer-taken">
       摄于 {{ new Date(props.photo.takenAt).toLocaleString('zh-CN', { hour12: false }) }}
     </p>

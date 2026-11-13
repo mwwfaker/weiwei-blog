@@ -17,6 +17,7 @@
 //
 // 版面（head / 正文 / actions 三个插槽）与外观各归各，日记和文章各有自己的样式节。
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { setOverlayCloser, clearOverlayCloser } from '@/app/overlayClose'
 import { useDustClose } from '@/composables/useDustClose'
 import DustBurst from './DustBurst.vue'
 
@@ -29,6 +30,9 @@ import DustBurst from './DustBurst.vue'
  */
 let lock = null
 onMounted(() => {
+  // 把「把自己关掉」的入口交给路由守卫：手机返回手势是直接改地址的，
+  // 不拦一下的话组件会立刻被摘掉，尘埃还没开始播就没了。
+  setOverlayCloser(() => requestClose())
   if (typeof document === 'undefined') return
   const body = document.body
   const root = document.documentElement
@@ -45,6 +49,7 @@ onMounted(() => {
   if (gap > 0) body.style.paddingRight = `${gap}px`
 })
 onUnmounted(() => {
+  clearOverlayCloser()
   if (typeof document === 'undefined' || !lock) return
   const body = document.body
   const root = document.documentElement

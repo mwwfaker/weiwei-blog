@@ -8,6 +8,7 @@ import { pageComponent } from '@/app/pageRegistry'
 import { THEME_KEY } from '@/app/theme'
 import { disposeToast, useToast } from '@/app/useToast'
 import { bindRouter, currentPage, go, isToolPage, moreOpen, resolvePageName } from '@/app/usePageNav'
+import { closeOverlay } from '@/app/overlayClose'
 import { useScrollChrome } from '@/app/useScrollChrome'
 import { dismissLogin, loginPrompt } from '@/app/useGuard'
 import ArticleEditorDialog from '@/modules/article/ArticleEditorDialog.vue'
@@ -80,13 +81,16 @@ function scrollTop() {
 //   · 地址有 id → 打开对应抽屉（刷新、分享链接、前进后退都走这条）
 //   · 点了文章/日记 → push 一个详情地址（这样后退就等于关掉）
 //   · 关闭按钮 → 地址换回列表
-const DETAIL_ROUTES = ['articleDetail', 'diaryDetail']
+const DETAIL_ROUTES = ['articleDetail', 'diaryDetail', 'galleryDetail']
 
 function articleById(id) {
   return articles.articles.find((item) => String(item.id) === String(id)) || null
 }
 function diaryById(id) {
   return [...diaries.diaries, ...diaries.publicDiaries].find((item) => String(item.id) === String(id)) || null
+}
+function photoById(id) {
+  return media.galleryItems.find((item) => String(item.id) === String(id)) || null
 }
 
 function openFromRoute() {
@@ -97,6 +101,10 @@ function openFromRoute() {
   if (route.name === 'diaryDetail' && !diaries.selectedDiary) {
     const found = diaryById(route.params.id)
     if (found) diaries.openReader(found, 'right')
+  }
+  if (route.name === 'galleryDetail' && !media.galleryPreview) {
+    const found = photoById(route.params.id)
+    if (found) media.galleryPreview = found
   }
 }
 
@@ -125,6 +133,39 @@ watch(
   },
 )
 
+watch(
+  () => media.galleryPreview,
+  (photo) => {
+    if (photo && route.name !== 'galleryDetail') {
+      router.push({ name: 'galleryDetail', params: { id: String(photo.id) } })
+    }
+  },
+)
+
+/**
+ * 返回手势也要先播完尘埃。
+ *
+ * 手机的侧滑/返回是直接改地址的：不拦的话路由一变，组件立刻被摘掉，
+ * 于是文章、日记、大图都没有那一下「化作尘埃」的收场（站主就是这么发现的）。
+ * 这里拦住「从详情回列表」的那一次导航，请组件自己关（它会播动画再 emit close），
+ * 关完由 close*Reader 把地址 replace 回列表；`detailExitAllowed` 防止那次 replace 又被拦。
+ */
+let detailExitAllowed = false
+
+router.beforeEach((to, from) => {
+  if (!DETAIL_ROUTES.includes(from.name) || detailExitAllowed) return true
+  const open = articles.selectedArticle || diaries.selectedDiary || media.galleryPreview
+  if (!open) return true
+  detailExitAllowed = true
+  if (!closeOverlay()) detailExitAllowed = false
+  return false
+})
+
+watch(
+  () => route.name,
+  (name) => { if (!DETAIL_ROUTES.includes(name)) detailExitAllowed = false },
+)
+
 // 离开详情（浏览器后退、或点了别的页）→ 把抽屉收掉
 watch(
   () => route.name,
@@ -132,6 +173,7 @@ watch(
     if (!DETAIL_ROUTES.includes(old) || DETAIL_ROUTES.includes(name)) return
     if (articles.selectedArticle) articles.selectedArticle = null
     if (diaries.selectedDiary) diaries.selectedDiary = null
+    if (media.galleryPreview) media.galleryPreview = null
   },
 )
 
@@ -143,6 +185,11 @@ function closeArticleReader() {
 function closeDiaryReader() {
   diaries.selectedDiary = null
   if (route.name === 'diaryDetail') router.replace({ name: 'diary' })
+}
+
+function closeGalleryViewer() {
+  media.galleryPreview = null
+  if (route.name === 'galleryDetail') router.replace({ name: 'gallery' })
 }
 // ---- 标签页标题 -------------------------------------------------------------
 // 之前所有页面共用 index.html 里那一个标题：开三个标签分不清、收藏夹里也是一堆同名。
@@ -296,7 +343,7 @@ onUnmounted(() => {
     <GalleryViewer
       v-if="media.galleryPreview"
       :photo="media.galleryPreview"
-      @close="media.galleryPreview = null"
+      @close="closeGalleryViewer"
     />
 
     <MediaEditorDialog v-if="media.mediaEditor" @close="media.mediaEditor = null" />

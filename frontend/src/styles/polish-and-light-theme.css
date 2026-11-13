@@ -352,3 +352,13 @@
    正文小字（15–17px）达不到 4.5:1。压深一档到 #6b6772（实测 4.69:1），
    深色主题不动——那边本来就是 #a09cac 对 #090a10。 */
 :root:not(.dark) { --muted: #6b6772; }
+
+/* 手机上的阅读底栏：原来 padding-bottom 是 3vh（约 25px），加上按钮本身就是 54px 高，
+   在手机上看着像一块「下巴」。压到 10px + 安全区，按钮贴底但不贴边。 */
+@media (max-width: 760px) {
+  .article-reading .reading-foot,
+  .diary-reading .reading-foot {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding-top: 10px;
+  }
+}

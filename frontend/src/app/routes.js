@@ -21,6 +21,7 @@ export const routes = [
   { path: '/diary', name: 'diary', component: NoopView },
   { path: '/public-diary', name: 'publicDiary', component: NoopView },
   { path: '/gallery', name: 'gallery', component: NoopView },
+  { path: '/gallery/:id', name: 'galleryDetail', component: NoopView, meta: { page: 'gallery' } },
   { path: '/music', name: 'music', component: NoopView },
   { path: '/messages', name: 'messages', component: NoopView },
   { path: '/admin', name: 'admin', component: NoopView },

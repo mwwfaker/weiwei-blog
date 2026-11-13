@@ -40,6 +40,10 @@ export function resolvePageName(name, { onLegacyPublicDiary } = {}) {
     currentPage.value = 'articles'
     return 'applied'
   }
+  if (name === 'galleryDetail') {
+    currentPage.value = 'gallery'
+    return 'applied'
+  }
   if (name === 'diaryDetail') {
     currentPage.value = 'diary'
     return 'applied'

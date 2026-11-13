@@ -1,3 +1,25 @@
+## 2026 · 手机：阅读底栏收窄、大图可下滑退出、返回手势也有尘埃、立体浏览换镜像
+
+**阅读底栏「下巴太高」**：`.article-reading/.diary-reading .reading-foot` 的 padding-bottom 是
+`clamp(18px, 3vh, 32px)`，手机上约 25px，加上按钮共 54px 高。改成 `10px + safe-area`，实测 54 → 37。
+
+**相册大图点×才能退**：手机上最自然的手势（往下拖）原来完全没反应。加了纵向拖动：
+超过 90px 或快速甩过 40px 就关；照片跟着手指下移并轻微缩小作为反馈，横向拖动不参与。
+
+**照片也有了详情路由**：`#/gallery/:id`，和文章/日记同一套（打开 → push、关闭 → replace、
+后退 → 关）。加上系统返回键，手机上多一个出口。
+
+**返回手势看不到尘埃（真 bug）**：返回手势是直接改地址的，路由一变组件立刻被摘掉，
+`requestClose()` 还没来得及播动画。现在加了一道守卫：从详情回列表时先拦住，
+通过 `app/overlayClose.js` 让组件自己关（播完尘埃再 emit close），再由 close 处理换地址。
+实测：返回瞬间 `is-dusting=true`，1.8s 后地址回到列表。`detailExitAllowed` 防止那次 replace 被二次拦截。
+
+**立体浏览在没开代理时连不上**：深度模型默认从 `huggingface.co` 取，这边直连不通。
+`depth.js` 改成默认 `https://hf-mirror.com`（构建变量仍可覆盖成自托管），
+并打开 `env.useBrowserCache`——下一次就命中浏览器缓存，不用再下 18–26 MB。
+实测镜像能取到模型文件（200）。
+
+---
 ## 2026 · 默认主题改成白天；关于我按上一版加高
 
 **默认白天**：`useDark({ initialValue: 'light' })`，首屏内联脚本的兜底也改成 light。
