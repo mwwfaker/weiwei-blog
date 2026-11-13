@@ -517,3 +517,16 @@
 }
 @media (max-width:760px) { .study-library-grid { grid-template-columns: 1fr; } }
 
+
+/* 右上角的主题钮。曾经把它收进「更多」面板，站主第一反应是「主题切换没了」——
+   常用开关不要藏进二级菜单。 */
+.topbar-theme {
+  display: grid; place-items: center;
+  width: 32px; height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}

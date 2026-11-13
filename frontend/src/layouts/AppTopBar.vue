@@ -22,11 +22,7 @@ const panelStyle = ref({})
 
 defineProps({ condensed: { type: Boolean, default: false } })
 
-/** 「更多」里的主题开关：切完顺手把菜单收掉，不让人对着悬浮面板发呆。 */
-function toggleTheme() {
-  isDark.value = !isDark.value
-  closeMoreMenu()
-}
+
 
 function toggleMore() {
   moreOpen.value = !moreOpen.value
@@ -89,6 +85,9 @@ onUnmounted(() => {
 
     <div class="topbar-actions">
       
+      <button class="topbar-theme" :aria-label="isDark ? '切换浅色主题' : '切换深色主题'" @click="isDark = !isDark">
+        {{ isDark ? '☼' : '☾' }}
+      </button>
       <button class="top-avatar" :aria-label="auth.isLoggedIn ? '内容管理' : '登录账号'" @click="go(auth.isLoggedIn ? 'admin' : 'account')">
         <img v-if="profile.profileAvatarSrc" :src="profile.profileAvatarSrc" alt="" />
         <span v-else>唯</span>
@@ -105,11 +104,7 @@ onUnmounted(() => {
             :class="['nav-more-item', { active: currentPage === item.id }]"
             @click="go(item.id)"
           ><span aria-hidden="true">{{ item.icon }}</span>{{ item.label }}</button>
-          <button
-            role="menuitem"
-            class="nav-more-item"
-            @click="toggleTheme"
-          ><span aria-hidden="true">{{ isDark ? '☼' : '☾' }}</span>{{ isDark ? '切到浅色' : '切到深色' }}</button>
+          
         </div>
       </Transition>
     </Teleport>

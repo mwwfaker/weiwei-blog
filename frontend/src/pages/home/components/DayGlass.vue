@@ -4,6 +4,7 @@
 // 整页是一块被光穿过的工作台：底色是浅色光场，内容是几层真的会反光的玻璃。
 // 指针在整页上移动时，整页的光斑跟着走，首屏那叠玻璃还会轻微转向。
 // 纯 DOM/CSS：白天切主题是瞬时的，也不和夜里的 three 抢 GPU。
+import { daysSinceBirth } from '@/app/birthday'
 import { computed, ref } from 'vue'
 import { go } from '@/app/usePageNav'
 import { useArticlesStore } from '@/stores/articles'
@@ -20,7 +21,8 @@ const profile = useProfileStore()
 
 const latest = computed(() => articles.articles.slice(0, 3))
 const recentDiaries = computed(() => diaries.homeDiaries)
-const dayCount = computed(() => 128 + diaries.diaries.length)
+// 和夜里那套首页共用同一个来源（app/birthday.js），别再各算各的。
+const dayCount = computed(() => daysSinceBirth())
 
 const root = ref(null)
 const tilt = ref({ x: 0, y: 0 })

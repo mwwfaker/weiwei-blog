@@ -99,7 +99,8 @@ export const useDiariesStore = defineStore('diaries', () => {
    * 即使站上已经有公开日记。
    */
   const homeShowsOwnDiaries = computed(() => diaries.value.length > 0)
-  const homeDiaries = computed(() => (homeShowsOwnDiaries.value ? diaries.value : publicDiaries.value).slice(0, 2))
+  // 首页「日子」那一栏放 4 条：2 条看着像没写完，4 条正好两屏的节奏。
+  const homeDiaries = computed(() => (homeShowsOwnDiaries.value ? diaries.value : publicDiaries.value).slice(0, 4))
 
   function emptyDraft() {
     return { id: null, title: '', date: new Date().toISOString().slice(0, 10), mood: '平静', weather: '☀️', visibility: profile.defaultVisibility, tags: '日常', content: '' }
