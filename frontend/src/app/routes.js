@@ -24,8 +24,7 @@ export const routes = [
   { path: '/gallery/:id', name: 'galleryDetail', component: NoopView, meta: { page: 'gallery' } },
   { path: '/music', name: 'music', component: NoopView },
   { path: '/messages', name: 'messages', component: NoopView },
-  // 创作管理是「你自己的东西」：没登录时那一页只会是一屏 0，不如直接送去登录。
-  { path: '/admin', name: 'admin', component: NoopView, meta: { requiresAuth: true, gateName: '创作管理' } },
+  { path: '/admin', name: 'admin', component: NoopView },
   { path: '/perf', name: 'perf', component: NoopView, meta: { requiresAuth: true, gateName: '绩效计算器' } },
   { path: '/account', name: 'account', component: NoopView },
   { path: '/tools', name: 'tools', component: NoopView },
