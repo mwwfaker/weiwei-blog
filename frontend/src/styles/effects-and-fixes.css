@@ -345,3 +345,19 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
 @media (prefers-reduced-motion: reduce) {
   .brand-mark.is-spinning { animation: none; }
 }
+
+/* 切主题时导航项依次往上蹦一下（和左上角那圈转动同一个触发点）。
+   逐个错开 45ms，看起来像「一列词被依次弹了一下」，而不是整排同时抖。 */
+.topbar-links.is-bouncing button {
+  animation: navHop .52s cubic-bezier(.34, 1.45, .5, 1) both;
+  animation-delay: var(--hop-delay, 0ms);
+}
+@keyframes navHop {
+  0% { transform: none; }
+  35% { transform: translateY(-7px); }
+  70% { transform: translateY(1px); }
+  100% { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar-links.is-bouncing button { animation: none; }
+}

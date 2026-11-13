@@ -21,13 +21,19 @@ const links = computed(() => navigation.filter((item) => item.id !== 'home'))
 // 切主题时左上角的标记转一圈：一个小反馈，告诉人「这一下生效了」。
 // 只转 620ms，转完把类摘掉，否则下次切换不会重播动画（同一个类不会重新触发 keyframes）。
 const spinning = ref(false)
+const bouncing = ref(false)
 let spinTimer = 0
+let hopTimer = 0
 watch(isDark, () => {
   spinning.value = false
   clearTimeout(spinTimer)
   requestAnimationFrame(() => {
     spinning.value = true
+    bouncing.value = true
     spinTimer = setTimeout(() => { spinning.value = false }, 620)
+    // 最后一个词有 45ms×(n-1) 的延迟，动画本身 520ms，一起收掉才不会中途被摘类
+    clearTimeout(hopTimer)
+    hopTimer = setTimeout(() => { bouncing.value = false }, 520 + links.value.length * 45)
   })
 })
 const moreButton = ref(null)
@@ -79,11 +85,12 @@ onUnmounted(() => {
       <span class="topbar-brand-copy"><strong>唯唯园</strong><small>WEIWEI'S LITTLE GARDEN</small></span>
     </button>
 
-    <nav class="topbar-links" aria-label="主导航">
+    <nav class="topbar-links" :class="{ 'is-bouncing': bouncing }" aria-label="主导航">
       <button
-        v-for="item in links"
+        v-for="(item, index) in links"
         :key="item.id"
         :class="{ active: currentPage === item.id }"
+        :style="{ '--hop-delay': `${index * 45}ms` }"
         @click="go(item.id)"
       >{{ item.label }}</button>
       <button
