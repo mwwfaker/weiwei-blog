@@ -283,7 +283,8 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
 /* ---------- 关于我（2026-11 版面整理） ----------------------------------
    只动版面与字号：两栏比例、图片圆角与悬停、引言/正文两级字号、标签描边。
    没有往页面上加内容——数字与「最近在写」那类东西首页已经有了。 */
-.about-page { padding-bottom: 80px; }
+/* 整页垂直居中：卡片只有 500 高，顶对齐会在下面留一大片空 */
+.about-page { padding-bottom: 60px; min-height: calc(100vh - 210px); display: grid; align-content: center; }
 .about-card {
   display: grid;
   grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
@@ -292,14 +293,25 @@ body.overlay-open .page-frame *::after{animation-play-state:paused!important}
   padding: clamp(18px, 2.4vw, 30px);
   border-radius: 24px;
 }
-.about-image { height: clamp(300px, 46vh, 460px); border-radius: 18px; }
+.about-image { height: clamp(280px, 40vh, 400px); border-radius: 18px; }
 .about-image img { transition: transform .9s cubic-bezier(.2,.7,.2,1); }
 .about-card:hover .about-image img { transform: scale(1.03); }
-.about-copy { padding: 6px 4px 4px; display: flex; flex-direction: column; }
+/* 右栏文字量本来就不多：垂直居中 + 左侧一道细线，把两栏的关系交代清楚，
+   否则右边下半截空着，看起来像少了一块内容。 */
+.about-copy {
+  position: relative;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 6px 4px 6px clamp(18px, 2.4vw, 34px);
+  margin-left: clamp(0px, 1vw, 10px);
+}
+.about-copy::before {
+  content: ""; position: absolute; left: 0; top: 8%; bottom: 8%; width: 1px;
+  background: linear-gradient(180deg, transparent, var(--line) 18%, var(--line) 82%, transparent);
+}
 .about-copy h1 { margin: 10px 0 14px; }
-.about-lead { margin: 0 0 12px; font-size: 15px; line-height: 1.9; color: var(--ink); }
-.about-body { margin: 0 0 22px; font-size: 13.5px; line-height: 2.05; color: var(--muted); }
-.about-tags { margin: 0 0 24px; }
+.about-lead { margin: 0 0 14px; font-size: 15.5px; line-height: 1.95; color: var(--ink); }
+.about-body { margin: 0 0 26px; font-size: 13.5px; line-height: 2.15; color: var(--muted); }
+.about-tags { margin: 0 0 28px; }
 .about-tags span {
   padding: 6px 13px; border-radius: 999px; font-size: 11.5px;
   border: 1px solid var(--line); color: var(--muted);
