@@ -169,6 +169,10 @@
    永远在屏幕上，滚动条只属于正文。 */
 .reading-sheet{display:flex;flex-direction:column;overflow:hidden;max-height:min(92vh,900px)}
 .reading-backdrop{align-items:center;padding:18px}
+/* 背板必须是**主题色**，不能吃 .modal-backdrop 那层固定的 rgba(5,5,10,.8)：
+   浅色主题下就变成「黑底 + 深色字」，实测正文对比度只有 1.36:1，几乎看不见。
+   用 --paper 混合，深色主题仍是深底，浅色主题自动变纸白。 */
+.reading-backdrop{background:var(--paper)}
 .reading-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.reading-scroll{
   flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
   overscroll-behavior:contain;scrollbar-width:thin;
@@ -343,3 +347,8 @@
   48%{opacity:.92;filter:blur(1.6px) saturate(.8) brightness(1.09)}
   100%{opacity:0;filter:blur(14px) saturate(.24) brightness(1.28);transform:translate3d(0,-26px,0) scale(.982)}
 }
+
+/* 浅色主题的次要文字偏浅：--muted #77737e 落在纸白 --paper #f2f0ec 上只有 4.07:1，
+   正文小字（15–17px）达不到 4.5:1。压深一档到 #6b6772（实测 4.69:1），
+   深色主题不动——那边本来就是 #a09cac 对 #090a10。 */
+:root:not(.dark) { --muted: #6b6772; }
