@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 // 首页：**整个世界**，不是「页面里放一块卡片」。
 //
 // 结构只有三层：
@@ -8,7 +8,7 @@
 //
 // 没有卡片、没有面板、没有玻璃 dock。导航是一行字，内容就是排版。
 // 页面本身仍然只做编排：数据从 store 取，动作调 store 的方法。
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import PageFooter from '@/modules/page/PageFooter.vue'
 import { go } from '@/app/usePageNav'
 import { useIsDark } from '@/app/theme'
@@ -18,7 +18,8 @@ import { useDiariesStore } from '@/stores/diaries'
 import { useMediaStore } from '@/stores/media'
 import { useMusicStore } from '@/stores/music'
 import { useProfileStore } from '@/stores/profile'
-import HeroScene from './components/HeroScene.vue'
+// three.js 有 700KB，异步加载：正文先出来，星空晚一两百毫秒到，比白屏等它划算。
+const HeroScene = defineAsyncComponent(() => import('./components/HeroScene.vue'))
 import DayGlass from './components/DayGlass.vue'
 
 const articles = useArticlesStore()
@@ -36,11 +37,30 @@ const heroEntries = computed(() => (
 
 const latest = computed(() => articles.articles.slice(0, 3))
 const recentDiaries = computed(() => diaries.homeDiaries)
-const dayCount = computed(() => 128 + diaries.diaries.length)
+/**
+ * 日记数要和日记页同一口径：登录且看自己时数自己的，否则数公开的。
+ * 原来这里写死 `diaries.diaries.length`，访客刚进来那一栏永远是「日记 0 篇」，
+ * 可日记页明明列着几十篇。
+ */
+const diaryCount = computed(() => (diaries.homeShowsOwnDiaries ? diaries.diaries : diaries.publicDiaries).length)
+/**
+ * 「在这个世界的第 N 天」——从生日算起。
+ * 生日本身是农历（2002 年九月廿二），换算成公历是 2002-10-27。
+ * 这里按自然日差算，+1 让出生当天算第 1 天。
+ */
+const BIRTHDAY = new Date(2002, 9, 27)
+const dayCount = computed(() => {
+  const start = new Date(BIRTHDAY.getFullYear(), BIRTHDAY.getMonth(), BIRTHDAY.getDate())
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.floor((today - start) / 86400000) + 1
+})
 /** 省电模式不下载 three，只留 CSS 的天空。 */
 const useScene = computed(() => !music.lowPower)
 
 const tip = ref(null)
+/** WebGL 起不来时（禁用 GPU、老设备、隐私模式）就退回 CSS 星空，别留一块黑画布盖着。 */
+const sceneFailed = ref(false)
 
 function startDiary() {
   go('diary')
@@ -56,6 +76,7 @@ function startDiary() {
       :key="isDark ? 'night' : 'day'"
       class="world-scene"
       :entries="heroEntries"
+      @failed="sceneFailed = true"
       @hover="tip = $event"
       @open="diaries.openReader"
     />
@@ -99,7 +120,7 @@ function startDiary() {
           <h2>去别处</h2>
         </header>
         <nav class="world-doors" aria-label="其他页面">
-          <button @click="go('diary')"><em>日记</em><small>{{ diaries.diaries.length }} 篇</small></button>
+          <button @click="go('diary')"><em>日记</em><small>{{ diaryCount }} 篇</small></button>
           <button @click="go('gallery')"><em>相册</em><small>{{ media.allPhotoCount }} 张</small></button>
           <button @click="go('music')"><em>音乐</em><small>{{ music.playableTracks.length }} 首</small></button>
         </nav>
@@ -114,9 +135,9 @@ function startDiary() {
         <ul class="world-diary">
           <li v-for="entry in recentDiaries" :key="entry.id">
             <button @click="diaries.openReader(entry)">
-              <span class="world-diary-date">{{ entry.date.slice(5) }}</span>
+              <span class="world-diary-date">{{ (entry.date || "").slice(5) }}</span>
               <strong>{{ entry.title }}</strong>
-              <small>{{ entry.content.slice(0, 56) }}{{ entry.content.length > 56 ? '…' : '' }}</small>
+              <small>{{ (entry.content || "").slice(0, 56) }}{{ (entry.content || "").length > 56 ? '…' : '' }}</small>
             </button>
           </li>
         </ul>

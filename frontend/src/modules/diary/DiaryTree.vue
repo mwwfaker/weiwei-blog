@@ -146,7 +146,10 @@ const ticks = computed(() => props.entries.map((entry, index) => {
   const prev = String(props.entries[index - 1]?.date || '')
   return {
     index,
-    label: date.replace(/-/g, '.'),
+    // 轨道只有 78px 宽、标签从 left:23px 起，写全年份（2026.11.09）末位会被裁掉。
+    // 完整日期放 aria-label 里，屏幕上给「月.日」就够认。
+    label: date ? date.slice(5).replace('-', '.') : '',
+    fullLabel: date.replace(/-/g, '.'),
     year: date.slice(0, 4),
     // 跨年那一篇要标出来，否则一列日期里看不出年份从哪儿断的
     yearStart: Boolean(date) && date.slice(0, 4) !== prev.slice(0, 4),
@@ -265,7 +268,7 @@ watch(() => props.entries, () => nextTick(measureTicks))
           class="diary-tree-tick"
           :class="{ 'is-active': Math.round(activeIndex) === tick.index, 'is-year': tick.yearStart }"
           :style="{ top: `calc(50% + ${((tick.index - activeIndex) * TICK_STEP).toFixed(1)}px)` }"
-          :aria-label="`跳到 ${tick.label} 的日记`"
+          :aria-label="`跳到 ${tick.fullLabel || tick.label} 的日记`"
           @click="jumpTo(tick.index)"
         >
           <span class="diary-tree-tick-line" aria-hidden="true"></span>

@@ -421,3 +421,9 @@
 @media (prefers-reduced-motion: reduce) {
   .world-intro > * { animation: none; }
 }
+
+/* ===== 2026-11-13 体检：节奏与可读性 ===================================
+   1) 章节之间原本留了近一整屏空白，滚动起来发飘 —— 收一档。
+   2) 日记摘要的小字在深底上偏暗，提到对比度更高的灰紫。 */
+.world-chapter { margin-top: clamp(56px, 7vh, 96px); }
+.world-diary small { color: color-mix(in srgb, var(--ink) 62%, transparent); }

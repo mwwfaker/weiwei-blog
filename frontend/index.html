@@ -23,6 +23,11 @@
           saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
         }
         document.documentElement.setAttribute('data-boot-theme', saved === 'light' ? 'light' : 'dark')
+        // theme-color 必须跟着实际主题走：写死浅色的话，安卓/Chrome 的地址栏会是白的，
+        // 顶部和深色页面割裂。应用里切换主题时 app/boot.js 也会再同步一次。
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', saved === 'light' ? '#eef2fb' : '#05050c')
+        document.documentElement.style.colorScheme = saved === 'light' ? 'light' : 'dark'
         window.__bootStart = performance.now()
       })()
     </script>

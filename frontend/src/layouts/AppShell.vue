@@ -52,7 +52,23 @@ const library = useLibraryStore()
 const isDark = useDark({ initialValue: 'dark' })
 provide(THEME_KEY, isDark)
 
+// 主题一换，浏览器地址栏的颜色也要跟着换（index.html 里只处理了首屏那一次）。
+// SSR / 渲染测试里的 document 是个残缺桩子（没有 documentElement），所以逐层判空。
+watch(isDark, (dark) => {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  if (root && root.style) root.style.colorScheme = dark ? 'dark' : 'light'
+  const meta = typeof document.querySelector === 'function' ? document.querySelector('meta[name="theme-color"]') : null
+  if (meta) meta.setAttribute('content', dark ? '#05050c' : '#eef2fb')
+}, { immediate: true })
+
 const { toast } = useToast()
+
+/** 回顶部（平滑）。`scrolled` 在滚过 130px 后为真，正好当显示条件。 */
+function scrollTop() {
+  if (typeof window === 'undefined') return
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 const { scrolled } = useScrollChrome({
   onViewportChange: () => {
@@ -144,6 +160,13 @@ onUnmounted(() => {
     />
 
     <AudioEngine />
+
+    <!-- 回顶部：整页动辄几千像素，滑到底再回去太费劲。滚过一屏才出现。 -->
+    <Transition name="to-top">
+      <button v-if="scrolled" class="back-to-top" aria-label="回到顶部" @click="scrollTop">
+        <span aria-hidden="true">↑</span>
+      </button>
+    </Transition>
 
     <Transition name="toast"><div v-if="toast" class="toast-message">✳ &nbsp;{{ toast }}</div></Transition>
 
