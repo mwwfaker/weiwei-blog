@@ -5,9 +5,11 @@
 //
 // 注意：下面那个「已填 N」在拆分前一直是空的——`filledCount` 从来没有定义过。
 // 现在按当前队列里填了审核量的人数算出来（见 filledCount）。
-import { computed } from 'vue'
+
 import { ahtOf, entryNumbers } from '@/services/perf'
 import { hoursText, money, percent, price } from '../composables/format.js'
+
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   members: { type: Array, default: () => [] },
@@ -29,6 +31,35 @@ const props = defineProps({
 const emit = defineEmits(['set-cell', 'go-tab', 'reset-member-data', 'reset-member-triple-count'])
 
 /** 「已填」= 当前队列里真的填了审核量的人数。行数据由父级传下来，这里只数一遍。 */
+// ---- 子表排行 ---------------------------------------------------------------
+// 两张小结表（按员工 / 按队列）原来只按「填表顺序」排，想找人看谁干得多只能肉眼扫。
+// 这里点表头的箭头切换排序：默认（原顺序）→ 从高到低 → 从低到高 → 回到默认。
+// 只排「能读到数」的那几列，填格子本身不受影响。
+const sort = ref({ key: '', dir: 0 })
+
+const SORT_KEYS = {
+  auditCount: (row) => Number(row.numbers?.auditCount) || 0,
+  auditPay: (row) => Number(row.numbers?.auditPay) || 0,
+  actualAht: (row) => Number(row.entry?.actualAht) || 0,
+}
+
+function sortBy(key) {
+  if (sort.value.key !== key) sort.value = { key, dir: 1 }
+  else if (sort.value.dir === 1) sort.value = { key, dir: -1 }
+  else sort.value = { key: '', dir: 0 }
+}
+
+const sortMark = (key) => (sort.value.key !== key ? '↕' : sort.value.dir === 1 ? '↓' : '↑')
+
+function sortRows(rows) {
+  const getter = SORT_KEYS[sort.value.key]
+  if (!getter || !sort.value.dir) return rows
+  return [...rows].sort((a, b) => (getter(a) - getter(b)) * sort.value.dir)
+}
+
+const sortedQueueRows = computed(() => sortRows(props.queueRows))
+const sortedMemberQueueRows = computed(() => sortRows(props.memberQueueRows))
+
 const filledCount = computed(() => props.queueRows.filter((row) => row.numbers && row.numbers.auditCount).length)
 
 /** 当前这个人身上还有没有三薪日的审核量：没有就别让「重置三薪审核量」看着像能点。 */
@@ -135,19 +166,19 @@ function resetTripleCount() {
                     <th>队列</th>
                     <th class="num">标准AHT</th>
                     <th class="num">单价</th>
-                    <th class="num input-col">实际 AHT</th>
-                    <th class="num input-col">审核量</th>
+                    <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('actualAht')">实际 AHT <i>{{ sortMark('actualAht') }}</i></button></th>
+                    <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('auditCount')">审核量 <i>{{ sortMark('auditCount') }}</i></button></th>
                     <th v-if="showTriple" class="num input-col triple-col">其中三薪日</th>
                     <th v-if="showTriple" class="num">计件量</th>
                     <th class="num">标准时长</th>
                     <th class="num">实际时长</th>
                     <th class="num">审核效率</th>
                     <th class="num">完成度</th>
-                    <th class="num">审核工资</th>
+                    <th class="num"><button type="button" class="perf-sort" @click="sortBy('auditPay')">审核工资 <i>{{ sortMark('auditPay') }}</i></button></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in memberQueueRows" :key="row.queue.name" :class="{ done: row.numbers && row.numbers.auditCount }">
+                  <tr v-for="row in sortedMemberQueueRows" :key="row.queue.name" :class="{ done: row.numbers && row.numbers.auditCount }">
                     <td class="name">{{ row.queue.name }}</td>
                     <td class="num muted">{{ row.numbers ? row.numbers.standardAht : ahtOf(row.queue.kpi, constants) }}</td>
                     <td class="num muted">{{ price(row.numbers ? row.numbers.unitPrice : entryNumbers({ auditCount: 0 }, activeMember, row.queue, constants).unitPrice) }}</td>
@@ -205,19 +236,19 @@ function resetTripleCount() {
                 <thead>
                   <tr>
                     <th>员工</th>
-                    <th class="num input-col">实际 AHT</th>
-                    <th class="num input-col">审核量</th>
+                    <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('actualAht')">实际 AHT <i>{{ sortMark('actualAht') }}</i></button></th>
+                    <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('auditCount')">审核量 <i>{{ sortMark('auditCount') }}</i></button></th>
                     <th v-if="showTriple" class="num input-col triple-col">其中三薪日</th>
                     <th v-if="showTriple" class="num col-derived">计件量</th>
                     <th class="num col-derived">标准时长</th>
                     <th class="num col-derived">实际时长</th>
                     <th class="num col-derived">审核效率</th>
-                    <th class="num">审核工资</th>
+                    <th class="num"><button type="button" class="perf-sort" @click="sortBy('auditPay')">审核工资 <i>{{ sortMark('auditPay') }}</i></button></th>
                     <th class="num">本月合计</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in queueRows" :key="row.member.id" :class="{ done: row.numbers && row.numbers.auditCount }">
+                  <tr v-for="row in sortedQueueRows" :key="row.member.id" :class="{ done: row.numbers && row.numbers.auditCount }">
                     <td class="name">{{ row.member.name || '（未命名）' }}</td>
                     <td class="num input-col">
                       <small class="cell-label">实际 AHT</small>

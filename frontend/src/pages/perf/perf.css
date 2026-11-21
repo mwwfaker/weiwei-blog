@@ -772,3 +772,12 @@
   background: color-mix(in srgb, var(--ink) 24%, transparent);
 }
 .perf-list::-webkit-scrollbar-track { background: transparent; }
+/* 子表排行：表头那几个数字可以点，箭头表示当前顺序（↕ 默认 / ↓ 高到低 / ↑ 低到高） */
+.perf-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.perf-sort:hover { color: var(--accent); }
+.perf-sort i { font-style: normal; font-size: 10px; opacity: .55; }
+.perf-sort:hover i, .perf-sort i:not(:empty) { opacity: 1; }
