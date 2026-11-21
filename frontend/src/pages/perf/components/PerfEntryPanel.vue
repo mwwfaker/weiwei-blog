@@ -159,12 +159,12 @@ function resetTripleCount() {
               <span>三薪日 <b>{{ (memberSummary?.tripleCount || 0).toLocaleString('en-US') }}</b> 条</span>
               <span>已完成 <b>{{ memberFilled }}</b> / {{ memberQueueRows.length }} 个队列</span>
               <span>合计 <b class="hl">¥ {{ money(memberSummary?.total || 0) }}</b></span>
-            </div>
-            <!-- 重置只针对当前选中的这个人；清哪些字段、保留什么都由 PerfPage 决定并确认 -->
-            <div class="perf-overview-bar">
-              <button class="perf-btn" :disabled="!hasTripleCount" title="把这个人在所有队列里填的「其中三薪日」清零（审核量不动）" @click="resetTripleCount">重置三薪审核量</button>
-              <button class="perf-btn" title="清掉抽调/加班/三薪时长，以及他在所有队列里的实际 AHT、审核量与其中三薪日" @click="resetMemberData">重置该员工数据</button>
-              <span class="perf-hint">两个按钮都只清数据：姓名、邮箱、队列归属会保留。</span>
+              <!-- 重置只针对当前选中的这个人；清哪些字段、保留什么都由 PerfPage 决定并确认。
+                   放在这一行最右边，而不是另起一行——那行单独占一整条，看着很空。 -->
+              <span class="perf-summary-actions">
+                <button class="perf-btn" :disabled="!hasTripleCount" title="把这个人在所有队列里填的「其中三薪日」清零（审核量不动；只清数据，姓名与队列归属保留）" @click="resetTripleCount">重置三薪审核量</button>
+                <button class="perf-btn" title="清掉抽调/加班/三薪时长，以及他在所有队列里的实际 AHT、审核量与其中三薪日（只清数据，姓名与队列归属保留）" @click="resetMemberData">重置该员工数据</button>
+              </span>
             </div>
             <div class="perf-list">
               <table class="perf-grid">

@@ -781,3 +781,7 @@
 .perf-sort:hover { color: var(--accent); }
 .perf-sort i { font-style: normal; font-size: 10px; opacity: .55; }
 .perf-sort:hover i, .perf-sort i:not(:empty) { opacity: 1; }
+
+/* 员工小结右侧的两个重置按钮：靠右、和这行其余内容同基线，不再单独占一行 */
+.perf-summary-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 760px) { .perf-summary-actions { margin-left: 0; width: 100%; } }
