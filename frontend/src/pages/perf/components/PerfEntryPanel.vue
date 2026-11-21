@@ -37,10 +37,17 @@ const emit = defineEmits(['set-cell', 'go-tab', 'reset-member-data', 'reset-memb
 // 只排「能读到数」的那几列，填格子本身不受影响。
 const sort = ref({ key: '', dir: 0 })
 
+// 能读到的数值列都开放排序。本月合计那一列取的是父级按员工汇总的结果，
+// 行数据里没有，所以这里先不排（要排得让父级把合计塞进 row）。
 const SORT_KEYS = {
-  auditCount: (row) => Number(row.numbers?.auditCount) || 0,
-  auditPay: (row) => Number(row.numbers?.auditPay) || 0,
   actualAht: (row) => Number(row.entry?.actualAht) || 0,
+  auditCount: (row) => Number(row.numbers?.auditCount) || 0,
+  tripleCount: (row) => Number(row.entry?.tripleCount) || 0,
+  pieceCount: (row) => Number(row.numbers?.pieceCount) || 0,
+  standardSeconds: (row) => Number(row.numbers?.standardSeconds) || 0,
+  actualSeconds: (row) => Number(row.numbers?.actualSeconds) || 0,
+  efficiency: (row) => (Number(row.numbers?.actualSeconds) > 0 ? Number(row.numbers.standardSeconds) / Number(row.numbers.actualSeconds) : 0),
+  auditPay: (row) => Number(row.numbers?.auditPay) || 0,
 }
 
 function sortBy(key) {
@@ -168,7 +175,7 @@ function resetTripleCount() {
                     <th class="num">单价</th>
                     <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('actualAht')">实际 AHT <i>{{ sortMark('actualAht') }}</i></button></th>
                     <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('auditCount')">审核量 <i>{{ sortMark('auditCount') }}</i></button></th>
-                    <th v-if="showTriple" class="num input-col triple-col">其中三薪日</th>
+                    <th v-if="showTriple" class="num input-col triple-col"><button type="button" class="perf-sort" @click="sortBy('tripleCount')">其中三薪日 <i>{{ sortMark('tripleCount') }}</i></button></th>
                     <th v-if="showTriple" class="num">计件量</th>
                     <th class="num">标准时长</th>
                     <th class="num">实际时长</th>
@@ -238,11 +245,11 @@ function resetTripleCount() {
                     <th>员工</th>
                     <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('actualAht')">实际 AHT <i>{{ sortMark('actualAht') }}</i></button></th>
                     <th class="num input-col"><button type="button" class="perf-sort" @click="sortBy('auditCount')">审核量 <i>{{ sortMark('auditCount') }}</i></button></th>
-                    <th v-if="showTriple" class="num input-col triple-col">其中三薪日</th>
-                    <th v-if="showTriple" class="num col-derived">计件量</th>
-                    <th class="num col-derived">标准时长</th>
-                    <th class="num col-derived">实际时长</th>
-                    <th class="num col-derived">审核效率</th>
+                    <th v-if="showTriple" class="num input-col triple-col"><button type="button" class="perf-sort" @click="sortBy('tripleCount')">其中三薪日 <i>{{ sortMark('tripleCount') }}</i></button></th>
+                    <th v-if="showTriple" class="num col-derived"><button type="button" class="perf-sort" @click="sortBy('pieceCount')">计件量 <i>{{ sortMark('pieceCount') }}</i></button></th>
+                    <th class="num col-derived"><button type="button" class="perf-sort" @click="sortBy('standardSeconds')">标准时长 <i>{{ sortMark('standardSeconds') }}</i></button></th>
+                    <th class="num col-derived"><button type="button" class="perf-sort" @click="sortBy('actualSeconds')">实际时长 <i>{{ sortMark('actualSeconds') }}</i></button></th>
+                    <th class="num col-derived"><button type="button" class="perf-sort" @click="sortBy('efficiency')">审核效率 <i>{{ sortMark('efficiency') }}</i></button></th>
                     <th class="num"><button type="button" class="perf-sort" @click="sortBy('auditPay')">审核工资 <i>{{ sortMark('auditPay') }}</i></button></th>
                     <th class="num">本月合计</th>
                   </tr>

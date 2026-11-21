@@ -31,5 +31,6 @@ export const routes = [
   { path: '/clipboard', name: 'clipboard', component: NoopView },
   // 未知地址不再是「静默跳回首页」：那样用户会以为链接有效，只是内容变了。
   // 必须排在最后——vue-router 按顺序匹配。
+  { path: '/company', name: 'company', component: NoopView },
   { path: '/:pathMatch(.*)*', name: 'notFound', component: NoopView },
 ]

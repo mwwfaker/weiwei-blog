@@ -3,6 +3,7 @@ import AboutPage from '@/pages/about/AboutPage.vue'
 import AccountPage from '@/pages/account/AccountPage.vue'
 import AdminPage from '@/pages/admin/AdminPage.vue'
 import ArticlesPage from '@/pages/articles/ArticlesPage.vue'
+import CompanyPage from '@/pages/company/CompanyPage.vue'
 import DiaryPage from '@/pages/diary/DiaryPage.vue'
 import GalleryPage from '@/pages/gallery/GalleryPage.vue'
 import HomePage from '@/pages/home/HomePage.vue'
@@ -56,6 +57,7 @@ export const pageComponents = {
   account: AccountPage,
   tools: ToolsPage,
   notFound: NotFoundPage,
+  company: CompanyPage,
 }
 
 /** 未知 id 落到「关于我」——和之前 v-else 的行为一致。 */
